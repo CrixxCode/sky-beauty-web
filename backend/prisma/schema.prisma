@@ -20,8 +20,14 @@ datasource db {
 // ─────────────────────────────── Administración ───────────────────────────────
 
 enum AdminRole {
-  ADMIN // acceso total, incluida la configuración de la tienda
-  STAFF // gestión operativa: pedidos, inventario, catálogo
+  ADMIN // propietaria: acceso total
+  /// Personal: pedidos y envíos (ver, confirmar, cambiar estado, guías), inventario y catálogo,
+  /// y registrar la recepción del comprobante de pago enviado por WhatsApp.
+  /// Puede cancelar un pedido SOLO cuando el pago no se pudo demostrar tras darle al cliente
+  /// la oportunidad de aclararlo (con motivo obligatorio).
+  /// NO puede verificar/rechazar pagos, gestionar promociones, cancelar pedidos en otros casos
+  /// ni cambiar la configuración.
+  STAFF
 }
 
 model AdminUser {
@@ -148,7 +154,9 @@ model ProductVariant {
   price             Decimal? @db.Decimal(12, 2)
   /// Existencias físicas disponibles para la venta. Solo cambia mediante InventoryMovement.
   stock             Int      @default(0)
-  lowStockThreshold Int      @default(3)
+  /// Umbral de alerta de stock bajo propio de la variante. Al crearla se propone
+  /// StoreSettings.defaultLowStockThreshold. null = sin alerta configurada.
+  lowStockThreshold Int?
   isActive          Boolean  @default(true)
   position          Int      @default(0)
   createdAt         DateTime @default(now()) @db.Timestamptz(3)
@@ -205,7 +213,7 @@ enum PromotionScope {
   CATEGORY
 }
 
-/// Política: las promociones NO se acumulan. Por cada artículo se aplica una sola:
+/// Política (confirmada): las promociones NO se acumulan. Por cada artículo se aplica una sola:
 /// 1) las de alcance PRODUCT prevalecen sobre las de CATEGORY;
 /// 2) dentro del mismo alcance gana la de mayor descuento para el cliente;
 /// 3) empate → la creada primero.
@@ -214,7 +222,7 @@ model Promotion {
   name          String
   description   String?
   discountType  DiscountType
-  /// Porcentaje (0 < v <= 90) o importe fijo por unidad en COP.
+  /// Porcentaje (0 < v <= StoreSettings.maxPercentageDiscount) o importe fijo por unidad en COP.
   discountValue Decimal        @db.Decimal(12, 2)
   scope         PromotionScope
   startsAt      DateTime       @db.Timestamptz(3)
@@ -273,12 +281,31 @@ model PaymentMethod {
   instructions         String?
   /// Si requiere que la tienda verifique manualmente el pago (transferencias).
   requiresVerification Boolean  @default(true)
+  /// Si es true, el método solo se ofrece en las ciudades de PaymentMethodCity
+  /// (lista vacía = en ninguna). Se usa para el pago contra entrega.
+  restrictToCities     Boolean  @default(false)
+  /// Total máximo del pedido para ofrecer este método. null = sin máximo.
+  maxOrderTotal        Decimal? @db.Decimal(12, 2)
   isActive             Boolean  @default(true)
   position             Int      @default(0)
   createdAt            DateTime @default(now()) @db.Timestamptz(3)
   updatedAt            DateTime @updatedAt @db.Timestamptz(3)
 
   orders Order[]
+  cities PaymentMethodCity[]
+}
+
+/// Municipio donde se ofrece un método de pago restringido (PaymentMethod.restrictToCities).
+model PaymentMethodCity {
+  id               String        @id @default(uuid()) @db.Uuid
+  paymentMethodId  String        @db.Uuid
+  paymentMethod    PaymentMethod @relation(fields: [paymentMethodId], references: [id], onDelete: Cascade)
+  municipalityCode String        @db.Char(5)
+  municipality     Municipality  @relation(fields: [municipalityCode], references: [code], onDelete: Restrict)
+  createdAt        DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@unique([paymentMethodId, municipalityCode])
+  @@index([municipalityCode])
 }
 
 enum OrderStatus {
@@ -291,10 +318,10 @@ enum OrderStatus {
 }
 
 enum PaymentStatus {
-  PENDING // aún no se ha recibido ni reportado el pago
-  AWAITING_VERIFICATION // el cliente reporta haber pagado; la tienda debe verificarlo
+  PENDING // aún no se ha recibido el comprobante de pago
+  AWAITING_VERIFICATION // el cliente envió el comprobante; la tienda debe verificarlo (no se cancela por plazo)
   PAID // la tienda verificó manualmente el pago
-  REJECTED // el pago reportado no se pudo verificar
+  REJECTED // al verificar no hubo evidencia del pago; el cliente puede aclararlo antes de cancelar
   REFUNDED // el pago fue devuelto al cliente
 }
 
@@ -313,31 +340,45 @@ model Order {
   paymentStatus   PaymentStatus @default(PENDING)
 
   // Snapshot de datos de contacto y entrega en el momento del pedido.
-  customerName  String
-  customerPhone String
-  department    String
-  city          String
-  addressLine   String
-  deliveryNotes String?
+  customerName     String
+  customerPhone    String
+  /// Código DIVIPOLA (DANE) del municipio de entrega.
+  municipalityCode String       @db.Char(5)
+  municipality     Municipality @relation(fields: [municipalityCode], references: [code], onDelete: Restrict)
+  /// Nombres del departamento y municipio en el momento del pedido.
+  department       String
+  city             String
+  addressLine      String
+  deliveryNotes    String?
 
   paymentMethodId   String        @db.Uuid
   paymentMethod     PaymentMethod @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
   paymentMethodCode String
   paymentMethodName String
 
-  currency      String  @default("COP") @db.VarChar(3)
+  currency      String   @default("COP") @db.VarChar(3)
   /// Suma de precios de lista (sin descuentos).
-  subtotal      Decimal @db.Decimal(12, 2)
-  discountTotal Decimal @db.Decimal(12, 2)
-  shippingCost  Decimal @db.Decimal(12, 2)
-  total         Decimal @db.Decimal(12, 2)
+  subtotal      Decimal  @db.Decimal(12, 2)
+  discountTotal Decimal  @db.Decimal(12, 2)
+  /// Costo de envío cobrado al cliente. null = por confirmar (se cotiza por WhatsApp);
+  /// 0 = envío gratis.
+  shippingCost  Decimal? @db.Decimal(12, 2)
+  /// subtotal − discountTotal + shippingCost. Mientras el envío esté por confirmar no lo incluye.
+  total         Decimal  @db.Decimal(12, 2)
 
-  termsAcceptedAt DateTime  @db.Timestamptz(3)
-  confirmedAt     DateTime? @db.Timestamptz(3)
-  cancelledAt     DateTime? @db.Timestamptz(3)
-  cancelReason    String?
-  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+  /// Casilla 1 del checkout: aceptación de los términos y condiciones.
+  termsAcceptedAt         DateTime  @db.Timestamptz(3)
+  /// Casilla 2 del checkout, separada: autorización del tratamiento de datos personales (Ley 1581 de 2012).
+  dataProcessingConsentAt DateTime  @db.Timestamptz(3)
+  confirmedAt             DateTime? @db.Timestamptz(3)
+  /// Momento en que la tienda marcó el pago como REJECTED. Desde aquí corre el plazo
+  /// (ORDER_PAYMENT_CLARIFICATION_HOURS) para que el cliente aclare el pago.
+  paymentRejectedAt       DateTime? @db.Timestamptz(3)
+  cancelledAt             DateTime? @db.Timestamptz(3)
+  /// Obligatorio cuando el pedido está cancelado (también en cancelaciones automáticas).
+  cancelReason            String?
+  createdAt               DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime  @updatedAt @db.Timestamptz(3)
 
   items              OrderItem[]
   statusHistory      OrderStatusHistory[]
@@ -459,39 +500,64 @@ model Shipping {
   @@index([carrierId])
 }
 
+// ──────────────────────────────── Geografía ────────────────────────────────────
+
+/// Departamentos de Colombia según la DIVIPOLA del DANE (incluye Bogotá D.C.).
+model Department {
+  /// Código DIVIPOLA de 2 dígitos, p. ej. "05" (Antioquia).
+  code           String         @id @db.Char(2)
+  name           String
+  municipalities Municipality[]
+}
+
+/// Municipios de Colombia según la DIVIPOLA del DANE.
+model Municipality {
+  /// Código DIVIPOLA de 5 dígitos; los 2 primeros son el departamento, p. ej. "05001" (Medellín).
+  code           String              @id @db.Char(5)
+  departmentCode String              @db.Char(2)
+  department     Department          @relation(fields: [departmentCode], references: [code], onDelete: Restrict)
+  name           String
+  orders         Order[]
+  paymentMethods PaymentMethodCity[]
+
+  @@index([departmentCode, name])
+}
+
 // ─────────────────────────────── Configuración ─────────────────────────────────
 
 /// Fila única (id = "default") con la configuración de la tienda.
 model StoreSettings {
-  id                    String   @id @default("default")
-  storeName             String   @default("Sky Beauty Maquillaje")
-  tagline               String?
+  id                       String   @id @default("default")
+  storeName                String   @default("Sky Beauty Maquillaje")
+  tagline                  String?
   /// Número comercial de WhatsApp en formato E.164 sin "+", p. ej. 573001234567.
-  whatsappNumber        String?
-  contactEmail          String?
-  contactPhone          String?
-  addressText           String?
-  businessHours         String?
-  instagramUrl          String?
-  facebookUrl           String?
-  tiktokUrl             String?
-  currency              String   @default("COP") @db.VarChar(3)
-  timezone              String   @default("America/Bogota")
-  /// Tarifa plana de envío cobrada al cliente.
-  shippingFlatRate      Decimal  @default(0) @db.Decimal(12, 2)
+  whatsappNumber           String?
+  contactEmail             String?
+  contactPhone             String?
+  addressText              String?
+  businessHours            String?
+  instagramUrl             String?
+  facebookUrl              String?
+  tiktokUrl                String?
+  currency                 String   @default("COP") @db.VarChar(3)
+  timezone                 String   @default("America/Bogota")
   /// Subtotal (después de descuentos) a partir del cual el envío es gratis. null = nunca.
-  freeShippingThreshold Decimal? @db.Decimal(12, 2)
-  heroTitle             String?
-  heroSubtitle          String?
-  heroImageUrl          String?
-  heroCtaLabel          String?
-  heroCtaHref           String?
-  announcementText      String?
-  termsText             String?
-  privacyText           String?
-  shippingPolicyText    String?
-  returnsPolicyText     String?
+  freeShippingThreshold    Decimal? @db.Decimal(12, 2)
+  /// Umbral de stock bajo que se propone al crear una variante. null = no se propone ninguno.
+  defaultLowStockThreshold Int?
+  /// Máximo permitido para un descuento porcentual. null = aún no configurado (solo aplica el tope de 100 %).
+  maxPercentageDiscount    Decimal? @db.Decimal(5, 2)
+  heroTitle                String?
+  heroSubtitle             String?
+  heroImageUrl             String?
+  heroCtaLabel             String?
+  heroCtaHref              String?
+  announcementText         String?
+  termsText                String?
+  privacyText              String?
+  shippingPolicyText       String?
+  returnsPolicyText        String?
   /// Muestra un aviso de "tienda de demostración" en todo el sitio.
-  demoMode              Boolean  @default(false)
-  updatedAt             DateTime @updatedAt @db.Timestamptz(3)
+  demoMode                 Boolean  @default(false)
+  updatedAt                DateTime @updatedAt @db.Timestamptz(3)
 }
