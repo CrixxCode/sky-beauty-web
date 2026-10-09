@@ -20,13 +20,15 @@ datasource db {
 // ─────────────────────────────── Administración ───────────────────────────────
 
 enum AdminRole {
-  ADMIN // propietaria: acceso total
-  /// Personal: pedidos y envíos (ver, confirmar, cambiar estado, guías), inventario y catálogo,
-  /// y registrar la recepción del comprobante de pago enviado por WhatsApp.
+  /// Propietaria: acceso total. Es la única que crea, desactiva y cambia contraseñas de cuentas del personal.
+  ADMIN
+  /// Personal: pedidos y envíos (ver, confirmar, editar pedidos sin confirmar, cambiar estado, guías),
+  /// inventario y catálogo, y registrar la recepción del comprobante de pago enviado por WhatsApp.
+  /// Al marcar como entregado un pedido contra entrega, este queda pagado.
   /// Puede cancelar un pedido SOLO cuando el pago no se pudo demostrar tras darle al cliente
   /// la oportunidad de aclararlo (con motivo obligatorio).
-  /// NO puede verificar/rechazar pagos, gestionar promociones, cancelar pedidos en otros casos
-  /// ni cambiar la configuración.
+  /// NO puede: verificar/rechazar otros pagos, gestionar promociones, cancelar pedidos en otros casos,
+  /// ver costos de compra, gestionar cuentas ni cambiar la configuración. Solo cambia su propia contraseña.
   STAFF
 }
 
@@ -47,6 +49,8 @@ model AdminUser {
   inventoryMovements InventoryMovement[]
   orderStatusChanges OrderStatusHistory[]
   paymentRecords     PaymentRecord[]
+  priceChanges       VariantPriceHistory[]
+  promotionRevisions PromotionRevision[]
 }
 
 /// Sesión administrativa. El JWT solo contiene el id de la sesión; revocarla invalida el token.
@@ -67,21 +71,41 @@ model AdminSession {
 
 // ─────────────────────────────────── Catálogo ──────────────────────────────────
 
+/// Máximo dos niveles: categoría > subcategoría (lo valida la aplicación).
+/// Un producto puede ir en una subcategoría o en una categoría que no tenga subcategorías.
 model Category {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String     @id @default(uuid()) @db.Uuid
+  /// null = categoría de primer nivel.
+  parentId    String?    @db.Uuid
+  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children    Category[] @relation("CategoryTree")
   name        String
-  slug        String   @unique
+  slug        String     @unique
   description String?
   imageUrl    String?
-  position    Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  position    Int        @default(0)
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime   @updatedAt @db.Timestamptz(3)
 
   products   Product[]
   promotions PromotionCategory[]
 
   @@index([isActive, position])
+  @@index([parentId, position])
+}
+
+/// Marca de los productos; el catálogo se puede filtrar por marca.
+model Brand {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @unique
+  slug      String    @unique
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(3)
+  products  Product[]
+
+  @@index([isActive, name])
 }
 
 enum ProductStatus {
@@ -97,7 +121,10 @@ model Product {
   slug             String        @unique
   shortDescription String?       @db.VarChar(300)
   description      String
-  brand            String?
+  brandId          String        @db.Uuid
+  brand            Brand         @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  /// Contenido neto, común a todas las variantes, p. ej. "30 ml" o "4 g".
+  netContent       String?       @db.VarChar(50)
   categoryId       String        @db.Uuid
   category         Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   /// Precio base en COP. Una variante puede sobrescribirlo.
@@ -116,29 +143,34 @@ model Product {
   promotions PromotionProduct[]
 
   @@index([status, categoryId])
+  @@index([status, brandId])
   @@index([status, isFeatured])
   @@index([status, publishedAt])
 }
 
 model ProductImage {
-  id           String   @id @default(uuid()) @db.Uuid
-  productId    String   @db.Uuid
-  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id           String          @id @default(uuid()) @db.Uuid
+  productId    String          @db.Uuid
+  product      Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// Variante a la que pertenece la foto (p. ej. el swatch de un tono). null = foto general del producto.
+  variantId    String?         @db.Uuid
+  variant      ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
   /// Clave en el proveedor de almacenamiento (local o S3).
   storageKey   String
   url          String
   thumbnailKey String
   thumbnailUrl String
-  alt          String   @default("")
+  alt          String          @default("")
   width        Int
   height       Int
   sizeBytes    Int
   mimeType     String
-  position     Int      @default(0)
-  createdAt    DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+  position     Int             @default(0)
+  createdAt    DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime        @updatedAt @db.Timestamptz(3)
 
   @@index([productId, position])
+  @@index([variantId, position])
 }
 
 model ProductVariant {
@@ -152,6 +184,10 @@ model ProductVariant {
   colorHex          String?  @db.VarChar(7)
   /// Precio propio de la variante. Si es null se usa Product.basePrice.
   price             Decimal? @db.Decimal(12, 2)
+  /// Costo de compra en COP, para márgenes. Solo visible para la propietaria (ADMIN).
+  costPrice         Decimal? @db.Decimal(12, 2)
+  /// Máximo de unidades de esta variante por pedido. null = sin límite.
+  maxPerOrder       Int?
   /// Existencias físicas disponibles para la venta. Solo cambia mediante InventoryMovement.
   stock             Int      @default(0)
   /// Umbral de alerta de stock bajo propio de la variante. Al crearla se propone
@@ -162,10 +198,30 @@ model ProductVariant {
   createdAt         DateTime @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime @updatedAt @db.Timestamptz(3)
 
+  images             ProductImage[]
   inventoryMovements InventoryMovement[]
   orderItems         OrderItem[]
+  promotions         PromotionVariant[]
+  priceHistory       VariantPriceHistory[]
 
   @@index([productId, position])
+}
+
+/// Historial (append-only) del precio de lista efectivo de cada variante
+/// (ProductVariant.price o, si es null, Product.basePrice). Se agrega una fila cada vez que cambia,
+/// incluido el cambio de Product.basePrice para las variantes sin precio propio.
+/// Permite saber el precio vigente en una fecha, p. ej. al editar un pedido con las condiciones
+/// del día en que se hizo.
+model VariantPriceHistory {
+  id          String         @id @default(uuid()) @db.Uuid
+  variantId   String         @db.Uuid
+  variant     ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  price       Decimal        @db.Decimal(12, 2)
+  validFrom   DateTime       @default(now()) @db.Timestamptz(3)
+  changedById String?        @db.Uuid
+  changedBy   AdminUser?     @relation(fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([variantId, validFrom])
 }
 
 // ────────────────────────────────── Inventario ─────────────────────────────────
@@ -174,8 +230,8 @@ enum InventoryMovementType {
   INITIAL // existencias iniciales de una variante
   PURCHASE // entrada por compra a proveedor
   ADJUSTMENT // ajuste manual (conteo, merma, daño...)
-  ORDER_RESERVED // salida al crear un pedido
-  ORDER_RELEASED // entrada al cancelar un pedido no despachado
+  ORDER_RESERVED // salida al crear un pedido o al agregar unidades al editarlo
+  ORDER_RELEASED // entrada al cancelar un pedido no despachado o al quitar unidades al editarlo
   RETURN // entrada por devolución revisada
 }
 
@@ -209,14 +265,16 @@ enum DiscountType {
 }
 
 enum PromotionScope {
+  VARIANT
   PRODUCT
   CATEGORY
 }
 
 /// Política (confirmada): las promociones NO se acumulan. Por cada artículo se aplica una sola:
-/// 1) las de alcance PRODUCT prevalecen sobre las de CATEGORY;
-/// 2) dentro del mismo alcance gana la de mayor descuento para el cliente;
-/// 3) empate → la creada primero.
+/// 1) gana la de mayor descuento para el cliente, sin importar el alcance (variante, producto o categoría);
+/// 2) empate → la creada primero.
+/// Una promoción de categoría aplica también a los productos de sus subcategorías.
+/// Se puede modificar en cualquier momento; cada cambio genera una PromotionRevision.
 model Promotion {
   id            String         @id @default(uuid()) @db.Uuid
   name          String
@@ -231,10 +289,49 @@ model Promotion {
   createdAt     DateTime       @default(now()) @db.Timestamptz(3)
   updatedAt     DateTime       @updatedAt @db.Timestamptz(3)
 
+  variants   PromotionVariant[]
   products   PromotionProduct[]
   categories PromotionCategory[]
+  revisions  PromotionRevision[]
 
   @@index([isActive, startsAt, endsAt])
+}
+
+/// Versión (append-only) de una promoción: copia completa de sus condiciones y destinos desde validFrom.
+/// Permite evaluar qué promociones estaban vigentes en una fecha, p. ej. al editar un pedido
+/// con las condiciones del día en que se hizo.
+model PromotionRevision {
+  id            String         @id @default(uuid()) @db.Uuid
+  promotionId   String         @db.Uuid
+  promotion     Promotion      @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  /// Número consecutivo de versión, empezando en 1.
+  revision      Int
+  validFrom     DateTime       @default(now()) @db.Timestamptz(3)
+  name          String
+  discountType  DiscountType
+  discountValue Decimal        @db.Decimal(12, 2)
+  scope         PromotionScope
+  startsAt      DateTime       @db.Timestamptz(3)
+  endsAt        DateTime       @db.Timestamptz(3)
+  isActive      Boolean
+  variantIds    String[]       @db.Uuid
+  productIds    String[]       @db.Uuid
+  categoryIds   String[]       @db.Uuid
+  changedById   String?        @db.Uuid
+  changedBy     AdminUser?     @relation(fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@unique([promotionId, revision])
+  @@index([promotionId, validFrom])
+}
+
+model PromotionVariant {
+  promotionId String         @db.Uuid
+  promotion   Promotion      @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  variantId   String         @db.Uuid
+  variant     ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@id([promotionId, variantId])
+  @@index([variantId])
 }
 
 model PromotionProduct {
@@ -408,6 +505,8 @@ model OrderItem {
   unitListPrice  Decimal  @db.Decimal(12, 2)
   unitDiscount   Decimal  @db.Decimal(12, 2)
   unitFinalPrice Decimal  @db.Decimal(12, 2)
+  /// Costo de compra de la variante en el momento de la venta. Solo visible para la propietaria.
+  unitCost       Decimal? @db.Decimal(12, 2)
   quantity       Int
   lineTotal      Decimal  @db.Decimal(12, 2)
   promotionId    String?  @db.Uuid
@@ -420,6 +519,8 @@ model OrderItem {
 
 enum OrderEventType {
   ORDER_STATUS
+  /// Cambio en los productos de un pedido sin confirmar (agregar, quitar, cambiar variante o cantidad).
+  ITEMS_CHANGED
   PAYMENT_STATUS
   SHIPPING
   NOTE
