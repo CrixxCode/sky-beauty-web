@@ -1,0 +1,497 @@
+// Esquema de datos de Sky Beauty Maquillaje.
+//
+// Convenciones:
+// - Identificadores: UUID (estables, no secuenciales, no exponen volumen de negocio).
+// - Importes monetarios: Decimal(12, 2) en COP. Nunca punto flotante.
+// - Fechas: timestamptz almacenadas en UTC; se presentan en America/Bogota.
+// - Los pedidos guardan snapshots (nombre, SKU, precios) para no cambiar al editar el catálogo.
+// - Los productos con historial de pedidos se archivan, no se eliminan físicamente.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────── Administración ───────────────────────────────
+
+enum AdminRole {
+  ADMIN // acceso total, incluida la configuración de la tienda
+  STAFF // gestión operativa: pedidos, inventario, catálogo
+}
+
+model AdminUser {
+  id                  String         @id @default(uuid()) @db.Uuid
+  email               String         @unique
+  name                String
+  passwordHash        String
+  role                AdminRole      @default(ADMIN)
+  isActive            Boolean        @default(true)
+  failedLoginAttempts Int            @default(0)
+  lockedUntil         DateTime?      @db.Timestamptz(3)
+  lastLoginAt         DateTime?      @db.Timestamptz(3)
+  createdAt           DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime       @updatedAt @db.Timestamptz(3)
+  sessions            AdminSession[]
+
+  inventoryMovements InventoryMovement[]
+  orderStatusChanges OrderStatusHistory[]
+  paymentRecords     PaymentRecord[]
+}
+
+/// Sesión administrativa. El JWT solo contiene el id de la sesión; revocarla invalida el token.
+model AdminSession {
+  id          String    @id @default(uuid()) @db.Uuid
+  adminUserId String    @db.Uuid
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  userAgent   String?   @db.VarChar(512)
+  ipAddress   String?   @db.VarChar(64)
+  expiresAt   DateTime  @db.Timestamptz(3)
+  revokedAt   DateTime? @db.Timestamptz(3)
+  lastSeenAt  DateTime  @default(now()) @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([adminUserId])
+  @@index([expiresAt])
+}
+
+// ─────────────────────────────────── Catálogo ──────────────────────────────────
+
+model Category {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  slug        String   @unique
+  description String?
+  imageUrl    String?
+  position    Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  products   Product[]
+  promotions PromotionCategory[]
+
+  @@index([isActive, position])
+}
+
+enum ProductStatus {
+  DRAFT // en preparación, no visible
+  ACTIVE // visible y comprable
+  INACTIVE // oculto temporalmente
+  ARCHIVED // retirado definitivamente (conserva historial)
+}
+
+model Product {
+  id               String        @id @default(uuid()) @db.Uuid
+  name             String
+  slug             String        @unique
+  shortDescription String?       @db.VarChar(300)
+  description      String
+  brand            String?
+  categoryId       String        @db.Uuid
+  category         Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  /// Precio base en COP. Una variante puede sobrescribirlo.
+  basePrice        Decimal       @db.Decimal(12, 2)
+  status           ProductStatus @default(DRAFT)
+  isFeatured       Boolean       @default(false)
+  /// Datos de demostración generados por el seed.
+  isDemo           Boolean       @default(false)
+  publishedAt      DateTime?     @db.Timestamptz(3)
+  archivedAt       DateTime?     @db.Timestamptz(3)
+  createdAt        DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime      @updatedAt @db.Timestamptz(3)
+
+  images     ProductImage[]
+  variants   ProductVariant[]
+  promotions PromotionProduct[]
+
+  @@index([status, categoryId])
+  @@index([status, isFeatured])
+  @@index([status, publishedAt])
+}
+
+model ProductImage {
+  id           String   @id @default(uuid()) @db.Uuid
+  productId    String   @db.Uuid
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// Clave en el proveedor de almacenamiento (local o S3).
+  storageKey   String
+  url          String
+  thumbnailKey String
+  thumbnailUrl String
+  alt          String   @default("")
+  width        Int
+  height       Int
+  sizeBytes    Int
+  mimeType     String
+  position     Int      @default(0)
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([productId, position])
+}
+
+model ProductVariant {
+  id                String   @id @default(uuid()) @db.Uuid
+  productId         String   @db.Uuid
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  sku               String   @unique
+  /// Nombre visible de la variante: tono, color, tamaño o presentación.
+  name              String
+  /// Color de muestra opcional (hex) para tonos.
+  colorHex          String?  @db.VarChar(7)
+  /// Precio propio de la variante. Si es null se usa Product.basePrice.
+  price             Decimal? @db.Decimal(12, 2)
+  /// Existencias físicas disponibles para la venta. Solo cambia mediante InventoryMovement.
+  stock             Int      @default(0)
+  lowStockThreshold Int      @default(3)
+  isActive          Boolean  @default(true)
+  position          Int      @default(0)
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(3)
+
+  inventoryMovements InventoryMovement[]
+  orderItems         OrderItem[]
+
+  @@index([productId, position])
+}
+
+// ────────────────────────────────── Inventario ─────────────────────────────────
+
+enum InventoryMovementType {
+  INITIAL // existencias iniciales de una variante
+  PURCHASE // entrada por compra a proveedor
+  ADJUSTMENT // ajuste manual (conteo, merma, daño...)
+  ORDER_RESERVED // salida al crear un pedido
+  ORDER_RELEASED // entrada al cancelar un pedido no despachado
+  RETURN // entrada por devolución revisada
+}
+
+/// Registro inmutable (append-only) de cada cambio de stock.
+model InventoryMovement {
+  id          String                @id @default(uuid()) @db.Uuid
+  variantId   String                @db.Uuid
+  variant     ProductVariant        @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  type        InventoryMovementType
+  /// Positivo = entrada, negativo = salida.
+  quantity    Int
+  stockBefore Int
+  stockAfter  Int
+  reason      String
+  orderId     String?               @db.Uuid
+  order       Order?                @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  createdById String?               @db.Uuid
+  createdBy   AdminUser?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime              @default(now()) @db.Timestamptz(3)
+
+  @@index([variantId, createdAt])
+  @@index([orderId])
+  @@index([type, createdAt])
+}
+
+// ────────────────────────────────── Promociones ────────────────────────────────
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum PromotionScope {
+  PRODUCT
+  CATEGORY
+}
+
+/// Política: las promociones NO se acumulan. Por cada artículo se aplica una sola:
+/// 1) las de alcance PRODUCT prevalecen sobre las de CATEGORY;
+/// 2) dentro del mismo alcance gana la de mayor descuento para el cliente;
+/// 3) empate → la creada primero.
+model Promotion {
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String
+  description   String?
+  discountType  DiscountType
+  /// Porcentaje (0 < v <= 90) o importe fijo por unidad en COP.
+  discountValue Decimal        @db.Decimal(12, 2)
+  scope         PromotionScope
+  startsAt      DateTime       @db.Timestamptz(3)
+  endsAt        DateTime       @db.Timestamptz(3)
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime       @updatedAt @db.Timestamptz(3)
+
+  products   PromotionProduct[]
+  categories PromotionCategory[]
+
+  @@index([isActive, startsAt, endsAt])
+}
+
+model PromotionProduct {
+  promotionId String    @db.Uuid
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  productId   String    @db.Uuid
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([promotionId, productId])
+  @@index([productId])
+}
+
+model PromotionCategory {
+  promotionId String    @db.Uuid
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  categoryId  String    @db.Uuid
+  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([promotionId, categoryId])
+  @@index([categoryId])
+}
+
+// ─────────────────────────────── Clientes y pedidos ─────────────────────────────
+
+/// Cliente identificado por su teléfono (no requiere cuenta).
+model Customer {
+  id        String   @id @default(uuid()) @db.Uuid
+  fullName  String
+  /// Teléfono normalizado en formato E.164 sin "+", p. ej. 573001234567.
+  phone     String   @unique
+  notes     String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  orders Order[]
+}
+
+model PaymentMethod {
+  id                   String   @id @default(uuid()) @db.Uuid
+  /// Código estable: BANK_TRANSFER, NEQUI, DAVIPLATA, CASH_ON_DELIVERY o personalizados.
+  code                 String   @unique
+  name                 String
+  /// Instrucciones visibles para el cliente (cuenta, titular...). Configurable por la tienda.
+  instructions         String?
+  /// Si requiere que la tienda verifique manualmente el pago (transferencias).
+  requiresVerification Boolean  @default(true)
+  isActive             Boolean  @default(true)
+  position             Int      @default(0)
+  createdAt            DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime @updatedAt @db.Timestamptz(3)
+
+  orders Order[]
+}
+
+enum OrderStatus {
+  PENDING_CONFIRMATION
+  CONFIRMED
+  PREPARING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING // aún no se ha recibido ni reportado el pago
+  AWAITING_VERIFICATION // el cliente reporta haber pagado; la tienda debe verificarlo
+  PAID // la tienda verificó manualmente el pago
+  REJECTED // el pago reportado no se pudo verificar
+  REFUNDED // el pago fue devuelto al cliente
+}
+
+model Order {
+  id              String        @id @default(uuid()) @db.Uuid
+  /// Identificador público legible, p. ej. SB-251009-7KQ4M.
+  code            String        @unique
+  /// Hash SHA-256 del token que permite al cliente consultar su pedido.
+  publicTokenHash String
+  /// Clave de idempotencia enviada por el cliente + hash de la solicitud original.
+  idempotencyKey  String        @unique
+  requestHash     String
+  customerId      String        @db.Uuid
+  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  status          OrderStatus   @default(PENDING_CONFIRMATION)
+  paymentStatus   PaymentStatus @default(PENDING)
+
+  // Snapshot de datos de contacto y entrega en el momento del pedido.
+  customerName  String
+  customerPhone String
+  department    String
+  city          String
+  addressLine   String
+  deliveryNotes String?
+
+  paymentMethodId   String        @db.Uuid
+  paymentMethod     PaymentMethod @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+  paymentMethodCode String
+  paymentMethodName String
+
+  currency      String  @default("COP") @db.VarChar(3)
+  /// Suma de precios de lista (sin descuentos).
+  subtotal      Decimal @db.Decimal(12, 2)
+  discountTotal Decimal @db.Decimal(12, 2)
+  shippingCost  Decimal @db.Decimal(12, 2)
+  total         Decimal @db.Decimal(12, 2)
+
+  termsAcceptedAt DateTime  @db.Timestamptz(3)
+  confirmedAt     DateTime? @db.Timestamptz(3)
+  cancelledAt     DateTime? @db.Timestamptz(3)
+  cancelReason    String?
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+
+  items              OrderItem[]
+  statusHistory      OrderStatusHistory[]
+  paymentRecords     PaymentRecord[]
+  shipping           Shipping?
+  inventoryMovements InventoryMovement[]
+
+  @@index([status, createdAt])
+  @@index([paymentStatus])
+  @@index([customerId, createdAt])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id        String          @id @default(uuid()) @db.Uuid
+  orderId   String          @db.Uuid
+  order     Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variantId String?         @db.Uuid
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  // Snapshots históricos.
+  productId      String   @db.Uuid
+  productName    String
+  productSlug    String
+  variantName    String
+  sku            String
+  unitListPrice  Decimal  @db.Decimal(12, 2)
+  unitDiscount   Decimal  @db.Decimal(12, 2)
+  unitFinalPrice Decimal  @db.Decimal(12, 2)
+  quantity       Int
+  lineTotal      Decimal  @db.Decimal(12, 2)
+  promotionId    String?  @db.Uuid
+  promotionName  String?
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([orderId])
+  @@index([variantId])
+}
+
+enum OrderEventType {
+  ORDER_STATUS
+  PAYMENT_STATUS
+  SHIPPING
+  NOTE
+}
+
+/// Historial de cambios del pedido (estado logístico, pago, envío y notas).
+model OrderStatusHistory {
+  id          String         @id @default(uuid()) @db.Uuid
+  orderId     String         @db.Uuid
+  order       Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  type        OrderEventType @default(ORDER_STATUS)
+  fromStatus  String?
+  toStatus    String?
+  note        String?
+  /// null = acción del sistema (creación pública, expiración automática).
+  changedById String?        @db.Uuid
+  changedBy   AdminUser?     @relation(fields: [changedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime       @default(now()) @db.Timestamptz(3)
+
+  @@index([orderId, createdAt])
+}
+
+/// Registro de pagos: cada cambio de estado de pago con su soporte (referencia, importe, nota).
+model PaymentRecord {
+  id           String        @id @default(uuid()) @db.Uuid
+  orderId      String        @db.Uuid
+  order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status       PaymentStatus
+  amount       Decimal       @db.Decimal(12, 2)
+  /// Referencia de la transferencia, comprobante, etc. (registrada manualmente).
+  reference    String?
+  note         String?
+  recordedById String?       @db.Uuid
+  recordedBy   AdminUser?    @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@index([orderId, createdAt])
+}
+
+// ──────────────────────────────────── Envíos ───────────────────────────────────
+
+model Carrier {
+  id                  String   @id @default(uuid()) @db.Uuid
+  name                String   @unique
+  /// Plantilla opcional de URL de rastreo con {tracking}. No implica seguimiento automático.
+  trackingUrlTemplate String?
+  phone               String?
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime @updatedAt @db.Timestamptz(3)
+
+  shippings Shipping[]
+}
+
+enum ShippingStatus {
+  NOT_SHIPPED
+  IN_TRANSIT
+  DELIVERED
+  INCIDENT
+}
+
+model Shipping {
+  id             String         @id @default(uuid()) @db.Uuid
+  orderId        String         @unique @db.Uuid
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  carrierId      String?        @db.Uuid
+  carrier        Carrier?       @relation(fields: [carrierId], references: [id], onDelete: Restrict)
+  trackingNumber String?
+  /// Costo real pagado a la transportadora (interno). El cobrado al cliente está en Order.shippingCost.
+  carrierCost    Decimal?       @db.Decimal(12, 2)
+  status         ShippingStatus @default(NOT_SHIPPED)
+  dispatchedAt   DateTime?      @db.Timestamptz(3)
+  deliveredAt    DateTime?      @db.Timestamptz(3)
+  notes          String?
+  createdAt      DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @db.Timestamptz(3)
+
+  @@index([carrierId])
+}
+
+// ─────────────────────────────── Configuración ─────────────────────────────────
+
+/// Fila única (id = "default") con la configuración de la tienda.
+model StoreSettings {
+  id                    String   @id @default("default")
+  storeName             String   @default("Sky Beauty Maquillaje")
+  tagline               String?
+  /// Número comercial de WhatsApp en formato E.164 sin "+", p. ej. 573001234567.
+  whatsappNumber        String?
+  contactEmail          String?
+  contactPhone          String?
+  addressText           String?
+  businessHours         String?
+  instagramUrl          String?
+  facebookUrl           String?
+  tiktokUrl             String?
+  currency              String   @default("COP") @db.VarChar(3)
+  timezone              String   @default("America/Bogota")
+  /// Tarifa plana de envío cobrada al cliente.
+  shippingFlatRate      Decimal  @default(0) @db.Decimal(12, 2)
+  /// Subtotal (después de descuentos) a partir del cual el envío es gratis. null = nunca.
+  freeShippingThreshold Decimal? @db.Decimal(12, 2)
+  heroTitle             String?
+  heroSubtitle          String?
+  heroImageUrl          String?
+  heroCtaLabel          String?
+  heroCtaHref           String?
+  announcementText      String?
+  termsText             String?
+  privacyText           String?
+  shippingPolicyText    String?
+  returnsPolicyText     String?
+  /// Muestra un aviso de "tienda de demostración" en todo el sitio.
+  demoMode              Boolean  @default(false)
+  updatedAt             DateTime @updatedAt @db.Timestamptz(3)
+}

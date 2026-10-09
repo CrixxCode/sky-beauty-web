@@ -1,0 +1,37 @@
+# Dependencias (cada proyecto tiene sus propios node_modules)
+node_modules/
+
+# Builds
+dist/
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Backend: cliente Prisma generado y archivos subidos en desarrollo (adaptador local)
+backend/src/generated/
+backend/uploads/
+
+# Entorno y secretos
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Pruebas
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# Logs y SO
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Editores
+.idea/
+.vscode/*
+!.vscode/extensions.json
