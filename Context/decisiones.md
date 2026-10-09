@@ -260,6 +260,15 @@ Una vez confirmado, el pedido no se puede editar.
 
 ---
 
+## 2026-10-09 — Recuperación de contraseñas sin correo
+
+**Decisión:** como no hay servicio de correo, no existe "¿Olvidaste tu contraseña?" por email.
+
+- Si alguien del personal olvida su contraseña, la propietaria se la restablece desde el panel.
+- Si la propietaria olvida la suya, se restablece con un comando que se ejecuta en el servidor (por ejemplo, desde la consola de Railway). Al restablecerla se cierran sus sesiones abiertas y se quita cualquier bloqueo por intentos fallidos.
+
+---
+
 ## 2026-10-09 — Infraestructura sin servicios de pago
 
 **Decisión:** el proyecto no cuenta con recursos para servicios de pago. Los únicos gastos permitidos son:

@@ -1,9 +1,11 @@
 import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import type { Env } from './config/env';
+import { SESSION_COOKIE } from './modules/auth/auth.types';
 
 /** Prefijo de todas las rutas de la API. El frontend las consume a través de su proxy en /api/v1. */
 export const API_PREFIX = 'api/v1';
@@ -18,6 +20,7 @@ export function configureApp(app: NestExpressApplication): void {
   app.useLogger(app.get(Logger));
   app.set('trust proxy', config.get('TRUST_PROXY_HOPS', { infer: true }));
   app.use(helmet());
+  app.use(cookieParser());
   app.enableCors({ origin: config.get('CORS_ORIGINS', { infer: true }), credentials: true });
   app.setGlobalPrefix(API_PREFIX);
   app.enableShutdownHooks();
@@ -25,7 +28,11 @@ export function configureApp(app: NestExpressApplication): void {
   if (config.get('NODE_ENV', { infer: true }) !== 'production') {
     const document = SwaggerModule.createDocument(
       app,
-      new DocumentBuilder().setTitle('Sky Beauty API').setVersion('1').build(),
+      new DocumentBuilder()
+        .setTitle('Sky Beauty API')
+        .setVersion('1')
+        .addCookieAuth(SESSION_COOKIE)
+        .build(),
     );
     SwaggerModule.setup(`${API_PREFIX}/docs`, app, document);
   }

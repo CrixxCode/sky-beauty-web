@@ -4,6 +4,8 @@ import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { type Env, validateEnv } from './config/env';
+import { AdminUsersModule } from './modules/admin-users/admin-users.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { AllExceptionsFilter } from './shared/http/all-exceptions.filter';
 import { PrismaModule } from './shared/prisma/prisma.module';
@@ -26,9 +28,17 @@ import { PrismaModule } from './shared/prisma/prisma.module';
       }),
     }),
     // Límite general de peticiones por IP. Los endpoints sensibles (p. ej. inicio de sesión)
-    // definen límites más estrictos en su propio módulo.
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
+    // definen límites más estrictos en su propio módulo. Se desactiva en las pruebas automáticas.
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<Env, true>) => ({
+        throttlers: [{ ttl: 60_000, limit: 120 }],
+        skipIf: () => config.get('NODE_ENV', { infer: true }) === 'test',
+      }),
+    }),
     PrismaModule,
+    AuthModule,
+    AdminUsersModule,
     HealthModule,
   ],
   providers: [
