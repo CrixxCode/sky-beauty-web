@@ -8,6 +8,7 @@ Antes de proponer, escribir o modificar código, lee **todos** los archivos de [
 
 - [`Context/negocio.md`](Context/negocio.md): lógica y reglas de negocio.
 - [`Context/decisiones.md`](Context/decisiones.md): decisiones confirmadas después de `negocio.md`. Si difieren, prevalece `decisiones.md`.
+- [`Context/plan-desarrollo.md`](Context/plan-desarrollo.md): plan de desarrollo por módulos (backend + frontend de cada uno), orden y criterios de terminado. No define reglas de negocio.
 - [`Context/politicas/`](Context/politicas/): **borradores** de políticas para clientes. No son vigentes hasta que `decisiones.md` diga que fueron aprobadas; no copies sus plazos o condiciones a la lógica del sistema como si fueran reglas confirmadas.
 
 Si se agregan más archivos a `Context/`, también son de lectura obligatoria.
