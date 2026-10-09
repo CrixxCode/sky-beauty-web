@@ -122,7 +122,7 @@ El módulo más grande. Se recomienda dividirlo en dos PRs: primero el panel, de
 - Marcas, categorías de dos niveles (con sus reglas entre filas) y productos con estados `DRAFT` / `ACTIVE` / `INACTIVE` / `ARCHIVED`.
 - Variantes: SKU, precio propio, costo (solo propietaria), límite por pedido, color de muestra.
 - Historial de precios: una fila en `VariantPriceHistory` en cada cambio del precio efectivo.
-- Fotos generales y por variante: carga, miniaturas con `sharp`, almacenamiento local o S3.
+- Fotos generales y por variante: carga, miniaturas con `sharp`, almacenamiento en el disco del servidor (`UPLOADS_DIR`; en producción, volumen de Railway). Sin servicios de almacenamiento de pago.
 - Archivar en lugar de eliminar productos con historial de pedidos.
 - API pública: solo productos `ACTIVE`; filtros por categoría (incluye subcategorías), marca y búsqueda sin distinguir tildes ni mayúsculas; productos agotados visibles.
 
@@ -312,6 +312,7 @@ La lógica más delicada del sistema: debe tener pruebas exhaustivas antes de co
 
 ## 14. Despliegue
 
-- Dockerfiles de backend y frontend, variables de producción, almacenamiento de imágenes en S3 o compatible, copias de seguridad de la base de datos, dominio y HTTPS.
+- Despliegue en **Railway**: backend, frontend y PostgreSQL. Volumen persistente para las imágenes (`UPLOADS_DIR`), variables de producción, dominio y HTTPS.
+- Sin servicios de pago adicionales (ver `decisiones.md`, "Infraestructura sin servicios de pago").
 
-**Bloqueos de negocio:** proveedor de hosting, dominio y presupuesto (pendientes de definir).
+**Bloqueos de negocio:** compra del dominio; estrategia de copias de seguridad de la base de datos y de las imágenes.

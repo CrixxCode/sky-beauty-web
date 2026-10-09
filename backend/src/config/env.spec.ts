@@ -14,10 +14,10 @@ const validEnv = {
   ORDER_PENDING_TTL_HOURS: '48',
   ORDER_UNPAID_TTL_HOURS: '24',
   ORDER_PAYMENT_CLARIFICATION_HOURS: '8',
-  STORAGE_DRIVER: 'local',
+  UPLOADS_DIR: './uploads',
   PUBLIC_UPLOADS_BASE_URL: 'http://localhost:4000/uploads',
   MAX_IMAGE_SIZE_MB: '5',
-  S3_BUCKET: '',
+  TEST_DATABASE_URL: '',
 };
 
 describe('validateEnv', () => {
@@ -26,8 +26,7 @@ describe('validateEnv', () => {
     expect(env.PORT).toBe(4000);
     expect(env.CORS_ORIGINS).toEqual(['http://localhost:3000', 'https://skybeauty.test']);
     expect(env.ORDER_UNPAID_TTL_HOURS).toBe(24);
-    expect(env.S3_BUCKET).toBeUndefined();
-    expect(env.S3_FORCE_PATH_STYLE).toBe(false);
+    expect(env.TEST_DATABASE_URL).toBeUndefined();
   });
 
   it('rechaza un JWT_SECRET corto', () => {
@@ -40,13 +39,10 @@ describe('validateEnv', () => {
     ).toThrow('ORDER_PAYMENT_CLARIFICATION_HOURS');
   });
 
-  it('exige la URL pública de archivos con almacenamiento local', () => {
+  it('exige la carpeta y la URL pública de las imágenes', () => {
+    expect(() => validateEnv({ ...validEnv, UPLOADS_DIR: '' })).toThrow('UPLOADS_DIR');
     expect(() => validateEnv({ ...validEnv, PUBLIC_UPLOADS_BASE_URL: '' })).toThrow(
       'PUBLIC_UPLOADS_BASE_URL',
     );
-  });
-
-  it('exige las credenciales de S3 cuando STORAGE_DRIVER=s3', () => {
-    expect(() => validateEnv({ ...validEnv, STORAGE_DRIVER: 's3' })).toThrow('S3_BUCKET');
   });
 });

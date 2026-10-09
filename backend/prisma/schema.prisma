@@ -155,7 +155,7 @@ model ProductImage {
   /// Variante a la que pertenece la foto (p. ej. el swatch de un tono). null = foto general del producto.
   variantId    String?         @db.Uuid
   variant      ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
-  /// Clave en el proveedor de almacenamiento (local o S3).
+  /// Ruta del archivo relativa a UPLOADS_DIR (disco del servidor).
   storageKey   String
   url          String
   thumbnailKey String

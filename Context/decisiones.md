@@ -260,6 +260,22 @@ Una vez confirmado, el pedido no se puede editar.
 
 ---
 
+## 2026-10-09 — Infraestructura sin servicios de pago
+
+**Decisión:** el proyecto no cuenta con recursos para servicios de pago. Los únicos gastos permitidos son:
+
+- el despliegue en **Railway** (aplicaciones y base de datos);
+- el **dominio**.
+
+No se usan S3 ni otros almacenamientos en la nube, CDN, servicios de correo o SMS, ni APIs de pago de WhatsApp. Las imágenes de los productos se guardan en el disco del servidor (en producción, un volumen persistente de Railway). Cualquier funcionalidad que requiera otro servicio de pago debe consultarse antes.
+
+**Pendiente:**
+
+- Confirmar que el volumen persistente de Railway para las imágenes entra dentro del gasto de Railway permitido.
+- Cómo se harán las copias de seguridad de la base de datos y de las imágenes.
+
+---
+
 ## Cómo se reflejan estas decisiones en el código
 
 Estado al 2026-10-09. Migraciones en `backend/prisma/migrations/`:

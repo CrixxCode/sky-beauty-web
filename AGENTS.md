@@ -58,6 +58,7 @@ Estas se desprenden directamente de `Context/negocio.md` y deben respetarse. Las
 - Las promociones pueden ser porcentuales o de importe fijo, por producto o por categoría, con fecha de inicio y fin. Se muestran precio regular, descuento y precio final.
 - El panel administrativo es de acceso restringido; los clientes no tienen acceso. Además de la propietaria habrá personal con permisos limitados (ver `Context/decisiones.md`).
 - Prioridad de la experiencia: móvil, sencilla, sin recargar; los productos deben destacar.
+- **Sin servicios de pago:** solo se paga el despliegue en Railway y el dominio. No agregues dependencias de servicios externos de pago (almacenamiento en la nube, CDN, correo, SMS, APIs de WhatsApp, etc.) sin consultarlo.
 
 ## 4. Cuando el código y el contexto no coinciden
 
