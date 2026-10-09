@@ -22,9 +22,19 @@ El personal también puede:
 - registrar en el sistema que llegó el comprobante de pago enviado por WhatsApp;
 - cancelar un pedido **solo** cuando el pago no se pudo demostrar después de darle al cliente la oportunidad de aclararlo, indicando el motivo (ver "Cancelación automática de pedidos confirmados sin pago").
 
-**Exclusivo de la propietaria:** verificar o rechazar pagos, crear y editar promociones, cancelar pedidos en cualquier otro caso y la configuración comercial de la tienda.
+El personal también puede:
 
-**Pendiente:** quién gestiona las cuentas del personal (se presume que la propietaria, por ser `ADMIN` con acceso total, pero no se ha confirmado explícitamente).
+- editar pedidos sin confirmar (ver "Edición de pedidos sin confirmar");
+- dar por pagado un pedido contra entrega al marcarlo como entregado (ver "Pago contra entrega: pagado al entregarse").
+
+**Exclusivo de la propietaria:**
+
+- verificar o rechazar pagos (salvo el caso de contra entrega descrito arriba);
+- crear y editar promociones;
+- cancelar pedidos en cualquier otro caso;
+- ver y editar costos de compra;
+- la configuración comercial de la tienda;
+- crear, desactivar y cambiar la contraseña de las cuentas del personal. El personal solo puede cambiar su propia contraseña.
 
 ---
 
@@ -59,13 +69,18 @@ No aplica al pago contra entrega, que se paga al recibir el pedido.
 
 ---
 
-## 2026-10-09 — Prioridad entre promociones
+## 2026-10-09 — Prioridad entre promociones (actualizada)
 
-**Decisión:** las promociones no se acumulan. A cada artículo se le aplica una sola:
+**Decisión:** las promociones pueden aplicar a una variante específica, a un producto completo o a una categoría. No se acumulan; a cada artículo se le aplica una sola:
 
-1. Las de un producto específico prevalecen sobre las de categoría.
-2. Dentro del mismo alcance, gana la que da mayor descuento al cliente.
-3. Si hay empate, gana la creada primero.
+1. Gana la que da mayor descuento al cliente, sin importar si es de variante, producto o categoría.
+2. Si hay empate, gana la creada primero.
+
+Esta decisión reemplaza a la anterior, en la que la promoción del producto prevalecía sobre la de la categoría.
+
+Una promoción de una categoría aplica también a los productos de sus subcategorías.
+
+Una promoción se puede modificar en cualquier momento, incluso después de que empezó (descuento, fechas, productos incluidos). El sistema guarda cada versión para saber qué condiciones tenía en una fecha dada.
 
 ---
 
@@ -197,6 +212,54 @@ El pedido registra por separado el momento en que se marcó cada una.
 
 ---
 
+## 2026-10-09 — Estructura del catálogo
+
+**Decisiones:**
+
+- **Variantes:** cada producto varía en una sola dimensión (tono, color, tamaño o presentación). Si aparece un caso con dos dimensiones, se revisará.
+- **Fotos:** hay fotos generales del producto y, además, fotos propias de cada variante (por ejemplo, el swatch de un tono). Al elegir la variante, la galería muestra sus fotos.
+- **Contenido neto:** es un dato del producto, común a todas sus variantes.
+- **Categorías:** dos niveles, categoría y subcategoría. Un producto puede ir en una subcategoría o directamente en una categoría que no tenga subcategorías.
+- **Marcas:** se venden varias marcas y el cliente puede filtrar el catálogo por marca.
+- **Agotados:** si todas las variantes de un producto están agotadas, el producto sigue visible con la etiqueta "Agotado" y no se puede agregar al carrito.
+- **Límite por pedido:** la propietaria puede fijar un máximo de unidades por pedido en variantes específicas. Se cuenta por variante. Sin límite configurado, el cliente puede pedir todas las unidades disponibles.
+- **Costo de compra:** cada variante guarda su costo de compra para calcular márgenes y ganancias. El pedido guarda el costo del momento de la venta. Solo la propietaria lo ve.
+
+- **Marca obligatoria:** todo producto debe tener marca.
+
+**Pendiente:**
+
+- Qué otra información de producto se necesitará más adelante (por ahora solo se confirmó el contenido neto; no se incluyen modo de uso, ingredientes ni notificación sanitaria INVIMA).
+
+---
+
+## 2026-10-09 — Edición de pedidos sin confirmar
+
+**Decisión:** mientras un pedido está sin confirmar, la propietaria o el personal puede modificarlo: cambiar variantes, cantidades, agregar o quitar productos. Las existencias y el total se recalculan.
+
+Al editar se respetan las condiciones del día en que el cliente hizo el pedido:
+
+- Los productos que ya estaban conservan su precio, promoción y descuento originales.
+- Los productos que se agregan o cambian (por ejemplo, otro tono) toman el precio y las promociones que estaban vigentes cuando se hizo el pedido, aunque después hayan cambiado o vencido.
+
+Esta regla corrige una versión anterior en la que los productos agregados o cambiados tomaban las condiciones vigentes al editar.
+
+Una vez confirmado, el pedido no se puede editar.
+
+---
+
+## 2026-10-09 — Pago contra entrega: pagado al entregarse
+
+**Decisión:** en un pedido contra entrega, cuando la propietaria o el personal lo marca como entregado, el pago queda registrado como recibido. Es una excepción a la regla de que solo la propietaria verifica pagos.
+
+---
+
+## 2026-10-09 — Facturación electrónica
+
+**Decisión:** por ahora la tienda no emite factura electrónica. El checkout no pide documento de identidad ni correo.
+
+---
+
 ## Cómo se reflejan estas decisiones en el código
 
 Estado al 2026-10-09. Migraciones en `backend/prisma/migrations/`:
@@ -207,6 +270,8 @@ Estado al 2026-10-09. Migraciones en `backend/prisma/migrations/`:
 - `20261009221243_datos_divipola`
 - `20261009221800_autorizacion_datos_personales`
 - `20261009222634_nombres_divipola_legibles`
+- `20261009223847_catalogo_y_edicion_pedidos`
+- `20261009224247_historial_precios_y_promociones`
 
 ### Ya reflejado
 
@@ -223,11 +288,19 @@ Estado al 2026-10-09. Migraciones en `backend/prisma/migrations/`:
 - **Stock bajo:** `ProductVariant.lowStockThreshold` ya no tiene valor fijo; se propone desde `StoreSettings.defaultLowStockThreshold`. `null` = sin alerta.
 - **Descuento máximo:** `StoreSettings.maxPercentageDiscount`, validado por la aplicación. La base de datos solo impide superar el 100 %.
 - **Autorización de datos:** `Order.termsAcceptedAt` (casilla 1) y `Order.dataProcessingConsentAt` (casilla 2).
+- **Catálogo:** `Brand` (y `Product.brandId`, obligatorio), `Category.parentId` (subcategorías), `Product.netContent`, `ProductImage.variantId` (fotos por variante; `null` = foto general), `ProductVariant.costPrice` y `ProductVariant.maxPerOrder`.
+- **Promociones por variante:** `PromotionScope.VARIANT` y la tabla `PromotionVariant`.
+- **Edición de pedidos:** evento `OrderEventType.ITEMS_CHANGED`; las existencias se ajustan con movimientos `ORDER_RESERVED` y `ORDER_RELEASED`. Los productos que ya estaban conservan su snapshot en `OrderItem`.
+- **Condiciones a una fecha:** `VariantPriceHistory` guarda cada cambio del precio efectivo de una variante y `PromotionRevision` guarda cada versión de una promoción (condiciones y destinos). Con ambas se calcula el precio y la promoción vigentes en `Order.createdAt` para los productos agregados o cambiados al editar.
+- **Costo en el pedido:** `OrderItem.unitCost`.
 - **Permisos:** documentados en `AdminRole`.
 
 ### Pendiente en el código
 
 - El proceso que ejecuta las cancelaciones automáticas.
 - **Avisos de cancelación:** registrar qué avisos se enviaron por WhatsApp, mostrarle al personal qué pedidos necesitan aviso y mostrar el aviso en la página de seguimiento.
-- **Permisos:** aplicarlos en el backend al implementar el panel, incluida la excepción de cancelación del personal.
+- **Permisos:** aplicarlos en el backend al implementar el panel, incluidas las excepciones del personal (cancelación por pago no demostrado y pago contra entrega al entregarse) y la restricción de costos.
+- **Historiales:** la aplicación debe escribir una fila en `VariantPriceHistory` cada vez que cambie el precio efectivo de una variante (incluida su creación y los cambios de `Product.basePrice`), y una `PromotionRevision` al crear o modificar una promoción.
+- **Limitación conocida:** la pertenencia de un producto a una categoría y la estructura de subcategorías no tienen historial. Si un producto cambia de categoría, al editar un pedido anterior las promociones de categoría se evalúan con su categoría actual.
+- **Reglas entre filas que valida la aplicación:** máximo dos niveles de categorías; un producto no puede ir en una categoría que tenga subcategorías; una foto de variante debe pertenecer a una variante del mismo producto.
 - **Textos legales:** `StoreSettings` tiene campos para términos, privacidad, envíos y devoluciones. Sus borradores están en `politicas/` y no se deben cargar hasta que se aprueben.

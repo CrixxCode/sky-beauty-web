@@ -28,19 +28,20 @@ No necesitas registrarte para comprar. En cada pedido te pediremos tu nombre, te
 
 - Los precios están en pesos colombianos (COP). [PENDIENTE: confirmar si los precios incluyen IVA y cómo se informa.]
 - Las fotografías son de referencia. Los tonos pueden verse distintos según la pantalla de tu dispositivo.
-- Solo puedes comprar los productos y variantes que aparezcan disponibles. Las existencias se apartan para ti en el momento en que haces el pedido.
+- Solo puedes comprar los productos y variantes que aparezcan disponibles. Los productos agotados se muestran como "Agotado". Las existencias se apartan para ti en el momento en que haces el pedido.
+- Algunos productos pueden tener un máximo de unidades por pedido, que se indica en la tienda.
 
 ## 4. Promociones
 
 - Las promociones tienen fecha de inicio y de fin y solo aplican durante su vigencia.
-- Las promociones **no se acumulan**: a cada producto se le aplica una sola. Si a un producto le aplican varias, prevalece la promoción del producto sobre la de su categoría y, entre las del mismo tipo, la de mayor descuento.
+- Las promociones **no se acumulan**: a cada producto se le aplica una sola. Si le aplican varias, se aplica la de mayor descuento.
 - En la tienda verás el precio regular, el descuento y el precio final.
 
 ## 5. Cómo funciona tu pedido
 
 1. **Haces el pedido** en la tienda. Recibirás un código de pedido y un enlace privado para consultar su estado.
 2. **Nos escribes por WhatsApp.** La tienda prepara un mensaje con el resumen de tu pedido para que nos lo envíes.
-3. **Confirmamos tu pedido** por WhatsApp, junto con el costo del envío.
+3. **Confirmamos tu pedido** por WhatsApp, junto con el costo del envío. Antes de confirmarlo podemos ajustarlo contigo (por ejemplo, cambiar un tono o una cantidad). Al ajustarlo se respetan el precio y las promociones vigentes el día en que hiciste el pedido.
 4. **Pagas y nos envías el comprobante** por WhatsApp (si elegiste transferencia, Nequi o Daviplata).
 5. **Verificamos tu pago.**
 6. **Despachamos tu pedido** y te compartimos la transportadora y el número de guía.
