@@ -67,6 +67,16 @@ Base técnica que usan todos los módulos. Es el único módulo que no entrega u
 
 **Terminado cuando:** el backend arranca validando el entorno, las pruebas se ejecutan contra la base de pruebas, el script de datos iniciales funciona y ambas estructuras (tienda y panel) cargan.
 
+**Estado:** terminado el 2026-10-09.
+
+- Backend: `npm test`, `npm run test:db:prepare`, `npm run test:e2e`, `npm run db:seed`.
+- Frontend: `npm test`.
+
+Pendientes que pasan a módulos siguientes:
+
+- **Playwright:** se configura con el primer flujo de punta a punta (módulo 1). Requiere instalar sus navegadores (`npx playwright install`).
+- **Imágenes:** la configuración de `next/image` para las imágenes del backend se hace en el módulo 3. En Next.js 16 las IP locales están bloqueadas por defecto.
+
 ---
 
 ## 1. Acceso y cuentas del panel
