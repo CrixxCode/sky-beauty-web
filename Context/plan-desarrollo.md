@@ -94,6 +94,11 @@ Pendientes que pasan a módulos siguientes:
 
 **Terminado cuando:** la propietaria entra al panel, crea una cuenta de personal, y esa cuenta solo ve y puede usar lo que su rol permite.
 
+**Estado:** terminado el 2026-10-09.
+
+- Pruebas de punta a punta: `npm run test:e2e` en `frontend/`. Compilan backend y frontend en carpetas propias (`dist-e2e`, `.next-e2e`), usan los puertos 4100 y 3100 y la base de pruebas, y se ejecutan en vista de celular y de escritorio.
+- Recuperación de la propietaria: `npm run owner:reset-password` en el servidor (ver `src/cli/reset-owner-password.ts`).
+
 ---
 
 ## 2. Configuración de la tienda

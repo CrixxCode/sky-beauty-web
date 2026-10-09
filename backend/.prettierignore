@@ -5,3 +5,4 @@ src/generated
 prisma/migrations
 uploads
 package-lock.json
+dist-e2e
