@@ -10,7 +10,7 @@ Estado al 2026-10-09: el modelo de datos está completo (`backend/prisma/schema.
 
 ## Cómo se trabaja cada módulo
 
-1. **Rama propia:** `feat/<modulo>` creada desde `main`, con un PR hacia `main` al terminar.
+1. **Rama:** todo el desarrollo se hace en la rama `dev` (decisión de la persona usuaria, 2026-10-09). No se crean ramas por módulo salvo que la persona usuaria lo pida. Cada módulo se cierra con uno o más commits en `dev`.
 2. **Orden interno:** backend (endpoints + reglas + pruebas) → frontend (pantallas conectadas a la API) → prueba de punta a punta del flujo principal.
 3. **Pruebas:** la lógica de negocio con pruebas unitarias; los endpoints con pruebas de integración contra `sky_beauty_test`; el flujo principal con Playwright cuando haya frontend.
 4. **Terminado significa:**
