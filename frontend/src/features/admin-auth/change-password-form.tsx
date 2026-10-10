@@ -47,11 +47,11 @@ export function ChangePasswordForm() {
   );
 
   return (
-    <form onSubmit={onSubmit} noValidate className="max-w-md space-y-4">
+    <form onSubmit={onSubmit} noValidate>
       {field('currentPassword', 'Contraseña actual', 'current-password')}
       {field('newPassword', 'Contraseña nueva', 'new-password')}
       {field('confirmPassword', 'Confirma la contraseña nueva', 'new-password')}
-      <Button type="submit" disabled={isSubmitting}>
+      <Button type="submit" className="mt-2" disabled={isSubmitting}>
         {isSubmitting ? 'Guardando…' : 'Cambiar contraseña'}
       </Button>
     </form>

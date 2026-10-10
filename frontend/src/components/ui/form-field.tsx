@@ -1,25 +1,28 @@
 import type { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 
-/** Etiqueta, control y mensaje de error de un campo de formulario. */
+/** Etiqueta, control y mensaje de error de un campo (replica .field del prototipo). */
 export function FormField({
   id,
   label,
   error,
+  className,
   children,
 }: {
   id: string;
   label: string;
   error?: string;
+  className?: string;
   children: ReactNode;
 }) {
   return (
-    <div className="space-y-1.5">
-      <label htmlFor={id} className="block text-sm font-medium">
+    <div className={cn('mb-3.5 flex flex-col gap-2', className)}>
+      <label htmlFor={id} className="text-[11px] font-medium text-field-label">
         {label}
       </label>
       {children}
       {error && (
-        <p id={`${id}-error`} role="alert" className="text-sm text-danger">
+        <p id={`${id}-error`} className="text-[11px] text-danger">
           {error}
         </p>
       )}
@@ -34,4 +37,16 @@ export function fieldA11y(id: string, error?: string) {
     'aria-invalid': error ? true : undefined,
     'aria-describedby': error ? `${id}-error` : undefined,
   } as const;
+}
+
+/** Mensaje de error general de un formulario (replica .form-error del prototipo). */
+export function FormError({ children }: { children: ReactNode }) {
+  return (
+    <p
+      role="alert"
+      className="my-3 border border-danger-border bg-danger-bg px-3.25 py-2.75 text-[11px] text-danger"
+    >
+      {children}
+    </p>
+  );
 }

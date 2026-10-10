@@ -1,17 +1,20 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Playfair_Display, Poppins } from 'next/font/google';
 import { Providers } from './providers';
 import './globals.css';
 
-// Tipografía provisional hasta contar con los elementos oficiales de marca.
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+// Tipografías oficiales (Context/decisiones.md).
+const poppins = Poppins({
+  variable: '--font-poppins',
   subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
 });
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
+const playfair = Playfair_Display({
+  variable: '--font-playfair',
   subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  style: ['normal', 'italic'],
 });
 
 export const metadata: Metadata = {
@@ -25,8 +28,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html lang="es" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans">
+    <html lang="es" className={`${poppins.variable} ${playfair.variable} h-full antialiased`}>
+      <body className="flex min-h-full flex-col font-sans">
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -1,11 +1,12 @@
 import type { ComponentProps } from 'react';
 import { cn } from '@/lib/utils';
 
+// Replica .field input del prototipo.
 export function Input({ className, ...props }: ComponentProps<'input'>) {
   return (
     <input
       className={cn(
-        'h-11 w-full rounded-lg border border-border bg-surface px-3 text-base outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 aria-invalid:border-danger disabled:opacity-50',
+        'min-h-11.25 w-full rounded-none border border-field-border bg-white px-3.5 py-3.25 text-[11px] text-ink outline-offset-2 focus:border-field-focus aria-invalid:border-danger-border disabled:opacity-50',
         className,
       )}
       {...props}

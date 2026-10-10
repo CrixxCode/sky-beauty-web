@@ -2,12 +2,14 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { Search, Users } from 'lucide-react';
+import { Fragment, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { FormField, fieldA11y } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { AdminPanel, AdminPanelTitle, AdminStatus } from '@/features/admin-auth/admin-ui';
 import { ApiError, apiFetch } from '@/lib/api';
 import {
   createStaffSchema,
@@ -31,7 +33,11 @@ const formatDate = (iso: string | null) =>
       }).format(new Date(iso))
     : 'Nunca';
 
+const th = 'bg-[#f8f5f7] p-3.5 text-left text-[10px] font-semibold text-[#766a73]';
+const td = 'border-b border-[#f0ecf0] px-3.5 py-3.25 text-[10px] text-[#625760]';
+
 export function StaffAccounts() {
+  const [search, setSearch] = useState('');
   const {
     data: users,
     isPending,
@@ -40,20 +46,55 @@ export function StaffAccounts() {
     queryKey: USERS_KEY,
     queryFn: () => apiFetch<AdminUser[]>('/admin/users'),
   });
+  const visible = users?.filter((u) =>
+    `${u.name} ${u.email}`.toLowerCase().includes(search.trim().toLowerCase()),
+  );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       <CreateStaffForm />
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Cuentas</h2>
-        {isPending && <p className="text-sm text-muted-foreground">Cargando…</p>}
-        {isError && <p className="text-sm text-danger">No se pudieron cargar las cuentas.</p>}
-        <ul className="space-y-3">
-          {users?.map((user) => (
-            <AccountRow key={user.id} user={user} />
-          ))}
-        </ul>
-      </section>
+      <AdminPanel>
+        <div className="mb-3.5 flex items-center justify-between gap-5 max-[600px]:flex-col max-[600px]:items-start">
+          <AdminPanelTitle className="mb-0">Cuentas del panel</AdminPanelTitle>
+          <label className="flex items-center gap-2.5 border border-[#e8dfe6] p-2.5 text-[#917987] max-[600px]:w-full">
+            <Search size={16} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar cuentas"
+              aria-label="Buscar cuentas"
+              className="border-0 text-[11px] outline-0 max-[600px]:w-full"
+            />
+          </label>
+        </div>
+        {isPending && <p className="text-[11px] text-muted">Cargando…</p>}
+        {isError && <p className="text-[11px] text-danger">No se pudieron cargar las cuentas.</p>}
+        {visible && visible.length === 0 && (
+          <div className="flex flex-col items-center gap-3 bg-[#fbf9fa] px-5 py-12.5 text-center text-[11px] text-[#948692]">
+            <Users size={32} /> No hay cuentas que coincidan con la búsqueda.
+          </div>
+        )}
+        {visible && visible.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-157.5 border-collapse">
+              <thead>
+                <tr>
+                  <th className={th}>Cuenta</th>
+                  <th className={th}>Rol</th>
+                  <th className={th}>Último ingreso</th>
+                  <th className={th}>Estado</th>
+                  <th className={th}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((user) => (
+                  <AccountRow key={user.id} user={user} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </AdminPanel>
     </div>
   );
 }
@@ -79,35 +120,39 @@ function CreateStaffForm() {
   });
 
   return (
-    <section className="space-y-3 rounded-2xl border border-border bg-surface p-4 sm:p-6">
-      <h2 className="text-lg font-semibold">Nueva cuenta del personal</h2>
-      <form onSubmit={onSubmit} noValidate className="grid gap-4 sm:grid-cols-3">
-        <FormField id="staff-name" label="Nombre" error={errors.name?.message}>
-          <Input {...fieldA11y('staff-name', errors.name?.message)} {...register('name')} />
-        </FormField>
-        <FormField id="staff-email" label="Correo" error={errors.email?.message}>
-          <Input
-            type="email"
-            autoComplete="off"
-            {...fieldA11y('staff-email', errors.email?.message)}
-            {...register('email')}
-          />
-        </FormField>
-        <FormField id="staff-password" label="Contraseña inicial" error={errors.password?.message}>
-          <Input
-            type="password"
-            autoComplete="new-password"
-            {...fieldA11y('staff-password', errors.password?.message)}
-            {...register('password')}
-          />
-        </FormField>
-        <div className="sm:col-span-3">
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Creando…' : 'Crear cuenta'}
-          </Button>
+    <AdminPanel>
+      <AdminPanelTitle>Nueva cuenta del personal</AdminPanelTitle>
+      <form onSubmit={onSubmit} noValidate>
+        <div className="grid gap-x-4.5 min-[601px]:grid-cols-2">
+          <FormField id="staff-name" label="Nombre" error={errors.name?.message}>
+            <Input {...fieldA11y('staff-name', errors.name?.message)} {...register('name')} />
+          </FormField>
+          <FormField id="staff-email" label="Correo" error={errors.email?.message}>
+            <Input
+              type="email"
+              autoComplete="off"
+              {...fieldA11y('staff-email', errors.email?.message)}
+              {...register('email')}
+            />
+          </FormField>
+          <FormField
+            id="staff-password"
+            label="Contraseña inicial"
+            error={errors.password?.message}
+          >
+            <Input
+              type="password"
+              autoComplete="new-password"
+              {...fieldA11y('staff-password', errors.password?.message)}
+              {...register('password')}
+            />
+          </FormField>
         </div>
+        <Button type="submit" className="mt-2" disabled={isSubmitting}>
+          {isSubmitting ? 'Creando…' : 'Crear cuenta'}
+        </Button>
       </form>
-    </section>
+    </AdminPanel>
   );
 }
 
@@ -131,40 +176,51 @@ function AccountRow({ user }: { user: AdminUser }) {
   });
 
   return (
-    <li className="rounded-2xl border border-border bg-surface p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-medium">
-            {user.name}{' '}
-            <span className="text-sm font-normal text-muted-foreground">
-              · {ROLE_LABELS[user.role]}
-            </span>
-          </p>
-          <p className="truncate text-sm text-muted-foreground">{user.email}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Último ingreso: {formatDate(user.lastLoginAt)}
-            {!user.isActive && ' · Desactivada'}
-            {locked && ' · Bloqueada temporalmente'}
-          </p>
-        </div>
-        {isStaff && (
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={() => setResetting((v) => !v)}>
-              Restablecer contraseña
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => toggleActive.mutate()}
-              disabled={toggleActive.isPending}
-            >
-              {user.isActive ? 'Desactivar' : 'Activar'}
-            </Button>
-          </div>
-        )}
-      </div>
-      {resetting && <ResetPasswordForm user={user} onDone={() => setResetting(false)} />}
-    </li>
+    <Fragment>
+      <tr>
+        <td className={td}>
+          <span className="block min-w-37.5 text-[10px] font-medium">
+            {user.name}
+            <small className="mt-1 block text-[9px] text-[#a4979e]">{user.email}</small>
+          </span>
+        </td>
+        <td className={td}>{ROLE_LABELS[user.role]}</td>
+        <td className={td}>{formatDate(user.lastLoginAt)}</td>
+        <td className={td}>
+          {!user.isActive ? (
+            <AdminStatus tone="out">Desactivada</AdminStatus>
+          ) : locked ? (
+            <AdminStatus tone="out">Bloqueada temporalmente</AdminStatus>
+          ) : (
+            <AdminStatus>Activa</AdminStatus>
+          )}
+        </td>
+        <td className={td}>
+          {isStaff && (
+            <div className="flex gap-2 whitespace-nowrap">
+              <Button variant="outline" size="sm" onClick={() => setResetting((v) => !v)}>
+                Restablecer contraseña
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toggleActive.mutate()}
+                disabled={toggleActive.isPending}
+              >
+                {user.isActive ? 'Desactivar' : 'Activar'}
+              </Button>
+            </div>
+          )}
+        </td>
+      </tr>
+      {resetting && (
+        <tr>
+          <td colSpan={5} className={td}>
+            <ResetPasswordForm user={user} onDone={() => setResetting(false)} />
+          </td>
+        </tr>
+      )}
+    </Fragment>
   );
 }
 
@@ -192,17 +248,20 @@ function ResetPasswordForm({ user, onDone }: { user: AdminUser; onDone: () => vo
   });
 
   return (
-    <form onSubmit={onSubmit} noValidate className="mt-4 flex flex-wrap items-end gap-3">
-      <div className="min-w-60 flex-1">
-        <FormField id={id} label="Contraseña nueva" error={errors.newPassword?.message}>
-          <Input
-            type="password"
-            autoComplete="new-password"
-            {...fieldA11y(id, errors.newPassword?.message)}
-            {...register('newPassword')}
-          />
-        </FormField>
-      </div>
+    <form onSubmit={onSubmit} noValidate className="flex flex-wrap items-end gap-3">
+      <FormField
+        id={id}
+        label={`Contraseña nueva para ${user.name}`}
+        error={errors.newPassword?.message}
+        className="mb-0 min-w-60 flex-1"
+      >
+        <Input
+          type="password"
+          autoComplete="new-password"
+          {...fieldA11y(id, errors.newPassword?.message)}
+          {...register('newPassword')}
+        />
+      </FormField>
       <Button type="submit" size="sm" disabled={isSubmitting}>
         Guardar
       </Button>

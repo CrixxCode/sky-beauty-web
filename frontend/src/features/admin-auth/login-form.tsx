@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { FormField, fieldA11y } from '@/components/ui/form-field';
+import { FormError, FormField, fieldA11y } from '@/components/ui/form-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ApiError, apiFetch } from '@/lib/api';
@@ -37,7 +37,7 @@ export function LoginForm() {
   });
 
   return (
-    <form onSubmit={onSubmit} noValidate className="space-y-4">
+    <form onSubmit={onSubmit} noValidate>
       <FormField id="email" label="Correo" error={errors.email?.message}>
         <Input
           type="email"
@@ -54,12 +54,8 @@ export function LoginForm() {
           {...register('password')}
         />
       </FormField>
-      {serverError && (
-        <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
-          {serverError}
-        </p>
-      )}
-      <Button type="submit" className="w-full" disabled={isSubmitting}>
+      {serverError && <FormError>{serverError}</FormError>}
+      <Button type="submit" className="mt-2 w-full" disabled={isSubmitting}>
         {isSubmitting ? 'Ingresando…' : 'Ingresar'}
       </Button>
     </form>

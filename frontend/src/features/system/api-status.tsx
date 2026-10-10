@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { AdminStatus } from '@/features/admin-auth/admin-ui';
 import { apiFetch } from '@/lib/api';
 
 interface HealthResponse {
@@ -15,20 +16,25 @@ export function ApiStatus() {
     queryFn: () => apiFetch<HealthResponse>('/health'),
   });
 
+  const connected = !isPending && !isError && data.database === 'ok';
   const label = isPending
     ? 'Comprobando conexión…'
     : isError
       ? 'Sin conexión con el servidor'
-      : data.database === 'ok'
+      : connected
         ? 'Servidor y base de datos conectados'
         : 'Estado desconocido';
 
   return (
-    <p
-      role="status"
-      className="rounded-xl border border-border bg-surface px-4 py-3 text-sm text-muted-foreground"
-    >
-      {label}
-    </p>
+    <div className="flex items-center justify-between gap-3 border-b border-[#eee9ec] py-3.75">
+      <p role="status" className="text-[11px] text-[#665e66]">
+        {label}
+      </p>
+      {!isPending && (
+        <AdminStatus tone={connected ? 'ok' : 'out'}>
+          {connected ? 'En línea' : 'Sin conexión'}
+        </AdminStatus>
+      )}
+    </div>
   );
 }

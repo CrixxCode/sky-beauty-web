@@ -8,7 +8,14 @@ async function login(page: Page, email: string, password: string) {
   await page.getByRole('button', { name: 'Ingresar' }).click();
 }
 
+/** En celular el menú lateral está oculto y se abre con el botón de la barra superior. */
+async function openNav(page: Page) {
+  const toggle = page.getByRole('button', { name: 'Abrir navegación' });
+  if (await toggle.isVisible()) await toggle.click();
+}
+
 async function logout(page: Page) {
+  await openNav(page);
   await page.getByRole('button', { name: 'Cerrar sesión' }).click();
   await expect(page).toHaveURL(/\/admin\/login$/);
 }
@@ -16,7 +23,7 @@ async function logout(page: Page) {
 test('el panel exige iniciar sesión', async ({ page }) => {
   await page.goto('/admin');
   await expect(page).toHaveURL(/\/admin\/login$/);
-  await expect(page.getByText('Panel administrativo')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Panel de gestión Sky Beauty' })).toBeVisible();
 });
 
 test('muestra un error con credenciales incorrectas', async ({ page }) => {
@@ -36,11 +43,17 @@ test('la propietaria crea una cuenta del personal, que solo ve lo permitido', as
 
   // La propietaria inicia sesión y ve el estado del servidor.
   await login(page, E2E_OWNER.email, E2E_OWNER.password);
-  await expect(page.getByRole('heading', { name: `Hola, ${E2E_OWNER.name}` })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Resumen' })).toBeVisible();
+  await expect(page.getByText(`Hola, ${E2E_OWNER.name}.`)).toBeVisible();
   await expect(page.getByRole('status')).toHaveText('Servidor y base de datos conectados');
 
-  // Crea la cuenta del personal.
-  await page.getByRole('link', { name: 'Cuentas' }).click();
+  // Crea la cuenta del personal desde el menú lateral.
+  await openNav(page);
+  await page
+    .getByRole('navigation', { name: 'Panel' })
+    .getByRole('link', { name: 'Cuentas' })
+    .click();
+  await expect(page.getByRole('heading', { name: 'Cuentas', level: 1 })).toBeVisible();
   await page.getByLabel('Nombre').fill(staff.name);
   await page.getByLabel('Correo').fill(staff.email);
   await page.getByLabel('Contraseña inicial').fill(staff.password);
@@ -51,7 +64,7 @@ test('la propietaria crea una cuenta del personal, que solo ve lo permitido', as
 
   // El personal entra, no ve "Cuentas" y no puede abrirla por URL.
   await login(page, staff.email, staff.password);
-  await expect(page.getByRole('heading', { name: `Hola, ${staff.name}` })).toBeVisible();
+  await expect(page.getByText(`Hola, ${staff.name}.`)).toBeVisible();
   await expect(page.getByRole('link', { name: 'Cuentas' })).toHaveCount(0);
   await page.goto('/admin/cuentas');
   await expect(page).toHaveURL(/\/admin$/);

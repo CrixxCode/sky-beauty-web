@@ -1,44 +1,107 @@
 @import 'tailwindcss';
 
 /*
- * Tokens de diseño PROVISIONALES.
- * Basados en la paleta propuesta en Context/negocio.md (rosa empolvado, nude, blanco cálido y neutros).
- * Se reemplazan cuando la propietaria entregue los elementos oficiales de marca.
- * La identidad visual no define un modo oscuro, por eso no se incluye.
+ * Tokens de diseño de Sky Beauty.
+ * Colores y tipografías oficiales (Context/decisiones.md). Los tonos derivados (mauve-dark, ink,
+ * paper, muted, bordes y superficies) replican el prototipo de referencia (src/styles.css).
+ * La identidad visual no define un modo oscuro.
  */
 :root {
-  --background: #fbf7f4; /* blanco cálido */
-  --foreground: #2e2826; /* neutro oscuro */
-  --surface: #ffffff;
-  --muted: #f3ece7;
-  --muted-foreground: #74685f;
-  --border: #e8ddd5;
-  --primary: #9e5e62; /* rosa empolvado profundo, con contraste suficiente para texto blanco */
-  --primary-foreground: #ffffff;
-  --accent: #f1dcd9; /* rosa empolvado claro */
-  --accent-foreground: #2e2826;
-  --nude: #e7d2c2;
-  --danger: #b4232c;
+  /* Oficiales */
+  --lavender: #b785b8;
+  --mauve: #a46ea4;
+  --beige: #d8d4cb;
+  --ivory: #f5f1eb;
+  --brown: #8a694d;
+  /* Derivados del prototipo */
+  --mauve-dark: #70436f;
+  --mauve-deep: #5b365b;
+  --ink: #3a2c36;
+  --paper: #fffcf9;
+  --muted: #80757a;
+  --border: #ebe5e5;
+  --eyebrow: #9b7099;
+  --field-border: #e5dbe2;
+  --field-focus: #a77da3;
+  --field-label: #5b4c56;
+  --admin-bg: #f7f6f7;
+  --admin-line: #eee8ed;
+  --admin-active: #f4ebf4;
+  --admin-active-text: #764b77;
+  --gate-bg: #f6edf4;
+  --danger-bg: #fff0f0;
+  --danger-border: #e9b6bc;
+  --danger: #933f53;
+  --success-bg: #eaf6ee;
+  --success: #367352;
+  --out-bg: #f9ebef;
+  --out: #9c536b;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-surface: var(--surface);
+  --color-lavender: var(--lavender);
+  --color-mauve: var(--mauve);
+  --color-mauve-dark: var(--mauve-dark);
+  --color-mauve-deep: var(--mauve-deep);
+  --color-beige: var(--beige);
+  --color-ivory: var(--ivory);
+  --color-brown: var(--brown);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
   --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-nude: var(--nude);
+  --color-eyebrow: var(--eyebrow);
+  --color-field-border: var(--field-border);
+  --color-field-focus: var(--field-focus);
+  --color-field-label: var(--field-label);
+  --color-admin-bg: var(--admin-bg);
+  --color-admin-line: var(--admin-line);
+  --color-admin-active: var(--admin-active);
+  --color-admin-active-text: var(--admin-active-text);
+  --color-gate-bg: var(--gate-bg);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-border: var(--danger-border);
   --color-danger: var(--danger);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-success-bg: var(--success-bg);
+  --color-success: var(--success);
+  --color-out-bg: var(--out-bg);
+  --color-out: var(--out);
+  --font-sans: var(--font-poppins), sans-serif;
+  --font-serif: var(--font-playfair), Georgia, serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--paper);
+  color: var(--ink);
+  min-width: 320px;
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  outline-offset: 3px;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--mauve-dark);
+}
+
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
 }
