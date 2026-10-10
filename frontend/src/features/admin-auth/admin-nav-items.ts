@@ -1,4 +1,4 @@
-import { KeyRound, LayoutDashboard, Users, type LucideIcon } from 'lucide-react';
+import { KeyRound, LayoutDashboard, Settings, Users, type LucideIcon } from 'lucide-react';
 import type { AdminRole } from '@/types/admin';
 
 export interface AdminNavItem {
@@ -14,6 +14,8 @@ export interface AdminNavItem {
 export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin', label: 'Resumen', icon: LayoutDashboard },
   { href: '/admin/cuentas', label: 'Cuentas', icon: Users, roles: ['ADMIN'] },
+  // El personal ve la configuración en modo solo lectura (Context/decisiones.md).
+  { href: '/admin/configuracion', label: 'Configuración', icon: Settings },
   { href: '/admin/mi-cuenta', label: 'Mi cuenta', icon: KeyRound },
 ];
 

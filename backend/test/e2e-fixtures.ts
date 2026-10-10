@@ -1,9 +1,11 @@
 /**
  * Prepara la base de pruebas para las pruebas de punta a punta del frontend (Playwright):
- * la vacía (salvo datos de referencia) y crea la cuenta de la propietaria de prueba.
+ * la vacía (salvo datos de referencia), carga los datos iniciales (configuración y métodos de pago)
+ * y crea la cuenta de la propietaria de prueba.
  * La ejecuta frontend/e2e/global-setup.ts con DATABASE_URL apuntando a la base de pruebas.
  */
 import { PrismaPg } from '@prisma/adapter-pg';
+import { seed } from '../prisma/seed';
 import { AdminRole, PrismaClient } from '../src/generated/prisma/client';
 import { hashPassword } from '../src/shared/security/password';
 import { resetDatabase } from './utils/database';
@@ -22,6 +24,7 @@ async function main(): Promise<void> {
   const prisma = new PrismaClient({ adapter: new PrismaPg(DATABASE_URL) });
   try {
     await resetDatabase(prisma);
+    await seed(prisma);
     await prisma.adminUser.create({
       data: {
         email: E2E_OWNER_EMAIL,

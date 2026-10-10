@@ -115,6 +115,12 @@ Pendientes que pasan a módulos siguientes:
 
 **Terminado cuando:** la propietaria configura el WhatsApp, un método de pago y los municipios de contra entrega, y la tienda muestra los datos de contacto.
 
+**Estado:** terminado el 2026-10-09.
+
+- Panel: `/admin/configuracion` (el personal la ve en solo lectura).
+- Tienda: el pie muestra los datos de contacto, las redes y el enlace de WhatsApp configurados.
+- Los textos del inicio, la barra de anuncios y los textos legales quedan para el módulo 12.
+
 **Bloqueos de negocio:** número de WhatsApp, redes y datos de contacto reales (se puede construir sin ellos).
 
 ---
