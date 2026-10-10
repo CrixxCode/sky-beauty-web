@@ -17,7 +17,7 @@ Estado al 2026-10-09: el modelo de datos está completo (`backend/prisma/schema.
    - cumple el criterio de terminado del módulo;
    - typecheck, lint y pruebas pasan;
    - las preguntas surgidas se resolvieron y quedaron en `decisiones.md`.
-5. **Diseño:** mientras no lleguen el logo y los elementos oficiales de marca, el frontend usa tokens de diseño provisionales con la paleta propuesta (rosa empolvado, nude, blanco cálido, neutros), centralizados para reemplazarlos fácilmente.
+5. **Diseño:** cada vista replica el prototipo de referencia (ver `AGENTS.md`, sección 4), con los colores y tipografías oficiales de `decisiones.md`. El logotipo sigue pendiente.
 
 ---
 

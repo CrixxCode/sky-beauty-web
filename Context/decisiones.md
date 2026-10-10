@@ -260,6 +260,19 @@ Una vez confirmado, el pedido no se puede editar.
 
 ---
 
+## 2026-10-09 — Identidad visual y prototipo de referencia
+
+**Decisiones:**
+
+- **Colores oficiales:** `#B785B8`, `#A46EA4`, `#D8D4CB`, `#F5F1EB`, `#8A694D`.
+- **Tipografías oficiales:** Playfair Display (títulos) y Poppins (textos).
+- **Prototipo de referencia:** `C:\Users\Usuario\Downloads\Sky_Beauty_React_Demo\sky-beauty-demo`. Toda vista del frontend (tienda y panel) debe verse tal cual el prototipo (ver `AGENTS.md`, sección 4).
+- **Alcance del prototipo:** se copia solo el diseño. La funcionalidad sigue `negocio.md` y este archivo; las funciones del prototipo que el contexto descarta o no menciona (cuentas y registro de clientes, favoritos, cupones, recuperación por correo, testimonios) no se construyen sin consultarlo.
+
+**Pendiente:** el logotipo oficial (horizontal, vertical, monocromo) y las fotografías autorizadas. El prototipo deja un espacio reservado para el logotipo.
+
+---
+
 ## 2026-10-09 — Recuperación de contraseñas sin correo
 
 **Decisión:** como no hay servicio de correo, no existe "¿Olvidaste tu contraseña?" por email.
