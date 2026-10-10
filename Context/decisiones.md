@@ -260,6 +260,16 @@ Una vez confirmado, el pedido no se puede editar.
 
 ---
 
+## 2026-10-09 — Configuración de la tienda y métodos de pago
+
+**Decisiones:**
+
+- **Instrucciones obligatorias para activar pagos verificables:** transferencia bancaria, Nequi y Daviplata no se pueden activar sin instrucciones de pago, y no se pueden borrar sus instrucciones mientras estén activos. El efectivo contra entrega no requiere instrucciones.
+- **El personal ve la configuración sin editarla:** la sección de configuración es visible para el personal en modo solo lectura; solo la propietaria la modifica.
+- **Número de WhatsApp:** se guarda con el código de país y sin `+` (por ejemplo, `573001234567`). Si se escribe un celular colombiano de 10 dígitos sin código de país, se le agrega `57` automáticamente; también se acepta escrito con `57` o `+57`.
+
+---
+
 ## 2026-10-09 — Identidad visual y prototipo de referencia
 
 **Decisiones:**

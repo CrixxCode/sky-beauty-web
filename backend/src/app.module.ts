@@ -7,6 +7,9 @@ import { type Env, validateEnv } from './config/env';
 import { AdminUsersModule } from './modules/admin-users/admin-users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
+import { LocationsModule } from './modules/locations/locations.module';
+import { PaymentMethodsModule } from './modules/payment-methods/payment-methods.module';
+import { StoreSettingsModule } from './modules/store-settings/store-settings.module';
 import { AllExceptionsFilter } from './shared/http/all-exceptions.filter';
 import { PrismaModule } from './shared/prisma/prisma.module';
 
@@ -39,6 +42,9 @@ import { PrismaModule } from './shared/prisma/prisma.module';
     PrismaModule,
     AuthModule,
     AdminUsersModule,
+    StoreSettingsModule,
+    PaymentMethodsModule,
+    LocationsModule,
     HealthModule,
   ],
   providers: [
