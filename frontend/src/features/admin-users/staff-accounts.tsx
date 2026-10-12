@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Users } from 'lucide-react';
+import { KeyRound, Plus, Search, Users, X } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -34,12 +34,13 @@ const formatDate = (iso: string | null) =>
       }).format(new Date(iso))
     : 'Nunca';
 
-const th = 'bg-[#f8f5f7] p-3.5 text-left text-[10px] font-semibold text-[#766a73]';
-const td = 'border-b border-[#f0ecf0] px-3.5 py-3.25 text-[10px] text-[#625760]';
+const th = 'bg-[#f8f5f7] p-3 text-left text-[10px] font-semibold text-[#766a73]';
+const td = 'border-b border-[#f0ecf0] px-3 py-3 text-[10px] text-[#625760] align-middle';
 
 export function StaffAccounts() {
   const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [resettingUser, setResettingUser] = useState<AdminUser | null>(null);
 
   const {
     data: users,
@@ -57,49 +58,83 @@ export function StaffAccounts() {
   return (
     <div className="space-y-5">
       <AdminPanel>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-          <AdminPanelTitle className="mb-0">Cuentas del panel</AdminPanelTitle>
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2.5 border border-[#e8dfe6] p-2.5 text-[#917987] max-[600px]:w-full">
-              <Search size={16} />
+        {/* Barra superior con título y controles */}
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <AdminPanelTitle className="mb-0">Cuentas del panel</AdminPanelTitle>
+            {users && (
+              <span className="rounded-full bg-[#f4eff3] px-2.5 py-0.5 text-[10px] font-semibold text-[#764b77]">
+                {users.length} {users.length === 1 ? 'cuenta' : 'cuentas'}
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 max-[600px]:w-full">
+            <div className="relative flex items-center border border-[#e8dfe6] bg-white text-[#917987] transition-colors focus-within:border-[#936591] max-[600px]:w-full">
+              <span className="pl-3 text-[#917987]">
+                <Search size={15} />
+              </span>
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar cuentas"
+                placeholder="Buscar por nombre o correo..."
                 aria-label="Buscar cuentas"
-                className="border-0 text-[11px] outline-0 max-[600px]:w-full"
+                className="w-52 px-2.5 py-2 text-[11px] outline-none placeholder:text-[#a0929b] max-[600px]:w-full"
               />
-            </label>
-            <Button onClick={() => setIsCreateOpen(true)}>
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  aria-label="Limpiar búsqueda"
+                  className="pr-2.5 text-[#a0929b] hover:text-[#493a45] cursor-pointer"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <Button onClick={() => setIsCreateOpen(true)} className="max-[600px]:w-full">
               <Plus size={15} className="mr-1.5" /> Nueva cuenta
             </Button>
           </div>
         </div>
 
-        {isPending && <p className="text-[11px] text-muted">Cargando…</p>}
+        {isPending && <p className="text-[11px] text-muted">Cargando cuentas…</p>}
         {isError && <p className="text-[11px] text-danger">No se pudieron cargar las cuentas.</p>}
 
         {visible && visible.length === 0 && (
-          <div className="flex flex-col items-center gap-3 bg-[#fbf9fa] px-5 py-12.5 text-center text-[11px] text-[#948692]">
-            <Users size={32} /> No hay cuentas que coincidan con la búsqueda.
+          <div className="flex flex-col items-center justify-center gap-2.5 bg-[#fbf9fa] border border-[#eee8ed] px-5 py-12 text-center text-[11px] text-[#948692]">
+            <Users size={32} className="text-[#c4b7c1]" />
+            <p className="font-medium text-[#493a45]">
+              {search ? 'No se encontraron cuentas' : 'No hay cuentas registradas'}
+            </p>
+            <p className="text-[10px]">
+              {search
+                ? `No hay miembros del equipo que coincidan con "${search}".`
+                : 'Crea una cuenta para autorizar el acceso al personal del panel.'}
+            </p>
           </div>
         )}
 
         {visible && visible.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-157.5 border-collapse">
+          <div className="overflow-x-auto border border-[#eee8ed]">
+            <table className="w-full min-w-160 border-collapse bg-white">
               <thead>
                 <tr>
                   <th className={th}>Cuenta</th>
                   <th className={th}>Rol</th>
                   <th className={th}>Último ingreso</th>
                   <th className={th}>Estado</th>
-                  <th className={th}>Acciones</th>
+                  <th className={`${th} text-right`}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {visible.map((user) => (
-                  <AccountRow key={user.id} user={user} />
+                  <AccountRow
+                    key={user.id}
+                    user={user}
+                    onResetPassword={() => setResettingUser(user)}
+                  />
                 ))}
               </tbody>
             </table>
@@ -112,12 +147,27 @@ export function StaffAccounts() {
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         title="Nueva cuenta del personal"
-        description="Ingresa los datos del nuevo miembro del equipo. Podrá acceder al panel con rol Personal."
+        description="Ingresa los datos para autorizar a un nuevo miembro del equipo con rol Personal."
       >
         <CreateStaffForm
           onSuccess={() => setIsCreateOpen(false)}
           onCancel={() => setIsCreateOpen(false)}
         />
+      </Modal>
+
+      {/* Modal para Restablecer Contraseña (fuera de la tabla) */}
+      <Modal
+        isOpen={!!resettingUser}
+        onClose={() => setResettingUser(null)}
+        title={`Restablecer contraseña: ${resettingUser?.name}`}
+        description="Ingresa una nueva contraseña. Por seguridad se cerrarán todas sus sesiones activas."
+      >
+        {resettingUser && (
+          <ResetPasswordForm
+            user={resettingUser}
+            onDone={() => setResettingUser(null)}
+          />
+        )}
       </Modal>
     </div>
   );
@@ -142,7 +192,7 @@ function CreateStaffForm({
     try {
       await apiFetch<AdminUser>('/admin/users', { method: 'POST', body: JSON.stringify(values) });
       reset();
-      toast.success('Cuenta del personal creada.');
+      toast.success('Cuenta del personal creada exitosamente.');
       await queryClient.invalidateQueries({ queryKey: USERS_KEY });
       onSuccess();
     } catch (error) {
@@ -152,14 +202,19 @@ function CreateStaffForm({
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4">
-      <FormField id="staff-name" label="Nombre" error={errors.name?.message}>
-        <Input {...fieldA11y('staff-name', errors.name?.message)} {...register('name')} />
+      <FormField id="staff-name" label="Nombre completo *" error={errors.name?.message}>
+        <Input
+          placeholder="Ej. Laura Gómez"
+          {...fieldA11y('staff-name', errors.name?.message)}
+          {...register('name')}
+        />
       </FormField>
 
-      <FormField id="staff-email" label="Correo" error={errors.email?.message}>
+      <FormField id="staff-email" label="Correo electrónico *" error={errors.email?.message}>
         <Input
           type="email"
           autoComplete="off"
+          placeholder="ejemplo@skybeauty.co"
           {...fieldA11y('staff-email', errors.email?.message)}
           {...register('email')}
         />
@@ -167,18 +222,20 @@ function CreateStaffForm({
 
       <FormField
         id="staff-password"
-        label="Contraseña inicial"
+        label="Contraseña inicial *"
+        description="Mínimo 8 caracteres, al menos una mayúscula, un número y un símbolo."
         error={errors.password?.message}
       >
         <Input
           type="password"
           autoComplete="new-password"
+          placeholder="••••••••"
           {...fieldA11y('staff-password', errors.password?.message)}
           {...register('password')}
         />
       </FormField>
 
-      <div className="flex justify-end gap-2.5 pt-2 border-t border-[#f0ecf0]">
+      <div className="flex justify-end gap-2.5 pt-3 border-t border-[#f0ecf0]">
         <Button variant="outline" type="button" onClick={onCancel} disabled={isSubmitting}>
           Cancelar
         </Button>
@@ -190,9 +247,14 @@ function CreateStaffForm({
   );
 }
 
-function AccountRow({ user }: { user: AdminUser }) {
+function AccountRow({
+  user,
+  onResetPassword,
+}: {
+  user: AdminUser;
+  onResetPassword: () => void;
+}) {
   const queryClient = useQueryClient();
-  const [resetting, setResetting] = useState(false);
   const isStaff = user.role === 'STAFF';
   const locked = user.lockedUntil !== null && new Date(user.lockedUntil) > new Date();
 
@@ -210,53 +272,45 @@ function AccountRow({ user }: { user: AdminUser }) {
   });
 
   return (
-    <>
-      <tr>
-        <td className={td}>
-          <span className="block min-w-37.5 text-[10px] font-medium">
-            {user.name}
-            <small className="mt-1 block text-[9px] text-[#a4979e]">{user.email}</small>
-          </span>
-        </td>
-        <td className={td}>{ROLE_LABELS[user.role]}</td>
-        <td className={td}>{formatDate(user.lastLoginAt)}</td>
-        <td className={td}>
-          {!user.isActive ? (
-            <AdminStatus tone="out">Desactivada</AdminStatus>
-          ) : locked ? (
-            <AdminStatus tone="out">Bloqueada temporalmente</AdminStatus>
-          ) : (
-            <AdminStatus>Activa</AdminStatus>
-          )}
-        </td>
-        <td className={td}>
-          {isStaff && (
-            <div className="flex gap-2 whitespace-nowrap">
-              <Button variant="outline" size="sm" onClick={() => setResetting(true)}>
-                Restablecer contraseña
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => toggleActive.mutate()}
-                disabled={toggleActive.isPending}
-              >
-                {user.isActive ? 'Desactivar' : 'Activar'}
-              </Button>
-            </div>
-          )}
-        </td>
-      </tr>
-
-      <Modal
-        isOpen={resetting}
-        onClose={() => setResetting(false)}
-        title={`Restablecer contraseña: ${user.name}`}
-        description="Ingresa la nueva contraseña. Se cerrarán todas sus sesiones activas."
-      >
-        <ResetPasswordForm user={user} onDone={() => setResetting(false)} />
-      </Modal>
-    </>
+    <tr className="hover:bg-[#faf8f9] transition-colors">
+      <td className={td}>
+        <span className="block min-w-37.5 font-medium text-[#493a45]">
+          {user.name}
+          <small className="mt-0.5 block text-[9px] text-[#a4979e]">{user.email}</small>
+        </span>
+      </td>
+      <td className={td}>
+        <span className="font-semibold text-[#493a45]">{ROLE_LABELS[user.role]}</span>
+      </td>
+      <td className={td}>{formatDate(user.lastLoginAt)}</td>
+      <td className={td}>
+        {!user.isActive ? (
+          <AdminStatus tone="out">Desactivada</AdminStatus>
+        ) : locked ? (
+          <AdminStatus tone="out">Bloqueada temporalmente</AdminStatus>
+        ) : (
+          <AdminStatus tone="ok">Activa</AdminStatus>
+        )}
+      </td>
+      <td className={`${td} text-right`}>
+        {isStaff && (
+          <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+            <Button variant="outline" size="sm" onClick={onResetPassword}>
+              <KeyRound size={12} className="mr-1" />
+              Restablecer
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => toggleActive.mutate()}
+              disabled={toggleActive.isPending}
+            >
+              {user.isActive ? 'Desactivar' : 'Activar'}
+            </Button>
+          </div>
+        )}
+      </td>
+    </tr>
   );
 }
 
@@ -275,7 +329,7 @@ function ResetPasswordForm({ user, onDone }: { user: AdminUser; onDone: () => vo
         method: 'POST',
         body: JSON.stringify(values),
       });
-      toast.success(`Contraseña de ${user.name} restablecida.`);
+      toast.success(`Contraseña de ${user.name} restablecida exitosamente.`);
       await queryClient.invalidateQueries({ queryKey: USERS_KEY });
       onDone();
     } catch (error) {
@@ -287,23 +341,25 @@ function ResetPasswordForm({ user, onDone }: { user: AdminUser; onDone: () => vo
     <form onSubmit={onSubmit} noValidate className="space-y-4">
       <FormField
         id={id}
-        label={`Contraseña nueva`}
+        label="Nueva contraseña temporal *"
+        description="Mínimo 8 caracteres, al menos una mayúscula, un número y un símbolo."
         error={errors.newPassword?.message}
       >
         <Input
           type="password"
           autoComplete="new-password"
+          placeholder="••••••••"
           {...fieldA11y(id, errors.newPassword?.message)}
           {...register('newPassword')}
         />
       </FormField>
 
-      <div className="flex justify-end gap-2.5 pt-2 border-t border-[#f0ecf0]">
+      <div className="flex justify-end gap-2.5 pt-3 border-t border-[#f0ecf0]">
         <Button variant="outline" type="button" onClick={onDone} disabled={isSubmitting}>
           Cancelar
         </Button>
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Guardando…' : 'Guardar contraseña'}
+          {isSubmitting ? 'Guardando…' : 'Guardar nueva contraseña'}
         </Button>
       </div>
     </form>

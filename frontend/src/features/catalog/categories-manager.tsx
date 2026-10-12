@@ -2,7 +2,16 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Boxes, CornerDownRight, Edit2, Plus, Trash2 } from 'lucide-react';
+import {
+  Boxes,
+  CornerDownRight,
+  Edit2,
+  FolderTree,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -28,7 +37,9 @@ const errorMessage = (error: unknown, fallback: string) =>
   error instanceof ApiError ? error.message : fallback;
 
 export function CategoriesManager() {
+  const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [preselectedParentId, setPreselectedParentId] = useState<string | undefined>(undefined);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
   const {
@@ -40,34 +51,100 @@ export function CategoriesManager() {
     queryFn: () => apiFetch<Category[]>('/admin/categories'),
   });
 
+  const handleOpenCreateWithParent = (parentId?: string) => {
+    setPreselectedParentId(parentId);
+    setIsCreateOpen(true);
+  };
+
+  // Filtrado de árbol por búsqueda
+  const filteredCategories = categories?.filter((cat) => {
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    const matchesParent = cat.name.toLowerCase().includes(q) || cat.slug.toLowerCase().includes(q);
+    const matchesChild = cat.children.some(
+      (c) => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q),
+    );
+    return matchesParent || matchesChild;
+  });
+
+  const totalCategoriesCount = (categories?.length ?? 0) +
+    (categories?.reduce((acc, c) => acc + (c.children?.length ?? 0), 0) ?? 0);
+
   return (
     <div className="space-y-5">
       <AdminPanel>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-          <AdminPanelTitle className="mb-0">
-            Estructura de categorías (máximo 2 niveles)
-          </AdminPanelTitle>
-          <Button onClick={() => setIsCreateOpen(true)}>
-            <Plus size={15} className="mr-1.5" /> Nueva categoría
-          </Button>
+        {/* Barra superior con título y controles */}
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <AdminPanelTitle className="mb-0">
+              Estructura de categorías
+            </AdminPanelTitle>
+            {categories && (
+              <span className="rounded-full bg-[#f4eff3] px-2.5 py-0.5 text-[10px] font-semibold text-[#764b77]">
+                {totalCategoriesCount} categorías en catálogo
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 max-[600px]:w-full">
+            <div className="relative flex items-center border border-[#e8dfe6] bg-white text-[#917987] transition-colors focus-within:border-[#936591] max-[600px]:w-full">
+              <span className="pl-3 text-[#917987]">
+                <Search size={15} />
+              </span>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar categoría..."
+                aria-label="Buscar categoría"
+                className="w-48 px-2.5 py-2 text-[11px] outline-none placeholder:text-[#a0929b] max-[600px]:w-full"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  aria-label="Limpiar búsqueda"
+                  className="pr-2.5 text-[#a0929b] hover:text-[#493a45] cursor-pointer"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <Button onClick={() => handleOpenCreateWithParent(undefined)} className="max-[600px]:w-full">
+              <Plus size={15} className="mr-1.5" /> Nueva categoría
+            </Button>
+          </div>
         </div>
+
+        <p className="mb-4 text-[11px] text-[#8b7f87]">
+          Organización de hasta 2 niveles (Categoría principal → Subcategoría). Los productos solo pueden asignarse a subcategorías o a categorías principales que no tengan hijos.
+        </p>
 
         {isPending && <p className="text-[11px] text-muted">Cargando categorías…</p>}
         {isError && <p className="text-[11px] text-danger">No se pudieron cargar las categorías.</p>}
 
-        {categories && categories.length === 0 && (
-          <div className="flex flex-col items-center gap-3 bg-[#fbf9fa] px-5 py-12.5 text-center text-[11px] text-[#948692]">
-            <Boxes size={32} /> No hay categorías creadas todavía.
+        {filteredCategories && filteredCategories.length === 0 && (
+          <div className="flex flex-col items-center justify-center gap-2.5 bg-[#fbf9fa] border border-[#eee8ed] px-5 py-12 text-center text-[11px] text-[#948692]">
+            <Boxes size={32} className="text-[#c4b7c1]" />
+            <p className="font-medium text-[#493a45]">
+              {search ? 'No se encontraron categorías' : 'No hay categorías creadas aún'}
+            </p>
+            <p className="text-[10px]">
+              {search
+                ? `No hay categorías que coincidan con "${search}".`
+                : 'Crea tu primera categoría para organizar los productos de la tienda.'}
+            </p>
           </div>
         )}
 
-        {categories && categories.length > 0 && (
+        {filteredCategories && filteredCategories.length > 0 && (
           <div className="space-y-4">
-            {categories.map((cat) => (
+            {filteredCategories.map((cat) => (
               <CategoryTreeItem
                 key={cat.id}
                 category={cat}
                 onEdit={(c) => setEditingCategory(c)}
+                onAddSubcategory={(parentId) => handleOpenCreateWithParent(parentId)}
               />
             ))}
           </div>
@@ -77,14 +154,24 @@ export function CategoriesManager() {
       {/* Modal para Crear Categoría o Subcategoría */}
       <Modal
         isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        title="Nueva categoría o subcategoría"
-        description="Crea una categoría principal o selecciónala como subcategoría de una existente."
+        onClose={() => {
+          setIsCreateOpen(false);
+          setPreselectedParentId(undefined);
+        }}
+        title={preselectedParentId ? 'Nueva subcategoría' : 'Nueva categoría'}
+        description="Ingresa los datos para registrar la categoría en el árbol comercial."
       >
         <CreateCategoryForm
           rootCategories={categories ?? []}
-          onSuccess={() => setIsCreateOpen(false)}
-          onCancel={() => setIsCreateOpen(false)}
+          initialParentId={preselectedParentId}
+          onSuccess={() => {
+            setIsCreateOpen(false);
+            setPreselectedParentId(undefined);
+          }}
+          onCancel={() => {
+            setIsCreateOpen(false);
+            setPreselectedParentId(undefined);
+          }}
         />
       </Modal>
 
@@ -92,8 +179,8 @@ export function CategoriesManager() {
       <Modal
         isOpen={!!editingCategory}
         onClose={() => setEditingCategory(null)}
-        title={`Editar categoría: ${editingCategory?.name}`}
-        description="Modifica los datos de la categoría o subcategoría."
+        title={`Editar: ${editingCategory?.name}`}
+        description="Modifica los datos de la categoría o subcategoría seleccionada."
       >
         {editingCategory && (
           <EditCategoryForm
@@ -109,10 +196,12 @@ export function CategoriesManager() {
 
 function CreateCategoryForm({
   rootCategories,
+  initialParentId,
   onSuccess,
   onCancel,
 }: {
   rootCategories: Category[];
+  initialParentId?: string;
   onSuccess: () => void;
   onCancel: () => void;
 }) {
@@ -124,7 +213,11 @@ function CreateCategoryForm({
     formState: { errors, isSubmitting },
   } = useForm<CreateCategoryValues>({
     resolver: zodResolver(createCategorySchema),
-    defaultValues: { position: '0', isActive: true },
+    defaultValues: {
+      parentId: initialParentId || '',
+      position: '0',
+      isActive: true,
+    },
   });
 
   const onSubmit = handleSubmit(async (values) => {
@@ -151,7 +244,7 @@ function CreateCategoryForm({
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4">
-      <FormField id="cat-name" label="Nombre" error={errors.name?.message}>
+      <FormField id="cat-name" label="Nombre de la categoría *" error={errors.name?.message}>
         <Input
           placeholder="Ej. Labios, Rostro, Labiales mate"
           {...fieldA11y('cat-name', errors.name?.message)}
@@ -161,15 +254,15 @@ function CreateCategoryForm({
 
       <FormField
         id="cat-parent"
-        label="Categoría padre (opcional)"
-        description="Déjalo vacío para crear una categoría principal."
+        label="Nivel / Categoría padre"
+        description="Selecciona una categoría si es subcategoría, o déjalo vacío para que sea categoría principal."
         error={errors.parentId?.message}
       >
         <Select {...fieldA11y('cat-parent', errors.parentId?.message)} {...register('parentId')}>
-          <option value="">(Ninguna — es categoría principal)</option>
+          <option value="">(Ninguna — Categoría principal)</option>
           {rootCategories.map((rc) => (
             <option key={rc.id} value={rc.id}>
-              {rc.name}
+              Subcategoría de: {rc.name}
             </option>
           ))}
         </Select>
@@ -178,12 +271,12 @@ function CreateCategoryForm({
       <div className="grid gap-x-4 min-[601px]:grid-cols-2">
         <FormField
           id="cat-slug"
-          label="Slug (opcional)"
-          description="Si se deja vacío, se genera automáticamente."
+          label="Slug URL (opcional)"
+          description="Si se deja vacío, se generará del nombre."
           error={errors.slug?.message}
         >
           <Input
-            placeholder="ej-labios-mate"
+            placeholder="ej-labiales-mate"
             {...fieldA11y('cat-slug', errors.slug?.message)}
             {...register('slug')}
           />
@@ -191,8 +284,8 @@ function CreateCategoryForm({
 
         <FormField
           id="cat-position"
-          label="Posición / orden"
-          description="Número para ordenar en la tienda (0 primero)."
+          label="Orden de visualización"
+          description="Número entero para ordenar (0 se muestra primero)."
           error={errors.position?.message}
         >
           <Input
@@ -207,13 +300,13 @@ function CreateCategoryForm({
       <FormField id="cat-desc" label="Descripción (opcional)" error={errors.description?.message}>
         <Textarea
           rows={3}
-          placeholder="Descripción opcional de la categoría..."
+          placeholder="Descripción comercial para los clientes en la tienda..."
           {...fieldA11y('cat-desc', errors.description?.message)}
           {...register('description')}
         />
       </FormField>
 
-      <div className="flex justify-end gap-2.5 pt-2 border-t border-[#f0ecf0]">
+      <div className="flex justify-end gap-2.5 pt-3 border-t border-[#f0ecf0]">
         <Button variant="outline" type="button" onClick={onCancel} disabled={isSubmitting}>
           Cancelar
         </Button>
@@ -262,7 +355,7 @@ function EditCategoryForm({
           isActive: values.isActive,
         }),
       });
-      toast.success('Categoría actualizada.');
+      toast.success('Categoría actualizada exitosamente.');
       await queryClient.invalidateQueries({ queryKey: CATEGORIES_KEY });
       onSuccess();
     } catch (error) {
@@ -272,7 +365,7 @@ function EditCategoryForm({
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4">
-      <FormField id="edit-cat-name" label="Nombre" error={errors.name?.message}>
+      <FormField id="edit-cat-name" label="Nombre de la categoría *" error={errors.name?.message}>
         <Input
           {...fieldA11y('edit-cat-name', errors.name?.message)}
           {...register('name')}
@@ -280,14 +373,14 @@ function EditCategoryForm({
       </FormField>
 
       <div className="grid gap-x-4 min-[601px]:grid-cols-2">
-        <FormField id="edit-cat-slug" label="Slug" error={errors.slug?.message}>
+        <FormField id="edit-cat-slug" label="Slug URL" error={errors.slug?.message}>
           <Input
             {...fieldA11y('edit-cat-slug', errors.slug?.message)}
             {...register('slug')}
           />
         </FormField>
 
-        <FormField id="edit-cat-position" label="Posición" error={errors.position?.message}>
+        <FormField id="edit-cat-position" label="Orden de visualización" error={errors.position?.message}>
           <Input
             type="number"
             min={0}
@@ -305,7 +398,7 @@ function EditCategoryForm({
         />
       </FormField>
 
-      <div className="flex justify-end gap-2.5 pt-2 border-t border-[#f0ecf0]">
+      <div className="flex justify-end gap-2.5 pt-3 border-t border-[#f0ecf0]">
         <Button variant="outline" type="button" onClick={onCancel} disabled={isSubmitting}>
           Cancelar
         </Button>
@@ -320,9 +413,11 @@ function EditCategoryForm({
 function CategoryTreeItem({
   category,
   onEdit,
+  onAddSubcategory,
 }: {
   category: Category;
   onEdit: (cat: Category) => void;
+  onAddSubcategory: (parentId: string) => void;
 }) {
   const queryClient = useQueryClient();
 
@@ -352,22 +447,43 @@ function CategoryTreeItem({
   });
 
   return (
-    <div className="border border-[#eee8ed] bg-[#fbf9fa] p-4">
+    <div className="border border-[#eee8ed] bg-white transition-shadow hover:shadow-xs">
       {/* Nivel 1: Categoría Principal */}
-      <div className="flex items-center justify-between gap-3 max-[600px]:flex-col max-[600px]:items-start">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-[#493a45]">{category.name}</span>
-            <AdminStatus tone={category.isActive ? 'ok' : 'out'}>
-              {category.isActive ? 'Activa' : 'Inactiva'}
-            </AdminStatus>
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-[#fdfbfc] border-b border-[#f0ecf0]">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-[#f4eff3] text-[#764b77]">
+            <FolderTree size={16} />
           </div>
-          <small className="mt-0.5 block text-[10px] text-[#a0929b]">
-            Slug: <span className="font-mono text-[9px]">{category.slug}</span> · Posición: {category.position} · Subcategorías: {category.children.length}
-          </small>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-[#493a45]">{category.name}</span>
+              <AdminStatus tone={category.isActive ? 'ok' : 'out'}>
+                {category.isActive ? 'Activa' : 'Inactiva'}
+              </AdminStatus>
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-[#8b7f87]">
+              <span className="font-mono text-[9px] text-[#a0929b]">/{category.slug}</span>
+              <span>·</span>
+              <span>Orden: {category.position}</span>
+              <span>·</span>
+              <span>
+                {category.children.length}{' '}
+                {category.children.length === 1 ? 'subcategoría' : 'subcategorías'}
+              </span>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onAddSubcategory(category.id)}
+            className="text-[#764b77] hover:border-[#764b77]"
+          >
+            <Plus size={12} className="mr-1" /> Subcategoría
+          </Button>
+
           <Button variant="outline" size="sm" onClick={() => onEdit(category)}>
             <Edit2 size={12} className="mr-1" /> Editar
           </Button>
@@ -381,47 +497,60 @@ function CategoryTreeItem({
             {category.isActive ? 'Desactivar' : 'Activar'}
           </Button>
 
-          {category.children.length === 0 && (
+          {category.children.length === 0 ? (
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
-                if (confirm(`¿Estás seguro de eliminar "${category.name}"?`)) {
+                if (confirm(`¿Estás seguro de eliminar la categoría "${category.name}"?`)) {
                   deleteCategory.mutate(category.id);
                 }
               }}
               disabled={deleteCategory.isPending}
-              className="text-danger hover:border-danger hover:bg-danger-bg"
-              aria-label="Eliminar categoría"
+              className="text-danger hover:border-danger hover:bg-danger-bg cursor-pointer"
+              aria-label={`Eliminar categoría ${category.name}`}
             >
               <Trash2 size={13} />
             </Button>
+          ) : (
+            <span
+              title="No se puede eliminar porque contiene subcategorías asociadas"
+              className="inline-flex cursor-not-allowed items-center rounded border border-[#eee8ed] p-1.5 text-[#c2b6be]"
+            >
+              <Trash2 size={13} />
+            </span>
           )}
         </div>
       </div>
 
-      {/* Nivel 2: Subcategorías */}
-      {category.children.length > 0 && (
-        <div className="mt-3.5 space-y-2 border-t border-[#ede7eb] pt-3 pl-3">
+      {/* Nivel 2: Subcategorías o estado vacío de hijos */}
+      {category.children.length > 0 ? (
+        <div className="p-3.5 space-y-2 bg-[#fcfbfa]">
           {category.children.map((sub) => (
             <div
               key={sub.id}
-              className="flex items-center justify-between gap-3 rounded bg-white p-2.5 border border-[#f0ecf0]"
+              className="flex flex-wrap items-center justify-between gap-3 rounded border border-[#eee8ed] bg-white px-3.5 py-2.5 transition-colors hover:border-[#e2d5df]"
             >
-              <div className="flex items-center gap-2">
-                <CornerDownRight size={14} className="text-[#a4979e]" />
+              <div className="flex items-center gap-2.5">
+                <CornerDownRight size={14} className="text-[#a4979e] shrink-0" />
                 <div>
-                  <span className="text-xs font-medium text-[#493a45]">{sub.name}</span>
-                  <small className="ml-2 font-mono text-[9px] text-[#a0929b]">{sub.slug}</small>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-[#493a45]">{sub.name}</span>
+                    <AdminStatus tone={sub.isActive ? 'ok' : 'out'}>
+                      {sub.isActive ? 'Activa' : 'Inactiva'}
+                    </AdminStatus>
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-2 text-[9px] text-[#8b7f87]">
+                    <span className="font-mono text-[#a0929b]">/{sub.slug}</span>
+                    <span>·</span>
+                    <span>Orden: {sub.position}</span>
+                  </div>
                 </div>
-                <AdminStatus tone={sub.isActive ? 'ok' : 'out'}>
-                  {sub.isActive ? 'Activa' : 'Inactiva'}
-                </AdminStatus>
               </div>
 
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={() => onEdit(sub)}>
-                  <Edit2 size={12} className="mr-1" /> Editar
+                  <Edit2 size={11} className="mr-1" /> Editar
                 </Button>
 
                 <Button
@@ -437,19 +566,30 @@ function CategoryTreeItem({
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    if (confirm(`¿Estás seguro de eliminar "${sub.name}"?`)) {
+                    if (confirm(`¿Estás seguro de eliminar la subcategoría "${sub.name}"?`)) {
                       deleteCategory.mutate(sub.id);
                     }
                   }}
                   disabled={deleteCategory.isPending}
-                  className="text-danger hover:border-danger hover:bg-danger-bg"
-                  aria-label="Eliminar subcategoría"
+                  className="text-danger hover:border-danger hover:bg-danger-bg cursor-pointer"
+                  aria-label={`Eliminar subcategoría ${sub.name}`}
                 >
-                  <Trash2 size={13} />
+                  <Trash2 size={12} />
                 </Button>
               </div>
             </div>
           ))}
+        </div>
+      ) : (
+        <div className="px-4 py-3 bg-[#faf7f9] text-[10px] text-[#8b7f87] flex items-center justify-between">
+          <span>Esta categoría no tiene subcategorías (puede recibir productos directamente).</span>
+          <button
+            type="button"
+            onClick={() => onAddSubcategory(category.id)}
+            className="text-[10px] font-medium text-[#764b77] hover:underline cursor-pointer"
+          >
+            + Agregar primera subcategoría
+          </button>
         </div>
       )}
     </div>

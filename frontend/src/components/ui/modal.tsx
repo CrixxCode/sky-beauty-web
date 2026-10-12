@@ -46,7 +46,7 @@ export function Modal({
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        <div className="max-h-[78vh] overflow-y-auto pr-1">{children}</div>
+        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
       </DialogContent>
     </Dialog>
   );

@@ -37,14 +37,14 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-[#eee8ed] bg-white p-6 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-[3px] max-[600px]:p-4.5',
+        'fixed left-[50%] top-[50%] z-50 flex flex-col w-[94vw] max-w-lg max-h-[90vh] translate-x-[-50%] translate-y-[-50%] border border-[#eee8ed] bg-white p-0 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-[4px] overflow-hidden',
         className,
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded p-1 text-[#8b7f87] transition-colors hover:bg-[#f6eff5] hover:text-[#493a45] focus:outline-none disabled:pointer-events-none cursor-pointer">
-        <X className="h-4.5 w-4.5" />
+      <DialogPrimitive.Close className="absolute right-4 top-4.5 rounded p-1 text-[#8b7f87] transition-colors hover:bg-[#f6eff5] hover:text-[#493a45] focus:outline-none disabled:pointer-events-none cursor-pointer z-20">
+        <X className="h-4 w-4" />
         <span className="sr-only">Cerrar</span>
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
@@ -58,7 +58,7 @@ const DialogHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      'flex flex-col space-y-1.5 text-left border-b border-[#f0ecf0] pb-3',
+      'flex flex-col space-y-1 text-left border-b border-[#f0ecf0] bg-[#fdfbfc] px-6 py-4.5 pr-12 shrink-0',
       className,
     )}
     {...props}
@@ -72,7 +72,7 @@ const DialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      'flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 border-t border-[#f0ecf0] pt-3',
+      'flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 border-t border-[#f0ecf0] bg-[#fdfbfc] px-6 py-3.5 shrink-0',
       className,
     )}
     {...props}
@@ -101,7 +101,7 @@ const DialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn('text-[11px] text-[#8b7f87]', className)}
+    className={cn('text-[11px] text-[#8b7f87] mt-0.5 leading-normal', className)}
     {...props}
   />
 ));
@@ -119,3 +119,4 @@ export {
   DialogTitle,
   DialogDescription,
 };
+

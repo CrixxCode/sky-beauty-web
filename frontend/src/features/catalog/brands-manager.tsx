@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Edit2, Plus, Search, Tag, Trash2 } from 'lucide-react';
+import { Edit2, Plus, Search, Tag, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -46,20 +46,42 @@ export function BrandsManager() {
   return (
     <div className="space-y-5">
       <AdminPanel>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-          <AdminPanelTitle className="mb-0">Marcas registradas</AdminPanelTitle>
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2.5 border border-[#e8dfe6] p-2.5 text-[#917987] max-[600px]:w-full">
-              <Search size={16} />
+        {/* Barra superior con título y controles */}
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <AdminPanelTitle className="mb-0">Marcas registradas</AdminPanelTitle>
+            {brands && (
+              <span className="rounded-full bg-[#f4eff3] px-2.5 py-0.5 text-[10px] font-semibold text-[#764b77]">
+                {brands.length} {brands.length === 1 ? 'marca' : 'marcas'}
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 max-[600px]:w-full">
+            <div className="relative flex items-center border border-[#e8dfe6] bg-white text-[#917987] transition-colors focus-within:border-[#936591] max-[600px]:w-full">
+              <span className="pl-3 text-[#917987]">
+                <Search size={15} />
+              </span>
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar marcas"
+                placeholder="Buscar por nombre..."
                 aria-label="Buscar marcas"
-                className="border-0 text-[11px] outline-0 max-[600px]:w-full"
+                className="w-48 px-2.5 py-2 text-[11px] outline-none placeholder:text-[#a0929b] max-[600px]:w-full"
               />
-            </label>
-            <Button onClick={() => setIsCreateOpen(true)}>
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  aria-label="Limpiar búsqueda"
+                  className="pr-2.5 text-[#a0929b] hover:text-[#493a45] cursor-pointer"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <Button onClick={() => setIsCreateOpen(true)} className="max-[600px]:w-full">
               <Plus size={15} className="mr-1.5" /> Nueva marca
             </Button>
           </div>
@@ -69,13 +91,21 @@ export function BrandsManager() {
         {isError && <p className="text-[11px] text-danger">No se pudieron cargar las marcas.</p>}
 
         {visible && visible.length === 0 && (
-          <div className="flex flex-col items-center gap-3 bg-[#fbf9fa] px-5 py-12.5 text-center text-[11px] text-[#948692]">
-            <Tag size={32} /> No hay marcas que coincidan con la búsqueda.
+          <div className="flex flex-col items-center justify-center gap-2.5 bg-[#fbf9fa] border border-[#eee8ed] px-5 py-12 text-center text-[11px] text-[#948692]">
+            <Tag size={32} className="text-[#c4b7c1]" />
+            <p className="font-medium text-[#493a45]">
+              {search ? 'No se encontraron marcas' : 'No hay marcas registradas'}
+            </p>
+            <p className="text-[10px]">
+              {search
+                ? `No hay resultados que coincidan con "${search}".`
+                : 'Registra tu primera marca para empezar a clasificar tus productos.'}
+            </p>
           </div>
         )}
 
         {visible && visible.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 max-[600px]:grid-cols-1">
+          <div className="grid grid-cols-2 gap-3.5 max-[768px]:grid-cols-1">
             {visible.map((brand) => (
               <BrandCard
                 key={brand.id}
@@ -92,7 +122,7 @@ export function BrandsManager() {
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         title="Nueva marca"
-        description="Ingresa los datos para registrar una nueva marca en el catálogo."
+        description="Ingresa los datos para registrar una nueva marca de maquillaje o cosméticos."
       >
         <CreateBrandForm
           onSuccess={() => setIsCreateOpen(false)}
@@ -154,7 +184,7 @@ function CreateBrandForm({
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4">
-      <FormField id="brand-name" label="Nombre de la marca" error={errors.name?.message}>
+      <FormField id="brand-name" label="Nombre de la marca *" error={errors.name?.message}>
         <Input
           placeholder="Ej. Maybelline, Vogue, Trendy"
           {...fieldA11y('brand-name', errors.name?.message)}
@@ -164,8 +194,8 @@ function CreateBrandForm({
 
       <FormField
         id="brand-slug"
-        label="Slug (opcional)"
-        description="Si se deja vacío, se genera automáticamente del nombre."
+        label="Slug URL (opcional)"
+        description="Identificador en la URL. Si lo dejas vacío, se generará a partir del nombre."
         error={errors.slug?.message}
       >
         <Input
@@ -175,7 +205,7 @@ function CreateBrandForm({
         />
       </FormField>
 
-      <div className="flex justify-end gap-2.5 pt-2 border-t border-[#f0ecf0]">
+      <div className="flex justify-end gap-2.5 pt-3 border-t border-[#f0ecf0]">
         <Button variant="outline" type="button" onClick={onCancel} disabled={isSubmitting}>
           Cancelar
         </Button>
@@ -228,7 +258,7 @@ function EditBrandForm({
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4">
-      <FormField id="edit-brand-name" label="Nombre de la marca" error={errors.name?.message}>
+      <FormField id="edit-brand-name" label="Nombre de la marca *" error={errors.name?.message}>
         <Input
           {...fieldA11y('edit-brand-name', errors.name?.message)}
           {...register('name')}
@@ -237,7 +267,8 @@ function EditBrandForm({
 
       <FormField
         id="edit-brand-slug"
-        label="Slug"
+        label="Slug URL"
+        description="Identificador único en la URL."
         error={errors.slug?.message}
       >
         <Input
@@ -246,7 +277,7 @@ function EditBrandForm({
         />
       </FormField>
 
-      <div className="flex justify-end gap-2.5 pt-2 border-t border-[#f0ecf0]">
+      <div className="flex justify-end gap-2.5 pt-3 border-t border-[#f0ecf0]">
         <Button variant="outline" type="button" onClick={onCancel} disabled={isSubmitting}>
           Cancelar
         </Button>
@@ -293,20 +324,32 @@ function BrandCard({
   });
 
   return (
-    <div className="flex flex-col justify-between gap-3 border border-[#eee8ed] bg-[#fbf9fa] p-4.75">
+    <div className="flex flex-col justify-between border border-[#eee8ed] bg-white p-4.5 transition-shadow hover:shadow-xs">
       <div>
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-semibold text-[#493a45]">{brand.name}</span>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-[#f4eff3] text-[#936591]">
+              <Tag size={15} />
+            </div>
+            <div>
+              <span className="text-xs font-semibold text-[#493a45]">{brand.name}</span>
+              <small className="block font-mono text-[9px] text-[#a0929b]">/{brand.slug}</small>
+            </div>
+          </div>
           <AdminStatus tone={brand.isActive ? 'ok' : 'out'}>
             {brand.isActive ? 'Activa' : 'Inactiva'}
           </AdminStatus>
         </div>
-        <small className="mt-1 block text-[10px] text-[#a0929b]">
-          Slug: <span className="font-mono text-[9px]">{brand.slug}</span> · {brand.productCount} productos asociados
-        </small>
+
+        <div className="mt-3 flex items-center gap-2 text-[10px] text-[#766a73]">
+          <span className="inline-flex items-center gap-1">
+            <span className="font-semibold text-[#493a45]">{brand.productCount}</span>
+            {brand.productCount === 1 ? 'producto asociado' : 'productos asociados'}
+          </span>
+        </div>
       </div>
 
-      <div className="flex items-center justify-end gap-2 border-t border-[#f0ecf0] pt-2.5">
+      <div className="mt-4 flex items-center justify-end gap-2 border-t border-[#f0ecf0] pt-3">
         <Button variant="outline" size="sm" onClick={onEdit}>
           <Edit2 size={12} className="mr-1" /> Editar
         </Button>
@@ -320,7 +363,7 @@ function BrandCard({
           {brand.isActive ? 'Desactivar' : 'Activar'}
         </Button>
 
-        {brand.productCount === 0 && (
+        {brand.productCount === 0 ? (
           <Button
             variant="outline"
             size="sm"
@@ -330,11 +373,18 @@ function BrandCard({
               }
             }}
             disabled={deleteBrand.isPending}
-            className="text-danger hover:border-danger hover:bg-danger-bg"
-            aria-label="Eliminar marca"
+            className="text-danger hover:border-danger hover:bg-danger-bg cursor-pointer"
+            aria-label={`Eliminar marca ${brand.name}`}
           >
             <Trash2 size={13} />
           </Button>
+        ) : (
+          <span
+            title="No se puede eliminar porque tiene productos asociados"
+            className="inline-flex cursor-not-allowed items-center rounded border border-[#eee8ed] p-1.5 text-[#c2b6be]"
+          >
+            <Trash2 size={13} />
+          </span>
         )}
       </div>
     </div>

@@ -39,16 +39,17 @@ export function AdminStatus({
   tone = 'ok',
   children,
 }: {
-  tone?: 'ok' | 'out' | 'neutral';
+  tone?: 'ok' | 'out' | 'neutral' | 'warning';
   children: ReactNode;
 }) {
   return (
     <span
       className={cn(
-        'whitespace-nowrap rounded-[30px] px-2.25 py-1.25 text-[9px]',
+        'whitespace-nowrap rounded-[30px] px-2.25 py-1.25 text-[9px] font-medium',
         tone === 'ok' && 'bg-success-bg text-success',
         tone === 'out' && 'bg-out-bg text-out',
         tone === 'neutral' && 'bg-[#f0e0f0] text-[#7d507a]',
+        tone === 'warning' && 'bg-amber-100 text-amber-800',
       )}
     >
       {children}
