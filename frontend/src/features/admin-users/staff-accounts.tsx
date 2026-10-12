@@ -2,13 +2,14 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Search, Users } from 'lucide-react';
-import { Fragment, useState } from 'react';
+import { Plus, Search, Users } from 'lucide-react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { FormField, fieldA11y } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { Modal } from '@/components/ui/modal';
 import { AdminPanel, AdminPanelTitle, AdminStatus } from '@/features/admin-auth/admin-ui';
 import { ApiError, apiFetch } from '@/lib/api';
 import {
@@ -19,7 +20,7 @@ import {
 } from '@/schemas/admin-auth';
 import { ROLE_LABELS, type AdminUser } from '@/types/admin';
 
-const USERS_KEY = ['admin-users'];
+export const USERS_KEY = ['admin-users'];
 
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof ApiError ? error.message : fallback;
@@ -38,6 +39,8 @@ const td = 'border-b border-[#f0ecf0] px-3.5 py-3.25 text-[10px] text-[#625760]'
 
 export function StaffAccounts() {
   const [search, setSearch] = useState('');
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+
   const {
     data: users,
     isPending,
@@ -46,34 +49,42 @@ export function StaffAccounts() {
     queryKey: USERS_KEY,
     queryFn: () => apiFetch<AdminUser[]>('/admin/users'),
   });
+
   const visible = users?.filter((u) =>
     `${u.name} ${u.email}`.toLowerCase().includes(search.trim().toLowerCase()),
   );
 
   return (
     <div className="space-y-5">
-      <CreateStaffForm />
       <AdminPanel>
-        <div className="mb-3.5 flex items-center justify-between gap-5 max-[600px]:flex-col max-[600px]:items-start">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
           <AdminPanelTitle className="mb-0">Cuentas del panel</AdminPanelTitle>
-          <label className="flex items-center gap-2.5 border border-[#e8dfe6] p-2.5 text-[#917987] max-[600px]:w-full">
-            <Search size={16} />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar cuentas"
-              aria-label="Buscar cuentas"
-              className="border-0 text-[11px] outline-0 max-[600px]:w-full"
-            />
-          </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2.5 border border-[#e8dfe6] p-2.5 text-[#917987] max-[600px]:w-full">
+              <Search size={16} />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar cuentas"
+                aria-label="Buscar cuentas"
+                className="border-0 text-[11px] outline-0 max-[600px]:w-full"
+              />
+            </label>
+            <Button onClick={() => setIsCreateOpen(true)}>
+              <Plus size={15} className="mr-1.5" /> Nueva cuenta
+            </Button>
+          </div>
         </div>
+
         {isPending && <p className="text-[11px] text-muted">Cargando…</p>}
         {isError && <p className="text-[11px] text-danger">No se pudieron cargar las cuentas.</p>}
+
         {visible && visible.length === 0 && (
           <div className="flex flex-col items-center gap-3 bg-[#fbf9fa] px-5 py-12.5 text-center text-[11px] text-[#948692]">
             <Users size={32} /> No hay cuentas que coincidan con la búsqueda.
           </div>
         )}
+
         {visible && visible.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full min-w-157.5 border-collapse">
@@ -95,11 +106,30 @@ export function StaffAccounts() {
           </div>
         )}
       </AdminPanel>
+
+      {/* Modal para Crear Cuenta */}
+      <Modal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        title="Nueva cuenta del personal"
+        description="Ingresa los datos del nuevo miembro del equipo. Podrá acceder al panel con rol Personal."
+      >
+        <CreateStaffForm
+          onSuccess={() => setIsCreateOpen(false)}
+          onCancel={() => setIsCreateOpen(false)}
+        />
+      </Modal>
     </div>
   );
 }
 
-function CreateStaffForm() {
+function CreateStaffForm({
+  onSuccess,
+  onCancel,
+}: {
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
   const queryClient = useQueryClient();
   const {
     register,
@@ -114,45 +144,49 @@ function CreateStaffForm() {
       reset();
       toast.success('Cuenta del personal creada.');
       await queryClient.invalidateQueries({ queryKey: USERS_KEY });
+      onSuccess();
     } catch (error) {
       toast.error(errorMessage(error, 'No se pudo crear la cuenta.'));
     }
   });
 
   return (
-    <AdminPanel>
-      <AdminPanelTitle>Nueva cuenta del personal</AdminPanelTitle>
-      <form onSubmit={onSubmit} noValidate>
-        <div className="grid gap-x-4.5 min-[601px]:grid-cols-2">
-          <FormField id="staff-name" label="Nombre" error={errors.name?.message}>
-            <Input {...fieldA11y('staff-name', errors.name?.message)} {...register('name')} />
-          </FormField>
-          <FormField id="staff-email" label="Correo" error={errors.email?.message}>
-            <Input
-              type="email"
-              autoComplete="off"
-              {...fieldA11y('staff-email', errors.email?.message)}
-              {...register('email')}
-            />
-          </FormField>
-          <FormField
-            id="staff-password"
-            label="Contraseña inicial"
-            error={errors.password?.message}
-          >
-            <Input
-              type="password"
-              autoComplete="new-password"
-              {...fieldA11y('staff-password', errors.password?.message)}
-              {...register('password')}
-            />
-          </FormField>
-        </div>
-        <Button type="submit" className="mt-2" disabled={isSubmitting}>
+    <form onSubmit={onSubmit} noValidate className="space-y-4">
+      <FormField id="staff-name" label="Nombre" error={errors.name?.message}>
+        <Input {...fieldA11y('staff-name', errors.name?.message)} {...register('name')} />
+      </FormField>
+
+      <FormField id="staff-email" label="Correo" error={errors.email?.message}>
+        <Input
+          type="email"
+          autoComplete="off"
+          {...fieldA11y('staff-email', errors.email?.message)}
+          {...register('email')}
+        />
+      </FormField>
+
+      <FormField
+        id="staff-password"
+        label="Contraseña inicial"
+        error={errors.password?.message}
+      >
+        <Input
+          type="password"
+          autoComplete="new-password"
+          {...fieldA11y('staff-password', errors.password?.message)}
+          {...register('password')}
+        />
+      </FormField>
+
+      <div className="flex justify-end gap-2.5 pt-2 border-t border-[#f0ecf0]">
+        <Button variant="outline" type="button" onClick={onCancel} disabled={isSubmitting}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Creando…' : 'Crear cuenta'}
         </Button>
-      </form>
-    </AdminPanel>
+      </div>
+    </form>
   );
 }
 
@@ -176,7 +210,7 @@ function AccountRow({ user }: { user: AdminUser }) {
   });
 
   return (
-    <Fragment>
+    <>
       <tr>
         <td className={td}>
           <span className="block min-w-37.5 text-[10px] font-medium">
@@ -198,7 +232,7 @@ function AccountRow({ user }: { user: AdminUser }) {
         <td className={td}>
           {isStaff && (
             <div className="flex gap-2 whitespace-nowrap">
-              <Button variant="outline" size="sm" onClick={() => setResetting((v) => !v)}>
+              <Button variant="outline" size="sm" onClick={() => setResetting(true)}>
                 Restablecer contraseña
               </Button>
               <Button
@@ -213,14 +247,16 @@ function AccountRow({ user }: { user: AdminUser }) {
           )}
         </td>
       </tr>
-      {resetting && (
-        <tr>
-          <td colSpan={5} className={td}>
-            <ResetPasswordForm user={user} onDone={() => setResetting(false)} />
-          </td>
-        </tr>
-      )}
-    </Fragment>
+
+      <Modal
+        isOpen={resetting}
+        onClose={() => setResetting(false)}
+        title={`Restablecer contraseña: ${user.name}`}
+        description="Ingresa la nueva contraseña. Se cerrarán todas sus sesiones activas."
+      >
+        <ResetPasswordForm user={user} onDone={() => setResetting(false)} />
+      </Modal>
+    </>
   );
 }
 
@@ -239,7 +275,7 @@ function ResetPasswordForm({ user, onDone }: { user: AdminUser; onDone: () => vo
         method: 'POST',
         body: JSON.stringify(values),
       });
-      toast.success(`Contraseña de ${user.name} restablecida. Se cerraron sus sesiones.`);
+      toast.success(`Contraseña de ${user.name} restablecida.`);
       await queryClient.invalidateQueries({ queryKey: USERS_KEY });
       onDone();
     } catch (error) {
@@ -248,12 +284,11 @@ function ResetPasswordForm({ user, onDone }: { user: AdminUser; onDone: () => vo
   });
 
   return (
-    <form onSubmit={onSubmit} noValidate className="flex flex-wrap items-end gap-3">
+    <form onSubmit={onSubmit} noValidate className="space-y-4">
       <FormField
         id={id}
-        label={`Contraseña nueva para ${user.name}`}
+        label={`Contraseña nueva`}
         error={errors.newPassword?.message}
-        className="mb-0 min-w-60 flex-1"
       >
         <Input
           type="password"
@@ -262,9 +297,15 @@ function ResetPasswordForm({ user, onDone }: { user: AdminUser; onDone: () => vo
           {...register('newPassword')}
         />
       </FormField>
-      <Button type="submit" size="sm" disabled={isSubmitting}>
-        Guardar
-      </Button>
+
+      <div className="flex justify-end gap-2.5 pt-2 border-t border-[#f0ecf0]">
+        <Button variant="outline" type="button" onClick={onDone} disabled={isSubmitting}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Guardando…' : 'Guardar contraseña'}
+        </Button>
+      </div>
     </form>
   );
 }

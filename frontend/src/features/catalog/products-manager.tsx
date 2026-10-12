@@ -2,13 +2,14 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Package, Plus, Search, Tag, Trash2, X } from 'lucide-react';
+import { Edit2, Package, Plus, Search, Tag, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { FormField, fieldA11y } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { AdminPanel, AdminPanelTitle, AdminStatus } from '@/features/admin-auth/admin-ui';
@@ -17,8 +18,12 @@ import { formatCOP } from '@/lib/format';
 import {
   createProductSchema,
   createVariantSchema,
+  updateProductSchema,
+  updateVariantSchema,
   type CreateProductValues,
   type CreateVariantValues,
+  type UpdateProductValues,
+  type UpdateVariantValues,
 } from '@/schemas/catalog';
 import type { AdminRole } from '@/types/admin';
 import type {
@@ -26,7 +31,6 @@ import type {
   Category,
   PaginatedProducts,
   Product,
-  ProductListItem,
   ProductStatus,
   ProductVariant,
 } from '@/types/catalog';
@@ -43,8 +47,8 @@ const td = 'border-b border-[#f0ecf0] px-3.5 py-3.25 text-[10px] text-[#625760]'
 export function ProductsManager({ role }: { role: AdminRole }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const [showCreateForm, setShowCreateForm] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -58,7 +62,7 @@ export function ProductsManager({ role }: { role: AdminRole }) {
     queryFn: () => apiFetch<Category[]>('/admin/categories'),
   });
 
-  // Aplanar categorías para selección (solo hojas: subcategorías o principales sin hijos)
+  // Aplanar categorías para selección (solo hojas válidas para productos)
   const validCategoriesForProducts: { id: string; name: string }[] = [];
   categories?.forEach((cat) => {
     if (cat.children && cat.children.length > 0) {
@@ -102,43 +106,10 @@ export function ProductsManager({ role }: { role: AdminRole }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex justify-end">
-        <Button
-          onClick={() => {
-            setShowCreateForm((v) => !v);
-            if (!showCreateForm) setSelectedProductId(null);
-          }}
-        >
-          {showCreateForm ? 'Cerrar formulario' : 'Nuevo producto'}
-        </Button>
-      </div>
-
-      {showCreateForm && (
-        <CreateProductForm
-          brands={brands ?? []}
-          validCategories={validCategoriesForProducts}
-          onCreated={(newProduct) => {
-            setShowCreateForm(false);
-            setSelectedProductId(newProduct.id);
-            queryClient.invalidateQueries({ queryKey: PRODUCTS_KEY });
-          }}
-        />
-      )}
-
-      {selectedProductId && (
-        <ProductDetailEditor
-          productId={selectedProductId}
-          role={role}
-          brands={brands ?? []}
-          validCategories={validCategoriesForProducts}
-          onClose={() => setSelectedProductId(null)}
-        />
-      )}
-
       <AdminPanel>
-        <div className="mb-3.5 flex flex-wrap items-center justify-between gap-4">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
           <AdminPanelTitle className="mb-0">Listado de productos</AdminPanelTitle>
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 border border-[#e8dfe6] p-2 text-[#917987]">
               <Search size={15} />
               <input
@@ -162,6 +133,10 @@ export function ProductsManager({ role }: { role: AdminRole }) {
               <option value="INACTIVE">Inactivo</option>
               <option value="ARCHIVED">Archivado</option>
             </select>
+
+            <Button onClick={() => setIsCreateOpen(true)}>
+              <Plus size={15} className="mr-1.5" /> Nuevo producto
+            </Button>
           </div>
         </div>
 
@@ -189,10 +164,7 @@ export function ProductsManager({ role }: { role: AdminRole }) {
               </thead>
               <tbody>
                 {productsData.items.map((product) => (
-                  <tr
-                    key={product.id}
-                    className={selectedProductId === product.id ? 'bg-[#fbf6fb]' : undefined}
-                  >
+                  <tr key={product.id}>
                     <td className={td}>
                       <div className="flex items-center gap-3">
                         <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-[#f4eff2] text-[#99759b]">
@@ -230,6 +202,45 @@ export function ProductsManager({ role }: { role: AdminRole }) {
           </div>
         )}
       </AdminPanel>
+
+      {/* Modal para Crear Producto */}
+      <Modal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        title="Nuevo producto"
+        description="Ingresa los datos iniciales del producto. Se creará en estado Borrador."
+        maxWidth="2xl"
+      >
+        <CreateProductForm
+          brands={brands ?? []}
+          validCategories={validCategoriesForProducts}
+          onSuccess={(newProduct) => {
+            setIsCreateOpen(false);
+            setSelectedProductId(newProduct.id);
+            queryClient.invalidateQueries({ queryKey: PRODUCTS_KEY });
+          }}
+          onCancel={() => setIsCreateOpen(false)}
+        />
+      </Modal>
+
+      {/* Modal para Ver Detalles y Gestionar Producto */}
+      <Modal
+        isOpen={!!selectedProductId}
+        onClose={() => setSelectedProductId(null)}
+        title="Gestión de producto"
+        description="Modifica detalles generales, cambia el estado y administra las variantes."
+        maxWidth="3xl"
+      >
+        {selectedProductId && (
+          <ProductDetailModalContent
+            productId={selectedProductId}
+            role={role}
+            brands={brands ?? []}
+            validCategories={validCategoriesForProducts}
+            onClose={() => setSelectedProductId(null)}
+          />
+        )}
+      </Modal>
     </div>
   );
 }
@@ -244,11 +255,13 @@ function ProductStatusBadge({ status }: { status: ProductStatus }) {
 function CreateProductForm({
   brands,
   validCategories,
-  onCreated,
+  onSuccess,
+  onCancel,
 }: {
   brands: Brand[];
   validCategories: { id: string; name: string }[];
-  onCreated: (p: Product) => void;
+  onSuccess: (p: Product) => void;
+  onCancel: () => void;
 }) {
   const {
     register,
@@ -278,130 +291,132 @@ function CreateProductForm({
       });
       reset();
       toast.success('Producto creado como borrador.');
-      onCreated(created);
+      onSuccess(created);
     } catch (error) {
       toast.error(errorMessage(error, 'No se pudo crear el producto.'));
     }
   });
 
   return (
-    <AdminPanel>
-      <AdminPanelTitle>Nuevo producto (se crea en Borrador)</AdminPanelTitle>
-      <form onSubmit={onSubmit} noValidate>
-        <div className="grid gap-x-4.5 min-[601px]:grid-cols-2">
-          <FormField id="p-name" label="Nombre del producto" error={errors.name?.message}>
-            <Input
-              placeholder="Ej. Labial Líquido Mate SuperStay"
-              {...fieldA11y('p-name', errors.name?.message)}
-              {...register('name')}
-            />
-          </FormField>
+    <form onSubmit={onSubmit} noValidate className="space-y-4">
+      <div className="grid gap-x-4.5 min-[601px]:grid-cols-2">
+        <FormField id="p-name" label="Nombre del producto" error={errors.name?.message}>
+          <Input
+            placeholder="Ej. Labial Líquido Mate SuperStay"
+            {...fieldA11y('p-name', errors.name?.message)}
+            {...register('name')}
+          />
+        </FormField>
 
-          <FormField id="p-brand" label="Marca (obligatoria)" error={errors.brandId?.message}>
-            <Select {...fieldA11y('p-brand', errors.brandId?.message)} {...register('brandId')}>
-              <option value="">Selecciona una marca...</option>
-              {brands.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </Select>
-          </FormField>
+        <FormField id="p-brand" label="Marca (obligatoria)" error={errors.brandId?.message}>
+          <Select {...fieldA11y('p-brand', errors.brandId?.message)} {...register('brandId')}>
+            <option value="">Selecciona una marca...</option>
+            {brands.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </Select>
+        </FormField>
 
-          <FormField
-            id="p-cat"
-            label="Categoría (obligatoria)"
-            description="Debe ser una subcategoría o categoría sin hijos."
-            error={errors.categoryId?.message}
-          >
-            <Select {...fieldA11y('p-cat', errors.categoryId?.message)} {...register('categoryId')}>
-              <option value="">Selecciona una categoría...</option>
-              {validCategories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          </FormField>
+        <FormField
+          id="p-cat"
+          label="Categoría (obligatoria)"
+          description="Debe ser una subcategoría o categoría sin hijos."
+          error={errors.categoryId?.message}
+        >
+          <Select {...fieldA11y('p-cat', errors.categoryId?.message)} {...register('categoryId')}>
+            <option value="">Selecciona una categoría...</option>
+            {validCategories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+        </FormField>
 
-          <FormField
-            id="p-price"
-            label="Precio base en COP"
-            description="Las variantes pueden heredar este precio o tener uno propio."
-            error={errors.basePrice?.message}
-          >
-            <Input
-              type="number"
-              min={0}
-              step={100}
-              {...fieldA11y('p-price', errors.basePrice?.message)}
-              {...register('basePrice')}
-            />
-          </FormField>
+        <FormField
+          id="p-price"
+          label="Precio base en COP"
+          description="Las variantes pueden heredar este precio o tener uno propio."
+          error={errors.basePrice?.message}
+        >
+          <Input
+            type="number"
+            min={0}
+            step={100}
+            {...fieldA11y('p-price', errors.basePrice?.message)}
+            {...register('basePrice')}
+          />
+        </FormField>
 
-          <FormField
-            id="p-netContent"
-            label="Contenido neto (opcional)"
-            description="Común a todas las variantes, p. ej. 30 ml o 4 g."
-            error={errors.netContent?.message}
-          >
-            <Input
-              placeholder="Ej. 5 ml, 30 g"
-              {...fieldA11y('p-netContent', errors.netContent?.message)}
-              {...register('netContent')}
-            />
-          </FormField>
+        <FormField
+          id="p-netContent"
+          label="Contenido neto (opcional)"
+          description="Común a todas las variantes, p. ej. 30 ml o 4 g."
+          error={errors.netContent?.message}
+        >
+          <Input
+            placeholder="Ej. 5 ml, 30 g"
+            {...fieldA11y('p-netContent', errors.netContent?.message)}
+            {...register('netContent')}
+          />
+        </FormField>
 
-          <FormField
-            id="p-slug"
-            label="Slug (opcional)"
-            description="Si se deja vacío se genera del nombre."
-            error={errors.slug?.message}
-          >
-            <Input
-              placeholder="ej-labial-liquido-mate"
-              {...fieldA11y('p-slug', errors.slug?.message)}
-              {...register('slug')}
-            />
-          </FormField>
+        <FormField
+          id="p-slug"
+          label="Slug (opcional)"
+          description="Si se deja vacío se genera del nombre."
+          error={errors.slug?.message}
+        >
+          <Input
+            placeholder="ej-labial-liquido-mate"
+            {...fieldA11y('p-slug', errors.slug?.message)}
+            {...register('slug')}
+          />
+        </FormField>
 
-          <FormField
-            id="p-shortDesc"
-            label="Descripción corta (opcional)"
-            className="min-[601px]:col-span-2"
-            error={errors.shortDescription?.message}
-          >
-            <Input
-              placeholder="Breve resumen de 1-2 líneas para tarjetas"
-              {...fieldA11y('p-shortDesc', errors.shortDescription?.message)}
-              {...register('shortDescription')}
-            />
-          </FormField>
+        <FormField
+          id="p-shortDesc"
+          label="Descripción corta (opcional)"
+          className="min-[601px]:col-span-2"
+          error={errors.shortDescription?.message}
+        >
+          <Input
+            placeholder="Breve resumen para tarjetas en el catálogo"
+            {...fieldA11y('p-shortDesc', errors.shortDescription?.message)}
+            {...register('shortDescription')}
+          />
+        </FormField>
 
-          <FormField
-            id="p-desc"
-            label="Descripción completa"
-            className="min-[601px]:col-span-2"
-            error={errors.description?.message}
-          >
-            <Textarea
-              rows={4}
-              placeholder="Detalles del producto, acabado, fórmula..."
-              {...fieldA11y('p-desc', errors.description?.message)}
-              {...register('description')}
-            />
-          </FormField>
-        </div>
+        <FormField
+          id="p-desc"
+          label="Descripción completa"
+          className="min-[601px]:col-span-2"
+          error={errors.description?.message}
+        >
+          <Textarea
+            rows={3}
+            placeholder="Detalles del producto, fórmula, beneficios..."
+            {...fieldA11y('p-desc', errors.description?.message)}
+            {...register('description')}
+          />
+        </FormField>
+      </div>
 
-        <Button type="submit" className="mt-2" disabled={isSubmitting}>
+      <div className="flex justify-end gap-2.5 pt-2 border-t border-[#f0ecf0]">
+        <Button variant="outline" type="button" onClick={onCancel} disabled={isSubmitting}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Guardando…' : 'Crear producto'}
         </Button>
-      </form>
-    </AdminPanel>
+      </div>
+    </form>
   );
 }
 
-function ProductDetailEditor({
+function ProductDetailModalContent({
   productId,
   role,
   brands,
@@ -415,6 +430,7 @@ function ProductDetailEditor({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
+  const [isEditingInfo, setIsEditingInfo] = useState(false);
 
   const {
     data: product,
@@ -456,27 +472,11 @@ function ProductDetailEditor({
   if (isError || !product) return <p className="text-[11px] text-danger">No se pudo cargar el producto.</p>;
 
   return (
-    <AdminPanel className="border-2 border-[#b785b8]">
-      <div className="mb-4 flex items-center justify-between border-b border-[#eee8ed] pb-3">
-        <div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#9b7099]">
-            Edición de producto
-          </span>
-          <h2 className="text-lg font-semibold text-[#493a45]">{product.name}</h2>
-        </div>
-        <button
-          onClick={onClose}
-          className="rounded p-1 text-[#8b7f87] hover:bg-[#f6eff5]"
-          aria-label="Cerrar editor"
-        >
-          <X size={18} />
-        </button>
-      </div>
-
-      {/* Estados y acciones rápidas */}
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 bg-[#faf7f9] p-3 border border-[#f0ecf0]">
+    <div className="space-y-5">
+      {/* Barra de estado y acciones principales */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#faf7f9] p-3 border border-[#f0ecf0]">
         <div className="flex items-center gap-2 text-xs">
-          <span>Estado actual:</span>
+          <span>Estado:</span>
           <ProductStatusBadge status={product.status} />
         </div>
 
@@ -533,17 +533,162 @@ function ProductDetailEditor({
         </div>
       </div>
 
-      {/* Gestión de Variantes */}
-      <div className="mt-6 border-t border-[#eee8ed] pt-4">
-        <VariantsManager product={product} role={role} />
+      {/* Información general y botón de edición */}
+      <div className="rounded border border-[#eee8ed] bg-white p-4">
+        <div className="mb-2.5 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-[#493a45]">{product.name}</h3>
+          <Button variant="outline" size="sm" onClick={() => setIsEditingInfo((v) => !v)}>
+            <Edit2 size={12} className="mr-1" /> {isEditingInfo ? 'Cerrar edición' : 'Editar datos'}
+          </Button>
+        </div>
+
+        {isEditingInfo ? (
+          <EditProductForm
+            product={product}
+            brands={brands}
+            validCategories={validCategories}
+            onSuccess={() => setIsEditingInfo(false)}
+            onCancel={() => setIsEditingInfo(false)}
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-3 text-[11px] text-[#625760] max-[600px]:grid-cols-1">
+            <p><strong>Precio base:</strong> {formatCOP(product.basePrice)}</p>
+            <p><strong>Contenido neto:</strong> {product.netContent || '—'}</p>
+            <p><strong>Slug:</strong> <span className="font-mono text-[10px]">{product.slug}</span></p>
+            <p><strong>Destacado:</strong> {product.isFeatured ? 'Sí' : 'No'}</p>
+            {product.shortDescription && (
+              <p className="col-span-2"><strong>Descripción corta:</strong> {product.shortDescription}</p>
+            )}
+          </div>
+        )}
       </div>
-    </AdminPanel>
+
+      {/* Subsección: Variantes */}
+      <VariantsManager product={product} role={role} />
+    </div>
+  );
+}
+
+function EditProductForm({
+  product,
+  brands,
+  validCategories,
+  onSuccess,
+  onCancel,
+}: {
+  product: Product;
+  brands: Brand[];
+  validCategories: { id: string; name: string }[];
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<UpdateProductValues>({
+    resolver: zodResolver(updateProductSchema),
+    defaultValues: {
+      name: product.name,
+      slug: product.slug,
+      shortDescription: product.shortDescription ?? '',
+      description: product.description,
+      brandId: product.brandId,
+      categoryId: product.categoryId,
+      netContent: product.netContent ?? '',
+      basePrice: String(product.basePrice),
+      isFeatured: product.isFeatured,
+    },
+  });
+
+  const onSubmit = handleSubmit(async (values) => {
+    try {
+      await apiFetch<Product>(`/admin/products/${product.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: values.name,
+          slug: values.slug || undefined,
+          shortDescription: values.shortDescription || undefined,
+          description: values.description,
+          brandId: values.brandId,
+          categoryId: values.categoryId,
+          netContent: values.netContent || undefined,
+          basePrice: values.basePrice ? Number(values.basePrice) : undefined,
+          isFeatured: values.isFeatured,
+        }),
+      });
+      toast.success('Producto actualizado.');
+      await queryClient.invalidateQueries({ queryKey: ['admin-product', product.id] });
+      await queryClient.invalidateQueries({ queryKey: PRODUCTS_KEY });
+      onSuccess();
+    } catch (error) {
+      toast.error(errorMessage(error, 'No se pudo actualizar el producto.'));
+    }
+  });
+
+  return (
+    <form onSubmit={onSubmit} noValidate className="mt-3 space-y-3 border-t border-[#f0ecf0] pt-3">
+      <div className="grid gap-x-4 min-[601px]:grid-cols-2">
+        <FormField id="ep-name" label="Nombre" error={errors.name?.message}>
+          <Input {...fieldA11y('ep-name', errors.name?.message)} {...register('name')} />
+        </FormField>
+
+        <FormField id="ep-brand" label="Marca" error={errors.brandId?.message}>
+          <Select {...fieldA11y('ep-brand', errors.brandId?.message)} {...register('brandId')}>
+            {brands.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+
+        <FormField id="ep-cat" label="Categoría" error={errors.categoryId?.message}>
+          <Select {...fieldA11y('ep-cat', errors.categoryId?.message)} {...register('categoryId')}>
+            {validCategories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+
+        <FormField id="ep-price" label="Precio base COP" error={errors.basePrice?.message}>
+          <Input
+            type="number"
+            min={0}
+            step={100}
+            {...fieldA11y('ep-price', errors.basePrice?.message)}
+            {...register('basePrice')}
+          />
+        </FormField>
+
+        <FormField id="ep-slug" label="Slug" error={errors.slug?.message}>
+          <Input {...fieldA11y('ep-slug', errors.slug?.message)} {...register('slug')} />
+        </FormField>
+
+        <FormField id="ep-netContent" label="Contenido neto" error={errors.netContent?.message}>
+          <Input {...fieldA11y('ep-netContent', errors.netContent?.message)} {...register('netContent')} />
+        </FormField>
+      </div>
+
+      <div className="flex justify-end gap-2.5 pt-2">
+        <Button variant="outline" size="sm" type="button" onClick={onCancel} disabled={isSubmitting}>
+          Cancelar
+        </Button>
+        <Button size="sm" type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Guardando…' : 'Guardar cambios'}
+        </Button>
+      </div>
+    </form>
   );
 }
 
 function VariantsManager({ product, role }: { product: Product; role: AdminRole }) {
   const queryClient = useQueryClient();
-  const [showAddVariant, setShowAddVariant] = useState(false);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editingVariant, setEditingVariant] = useState<ProductVariant | null>(null);
 
   const toggleVariant = useMutation({
     mutationFn: ({ variantId, isActive }: { variantId: string; isActive: boolean }) =>
@@ -573,38 +718,21 @@ function VariantsManager({ product, role }: { product: Product; role: AdminRole 
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-[#493a45]">
+          <h4 className="text-sm font-semibold text-[#493a45]">
             Variantes ({product.variants.length})
-          </h3>
+          </h4>
           <p className="text-[10px] text-[#8b7f87]">
             Cada variante puede tener su propio tono/color, SKU, precio y stock.
           </p>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowAddVariant((v) => !v)}
-        >
-          <Plus size={14} className="mr-1" /> {showAddVariant ? 'Cancelar' : 'Agregar variante'}
+        <Button variant="outline" size="sm" onClick={() => setIsAddOpen(true)}>
+          <Plus size={14} className="mr-1" /> Agregar variante
         </Button>
       </div>
-
-      {showAddVariant && (
-        <CreateVariantForm
-          productId={product.id}
-          role={role}
-          basePrice={product.basePrice}
-          onCreated={() => {
-            setShowAddVariant(false);
-            queryClient.invalidateQueries({ queryKey: ['admin-product', product.id] });
-            queryClient.invalidateQueries({ queryKey: PRODUCTS_KEY });
-          }}
-        />
-      )}
 
       {product.variants.length === 0 ? (
         <div className="rounded bg-[#fbf9fa] p-4 text-center text-[11px] text-[#948692]">
@@ -618,7 +746,7 @@ function VariantsManager({ product, role }: { product: Product; role: AdminRole 
                 <th className={th}>SKU</th>
                 <th className={th}>Tono / Presentación</th>
                 <th className={th}>Precio</th>
-                {role === 'ADMIN' && <th className={th}>Costo (compra)</th>}
+                {role === 'ADMIN' && <th className={th}>Costo</th>}
                 <th className={th}>Stock</th>
                 <th className={th}>Estado</th>
                 <th className={th}>Acciones</th>
@@ -666,7 +794,7 @@ function VariantsManager({ product, role }: { product: Product; role: AdminRole 
                     </span>
                     {v.lowStockThreshold !== null && (
                       <small className="ml-1 text-[9px] text-muted">
-                        (umbral: {v.lowStockThreshold})
+                        (alerta: {v.lowStockThreshold})
                       </small>
                     )}
                   </td>
@@ -677,6 +805,14 @@ function VariantsManager({ product, role }: { product: Product; role: AdminRole 
                   </td>
                   <td className={td}>
                     <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingVariant(v)}
+                        aria-label="Editar variante"
+                      >
+                        <Edit2 size={12} />
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -709,6 +845,49 @@ function VariantsManager({ product, role }: { product: Product; role: AdminRole 
           </table>
         </div>
       )}
+
+      {/* Modal para Agregar Variante */}
+      <Modal
+        isOpen={isAddOpen}
+        onClose={() => setIsAddOpen(false)}
+        title="Nueva variante"
+        description={`Agrega una nueva presentación o tono para "${product.name}".`}
+      >
+        <CreateVariantForm
+          productId={product.id}
+          role={role}
+          basePrice={product.basePrice}
+          onSuccess={() => {
+            setIsAddOpen(false);
+            queryClient.invalidateQueries({ queryKey: ['admin-product', product.id] });
+            queryClient.invalidateQueries({ queryKey: PRODUCTS_KEY });
+          }}
+          onCancel={() => setIsAddOpen(false)}
+        />
+      </Modal>
+
+      {/* Modal para Editar Variante */}
+      <Modal
+        isOpen={!!editingVariant}
+        onClose={() => setEditingVariant(null)}
+        title={`Editar variante: ${editingVariant?.name}`}
+        description="Modifica los detalles, tono o precio de esta variante."
+      >
+        {editingVariant && (
+          <EditVariantForm
+            productId={product.id}
+            variant={editingVariant}
+            role={role}
+            basePrice={product.basePrice}
+            onSuccess={() => {
+              setEditingVariant(null);
+              queryClient.invalidateQueries({ queryKey: ['admin-product', product.id] });
+              queryClient.invalidateQueries({ queryKey: PRODUCTS_KEY });
+            }}
+            onCancel={() => setEditingVariant(null)}
+          />
+        )}
+      </Modal>
     </div>
   );
 }
@@ -717,12 +896,14 @@ function CreateVariantForm({
   productId,
   role,
   basePrice,
-  onCreated,
+  onSuccess,
+  onCancel,
 }: {
   productId: string;
   role: AdminRole;
   basePrice: number;
-  onCreated: () => void;
+  onSuccess: () => void;
+  onCancel: () => void;
 }) {
   const {
     register,
@@ -756,16 +937,15 @@ function CreateVariantForm({
         }),
       });
       toast.success('Variante agregada.');
-      onCreated();
+      onSuccess();
     } catch (error) {
       toast.error(errorMessage(error, 'No se pudo crear la variante.'));
     }
   });
 
   return (
-    <form onSubmit={onSubmit} noValidate className="border border-[#b785b8]/30 bg-[#fdfafd] p-4">
-      <h4 className="mb-3 text-xs font-semibold text-[#493a45]">Nueva variante</h4>
-      <div className="grid gap-x-4 gap-y-2 min-[601px]:grid-cols-3">
+    <form onSubmit={onSubmit} noValidate className="space-y-3">
+      <div className="grid gap-x-4 min-[601px]:grid-cols-2">
         <FormField id="v-sku" label="SKU único" error={errors.sku?.message}>
           <Input placeholder="Ej. MAYB-SS-01" {...fieldA11y('v-sku', errors.sku?.message)} {...register('sku')} />
         </FormField>
@@ -819,9 +999,112 @@ function CreateVariantForm({
         </FormField>
       </div>
 
-      <Button type="submit" size="sm" className="mt-3" disabled={isSubmitting}>
-        {isSubmitting ? 'Guardando…' : 'Guardar variante'}
-      </Button>
+      <div className="flex justify-end gap-2.5 pt-2 border-t border-[#f0ecf0]">
+        <Button variant="outline" type="button" onClick={onCancel} disabled={isSubmitting}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Guardando…' : 'Guardar variante'}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function EditVariantForm({
+  productId,
+  variant,
+  role,
+  basePrice,
+  onSuccess,
+  onCancel,
+}: {
+  productId: string;
+  variant: ProductVariant;
+  role: AdminRole;
+  basePrice: number;
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<UpdateVariantValues>({
+    resolver: zodResolver(updateVariantSchema),
+    defaultValues: {
+      name: variant.name,
+      colorHex: variant.colorHex ?? '',
+      price: variant.price !== null ? String(variant.price) : '',
+      costPrice: variant.costPrice !== null && variant.costPrice !== undefined ? String(variant.costPrice) : '',
+      maxPerOrder: variant.maxPerOrder !== null ? String(variant.maxPerOrder) : '',
+      lowStockThreshold: variant.lowStockThreshold !== null ? String(variant.lowStockThreshold) : '',
+    },
+  });
+
+  const onSubmit = handleSubmit(async (values) => {
+    try {
+      await apiFetch<ProductVariant>(`/admin/products/${productId}/variants/${variant.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: values.name,
+          colorHex: values.colorHex || undefined,
+          price: values.price ? Number(values.price) : undefined,
+          costPrice: role === 'ADMIN' && values.costPrice ? Number(values.costPrice) : undefined,
+          maxPerOrder: values.maxPerOrder ? Number(values.maxPerOrder) : undefined,
+          lowStockThreshold: values.lowStockThreshold ? Number(values.lowStockThreshold) : undefined,
+        }),
+      });
+      toast.success('Variante actualizada.');
+      onSuccess();
+    } catch (error) {
+      toast.error(errorMessage(error, 'No se pudo actualizar la variante.'));
+    }
+  });
+
+  return (
+    <form onSubmit={onSubmit} noValidate className="space-y-3">
+      <div className="grid gap-x-4 min-[601px]:grid-cols-2">
+        <FormField id="ev-name" label="Nombre o tono" error={errors.name?.message}>
+          <Input {...fieldA11y('ev-name', errors.name?.message)} {...register('name')} />
+        </FormField>
+
+        <FormField id="ev-color" label="Color de muestra (hex, opcional)" error={errors.colorHex?.message}>
+          <Input placeholder="#B785B8" {...fieldA11y('ev-color', errors.colorHex?.message)} {...register('colorHex')} />
+        </FormField>
+
+        <FormField
+          id="ev-price"
+          label="Precio propio (COP, opcional)"
+          description={`Si se deja vacío, usa el precio base (${formatCOP(basePrice)}).`}
+          error={errors.price?.message}
+        >
+          <Input type="number" min={0} step={100} {...fieldA11y('ev-price', errors.price?.message)} {...register('price')} />
+        </FormField>
+
+        {role === 'ADMIN' && (
+          <FormField id="ev-cost" label="Costo de compra (solo ADMIN)" error={errors.costPrice?.message}>
+            <Input type="number" min={0} step={100} {...fieldA11y('ev-cost', errors.costPrice?.message)} {...register('costPrice')} />
+          </FormField>
+        )}
+
+        <FormField id="ev-max" label="Límite por pedido (opcional)" error={errors.maxPerOrder?.message}>
+          <Input type="number" min={1} {...fieldA11y('ev-max', errors.maxPerOrder?.message)} {...register('maxPerOrder')} />
+        </FormField>
+
+        <FormField id="ev-low" label="Umbral de stock bajo" error={errors.lowStockThreshold?.message}>
+          <Input type="number" min={0} {...fieldA11y('ev-low', errors.lowStockThreshold?.message)} {...register('lowStockThreshold')} />
+        </FormField>
+      </div>
+
+      <div className="flex justify-end gap-2.5 pt-2 border-t border-[#f0ecf0]">
+        <Button variant="outline" type="button" onClick={onCancel} disabled={isSubmitting}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Guardando…' : 'Guardar cambios'}
+        </Button>
+      </div>
     </form>
   );
 }

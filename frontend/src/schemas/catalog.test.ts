@@ -116,3 +116,4 @@ describe('esquemas de validación de catálogo', () => {
     });
   });
 });
+

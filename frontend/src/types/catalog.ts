@@ -107,3 +107,4 @@ export interface PaginatedProducts {
   items: ProductListItem[];
   total: number;
 }
+

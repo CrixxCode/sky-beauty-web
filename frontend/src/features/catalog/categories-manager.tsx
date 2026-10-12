@@ -2,16 +2,24 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Boxes, CornerDownRight, Trash2 } from 'lucide-react';
+import { Boxes, CornerDownRight, Edit2, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { FormField, fieldA11y } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { AdminPanel, AdminPanelTitle, AdminStatus } from '@/features/admin-auth/admin-ui';
 import { ApiError, apiFetch } from '@/lib/api';
-import { createCategorySchema, type CreateCategoryValues } from '@/schemas/catalog';
+import {
+  createCategorySchema,
+  updateCategorySchema,
+  type CreateCategoryValues,
+  type UpdateCategoryValues,
+} from '@/schemas/catalog';
 import type { Category } from '@/types/catalog';
 
 export const CATEGORIES_KEY = ['admin-categories'];
@@ -20,6 +28,9 @@ const errorMessage = (error: unknown, fallback: string) =>
   error instanceof ApiError ? error.message : fallback;
 
 export function CategoriesManager() {
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+
   const {
     data: categories,
     isPending,
@@ -31,10 +42,15 @@ export function CategoriesManager() {
 
   return (
     <div className="space-y-5">
-      <CreateCategoryForm rootCategories={categories ?? []} />
-
       <AdminPanel>
-        <AdminPanelTitle>Estructura de categorías (máximo 2 niveles)</AdminPanelTitle>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+          <AdminPanelTitle className="mb-0">
+            Estructura de categorías (máximo 2 niveles)
+          </AdminPanelTitle>
+          <Button onClick={() => setIsCreateOpen(true)}>
+            <Plus size={15} className="mr-1.5" /> Nueva categoría
+          </Button>
+        </div>
 
         {isPending && <p className="text-[11px] text-muted">Cargando categorías…</p>}
         {isError && <p className="text-[11px] text-danger">No se pudieron cargar las categorías.</p>}
@@ -48,16 +64,58 @@ export function CategoriesManager() {
         {categories && categories.length > 0 && (
           <div className="space-y-4">
             {categories.map((cat) => (
-              <CategoryTreeItem key={cat.id} category={cat} />
+              <CategoryTreeItem
+                key={cat.id}
+                category={cat}
+                onEdit={(c) => setEditingCategory(c)}
+              />
             ))}
           </div>
         )}
       </AdminPanel>
+
+      {/* Modal para Crear Categoría o Subcategoría */}
+      <Modal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        title="Nueva categoría o subcategoría"
+        description="Crea una categoría principal o selecciónala como subcategoría de una existente."
+      >
+        <CreateCategoryForm
+          rootCategories={categories ?? []}
+          onSuccess={() => setIsCreateOpen(false)}
+          onCancel={() => setIsCreateOpen(false)}
+        />
+      </Modal>
+
+      {/* Modal para Editar Categoría */}
+      <Modal
+        isOpen={!!editingCategory}
+        onClose={() => setEditingCategory(null)}
+        title={`Editar categoría: ${editingCategory?.name}`}
+        description="Modifica los datos de la categoría o subcategoría."
+      >
+        {editingCategory && (
+          <EditCategoryForm
+            category={editingCategory}
+            onSuccess={() => setEditingCategory(null)}
+            onCancel={() => setEditingCategory(null)}
+          />
+        )}
+      </Modal>
     </div>
   );
 }
 
-function CreateCategoryForm({ rootCategories }: { rootCategories: Category[] }) {
+function CreateCategoryForm({
+  rootCategories,
+  onSuccess,
+  onCancel,
+}: {
+  rootCategories: Category[];
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
   const queryClient = useQueryClient();
   const {
     register,
@@ -85,77 +143,187 @@ function CreateCategoryForm({ rootCategories }: { rootCategories: Category[] }) 
       reset();
       toast.success('Categoría creada exitosamente.');
       await queryClient.invalidateQueries({ queryKey: CATEGORIES_KEY });
+      onSuccess();
     } catch (error) {
       toast.error(errorMessage(error, 'No se pudo crear la categoría.'));
     }
   });
 
   return (
-    <AdminPanel>
-      <AdminPanelTitle>Nueva categoría o subcategoría</AdminPanelTitle>
-      <form onSubmit={onSubmit} noValidate>
-        <div className="grid gap-x-4.5 min-[601px]:grid-cols-2">
-          <FormField id="cat-name" label="Nombre" error={errors.name?.message}>
-            <Input
-              placeholder="Ej. Labios, Rostro, Labiales mate"
-              {...fieldA11y('cat-name', errors.name?.message)}
-              {...register('name')}
-            />
-          </FormField>
+    <form onSubmit={onSubmit} noValidate className="space-y-4">
+      <FormField id="cat-name" label="Nombre" error={errors.name?.message}>
+        <Input
+          placeholder="Ej. Labios, Rostro, Labiales mate"
+          {...fieldA11y('cat-name', errors.name?.message)}
+          {...register('name')}
+        />
+      </FormField>
 
-          <FormField
-            id="cat-parent"
-            label="Categoría padre (opcional)"
-            description="Déjalo vacío para crear una categoría principal."
-            error={errors.parentId?.message}
-          >
-            <Select {...fieldA11y('cat-parent', errors.parentId?.message)} {...register('parentId')}>
-              <option value="">(Ninguna — es categoría principal)</option>
-              {rootCategories.map((rc) => (
-                <option key={rc.id} value={rc.id}>
-                  {rc.name}
-                </option>
-              ))}
-            </Select>
-          </FormField>
+      <FormField
+        id="cat-parent"
+        label="Categoría padre (opcional)"
+        description="Déjalo vacío para crear una categoría principal."
+        error={errors.parentId?.message}
+      >
+        <Select {...fieldA11y('cat-parent', errors.parentId?.message)} {...register('parentId')}>
+          <option value="">(Ninguna — es categoría principal)</option>
+          {rootCategories.map((rc) => (
+            <option key={rc.id} value={rc.id}>
+              {rc.name}
+            </option>
+          ))}
+        </Select>
+      </FormField>
 
-          <FormField
-            id="cat-slug"
-            label="Slug (opcional)"
-            description="Si se deja vacío, se genera automáticamente."
-            error={errors.slug?.message}
-          >
-            <Input
-              placeholder="ej-labios-mate"
-              {...fieldA11y('cat-slug', errors.slug?.message)}
-              {...register('slug')}
-            />
-          </FormField>
+      <div className="grid gap-x-4 min-[601px]:grid-cols-2">
+        <FormField
+          id="cat-slug"
+          label="Slug (opcional)"
+          description="Si se deja vacío, se genera automáticamente."
+          error={errors.slug?.message}
+        >
+          <Input
+            placeholder="ej-labios-mate"
+            {...fieldA11y('cat-slug', errors.slug?.message)}
+            {...register('slug')}
+          />
+        </FormField>
 
-          <FormField
-            id="cat-position"
-            label="Posición / orden"
-            description="Número para ordenar en la tienda (0 primero)."
-            error={errors.position?.message}
-          >
-            <Input
-              type="number"
-              min={0}
-              {...fieldA11y('cat-position', errors.position?.message)}
-              {...register('position')}
-            />
-          </FormField>
-        </div>
+        <FormField
+          id="cat-position"
+          label="Posición / orden"
+          description="Número para ordenar en la tienda (0 primero)."
+          error={errors.position?.message}
+        >
+          <Input
+            type="number"
+            min={0}
+            {...fieldA11y('cat-position', errors.position?.message)}
+            {...register('position')}
+          />
+        </FormField>
+      </div>
 
-        <Button type="submit" className="mt-2" disabled={isSubmitting}>
+      <FormField id="cat-desc" label="Descripción (opcional)" error={errors.description?.message}>
+        <Textarea
+          rows={3}
+          placeholder="Descripción opcional de la categoría..."
+          {...fieldA11y('cat-desc', errors.description?.message)}
+          {...register('description')}
+        />
+      </FormField>
+
+      <div className="flex justify-end gap-2.5 pt-2 border-t border-[#f0ecf0]">
+        <Button variant="outline" type="button" onClick={onCancel} disabled={isSubmitting}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Creando…' : 'Crear categoría'}
         </Button>
-      </form>
-    </AdminPanel>
+      </div>
+    </form>
   );
 }
 
-function CategoryTreeItem({ category }: { category: Category }) {
+function EditCategoryForm({
+  category,
+  onSuccess,
+  onCancel,
+}: {
+  category: Category;
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<UpdateCategoryValues>({
+    resolver: zodResolver(updateCategorySchema),
+    defaultValues: {
+      name: category.name,
+      slug: category.slug,
+      description: category.description ?? '',
+      position: String(category.position),
+      isActive: category.isActive,
+    },
+  });
+
+  const onSubmit = handleSubmit(async (values) => {
+    try {
+      await apiFetch<Category>(`/admin/categories/${category.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: values.name,
+          slug: values.slug || undefined,
+          description: values.description || undefined,
+          position: values.position ? Number(values.position) : 0,
+          isActive: values.isActive,
+        }),
+      });
+      toast.success('Categoría actualizada.');
+      await queryClient.invalidateQueries({ queryKey: CATEGORIES_KEY });
+      onSuccess();
+    } catch (error) {
+      toast.error(errorMessage(error, 'No se pudo actualizar la categoría.'));
+    }
+  });
+
+  return (
+    <form onSubmit={onSubmit} noValidate className="space-y-4">
+      <FormField id="edit-cat-name" label="Nombre" error={errors.name?.message}>
+        <Input
+          {...fieldA11y('edit-cat-name', errors.name?.message)}
+          {...register('name')}
+        />
+      </FormField>
+
+      <div className="grid gap-x-4 min-[601px]:grid-cols-2">
+        <FormField id="edit-cat-slug" label="Slug" error={errors.slug?.message}>
+          <Input
+            {...fieldA11y('edit-cat-slug', errors.slug?.message)}
+            {...register('slug')}
+          />
+        </FormField>
+
+        <FormField id="edit-cat-position" label="Posición" error={errors.position?.message}>
+          <Input
+            type="number"
+            min={0}
+            {...fieldA11y('edit-cat-position', errors.position?.message)}
+            {...register('position')}
+          />
+        </FormField>
+      </div>
+
+      <FormField id="edit-cat-desc" label="Descripción (opcional)" error={errors.description?.message}>
+        <Textarea
+          rows={3}
+          {...fieldA11y('edit-cat-desc', errors.description?.message)}
+          {...register('description')}
+        />
+      </FormField>
+
+      <div className="flex justify-end gap-2.5 pt-2 border-t border-[#f0ecf0]">
+        <Button variant="outline" type="button" onClick={onCancel} disabled={isSubmitting}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Guardando…' : 'Guardar cambios'}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function CategoryTreeItem({
+  category,
+  onEdit,
+}: {
+  category: Category;
+  onEdit: (cat: Category) => void;
+}) {
   const queryClient = useQueryClient();
 
   const toggleActive = useMutation({
@@ -200,6 +368,10 @@ function CategoryTreeItem({ category }: { category: Category }) {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => onEdit(category)}>
+            <Edit2 size={12} className="mr-1" /> Editar
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -248,6 +420,10 @@ function CategoryTreeItem({ category }: { category: Category }) {
               </div>
 
               <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => onEdit(sub)}>
+                  <Edit2 size={12} className="mr-1" /> Editar
+                </Button>
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -256,6 +432,7 @@ function CategoryTreeItem({ category }: { category: Category }) {
                 >
                   {sub.isActive ? 'Desactivar' : 'Activar'}
                 </Button>
+
                 <Button
                   variant="outline"
                   size="sm"
