@@ -1,4 +1,13 @@
-import { KeyRound, LayoutDashboard, Settings, Users, type LucideIcon } from 'lucide-react';
+import {
+  Boxes,
+  KeyRound,
+  LayoutDashboard,
+  Settings,
+  ShoppingBag,
+  Tag,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 import type { AdminRole } from '@/types/admin';
 
 export interface AdminNavItem {
@@ -13,6 +22,9 @@ export interface AdminNavItem {
 // Vive fuera de admin-shell.tsx ('use client') para poder usarse también en componentes de servidor.
 export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin', label: 'Resumen', icon: LayoutDashboard },
+  { href: '/admin/productos', label: 'Productos', icon: ShoppingBag },
+  { href: '/admin/categorias', label: 'Categorías', icon: Boxes },
+  { href: '/admin/marcas', label: 'Marcas', icon: Tag },
   { href: '/admin/cuentas', label: 'Cuentas', icon: Users, roles: ['ADMIN'] },
   // El personal ve la configuración en modo solo lectura (Context/decisiones.md).
   { href: '/admin/configuracion', label: 'Configuración', icon: Settings },

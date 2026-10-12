@@ -5,21 +5,26 @@ import { cn } from '@/lib/utils';
 export function FormField({
   id,
   label,
+  description,
   error,
   className,
   children,
 }: {
   id: string;
   label: string;
+  description?: ReactNode;
   error?: string;
   className?: string;
   children: ReactNode;
 }) {
   return (
-    <div className={cn('mb-3.5 flex flex-col gap-2', className)}>
+    <div className={cn('mb-3.5 flex flex-col gap-1.5', className)}>
       <label htmlFor={id} className="text-[11px] font-medium text-field-label">
         {label}
       </label>
+      {description && (
+        <span className="-mt-0.5 text-[10px] leading-tight text-muted">{description}</span>
+      )}
       {children}
       {error && (
         <p id={`${id}-error`} className="text-[11px] text-danger">
