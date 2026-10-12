@@ -6,6 +6,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { type Env, validateEnv } from './config/env';
 import { AdminUsersModule } from './modules/admin-users/admin-users.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CatalogModule } from './modules/catalog/catalog.module';
 import { HealthModule } from './modules/health/health.module';
 import { LocationsModule } from './modules/locations/locations.module';
 import { PaymentMethodsModule } from './modules/payment-methods/payment-methods.module';
@@ -45,6 +46,7 @@ import { PrismaModule } from './shared/prisma/prisma.module';
     StoreSettingsModule,
     PaymentMethodsModule,
     LocationsModule,
+    CatalogModule,
     HealthModule,
   ],
   providers: [
