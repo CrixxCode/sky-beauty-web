@@ -111,7 +111,7 @@ export function CategoriesManager() {
             </div>
 
             <Button onClick={() => handleOpenCreateWithParent(undefined)} className="max-[600px]:w-full">
-              <Plus size={15} className="mr-1.5" /> Nueva categoría
+              <Plus size={15} className="mr-1.5" /> Crear categoría
             </Button>
           </div>
         </div>
@@ -481,7 +481,7 @@ function CategoryTreeItem({
             onClick={() => onAddSubcategory(category.id)}
             className="text-[#764b77] hover:border-[#764b77]"
           >
-            <Plus size={12} className="mr-1" /> Subcategoría
+            <Plus size={12} className="mr-1" /> Agregar subcategoría
           </Button>
 
           <Button variant="outline" size="sm" onClick={() => onEdit(category)}>
@@ -510,7 +510,7 @@ function CategoryTreeItem({
               className="text-danger hover:border-danger hover:bg-danger-bg cursor-pointer"
               aria-label={`Eliminar categoría ${category.name}`}
             >
-              <Trash2 size={13} />
+              <Trash2 size={13} className="mr-1" /> Eliminar
             </Button>
           ) : (
             <span
@@ -574,7 +574,7 @@ function CategoryTreeItem({
                   className="text-danger hover:border-danger hover:bg-danger-bg cursor-pointer"
                   aria-label={`Eliminar subcategoría ${sub.name}`}
                 >
-                  <Trash2 size={12} />
+                  <Trash2 size={12} className="mr-1" /> Eliminar
                 </Button>
               </div>
             </div>

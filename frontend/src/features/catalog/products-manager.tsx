@@ -189,7 +189,7 @@ export function ProductsManager({ role }: { role: AdminRole }) {
             </select>
 
             <Button onClick={() => setIsCreateOpen(true)} className="max-[600px]:w-full">
-              <Plus size={15} className="mr-1.5" /> Nuevo producto
+              <Plus size={15} className="mr-1.5" /> Crear producto
             </Button>
           </div>
         </div>
@@ -664,7 +664,7 @@ function VariantsTab({ product, role }: { product: Product; role: AdminRole }) {
 
         {!isAdding && !editingVariant && (
           <Button size="sm" onClick={() => setIsAdding(true)}>
-            <Plus size={14} className="mr-1" /> Nueva variante
+            <Plus size={14} className="mr-1" /> Agregar variante
           </Button>
         )}
       </div>
@@ -738,7 +738,7 @@ function VariantsTab({ product, role }: { product: Product; role: AdminRole }) {
           </p>
           {!isAdding && (
             <Button size="sm" onClick={() => setIsAdding(true)} className="mt-3">
-              <Plus size={13} className="mr-1" /> Crear primera variante
+              <Plus size={13} className="mr-1" /> Agregar primera variante
             </Button>
           )}
         </div>
@@ -843,7 +843,7 @@ function VariantsTab({ product, role }: { product: Product; role: AdminRole }) {
                           }}
                           aria-label={`Editar variante ${v.name}`}
                         >
-                          <Edit2 size={12} />
+                          <Edit2 size={12} className="mr-1" /> Editar
                         </Button>
                         <Button
                           variant="outline"
@@ -867,7 +867,7 @@ function VariantsTab({ product, role }: { product: Product; role: AdminRole }) {
                           className="text-danger hover:border-danger hover:bg-danger-bg cursor-pointer"
                           aria-label={`Eliminar variante ${v.name}`}
                         >
-                          <Trash2 size={12} />
+                          <Trash2 size={12} className="mr-1" /> Eliminar
                         </Button>
                       </div>
                     </td>

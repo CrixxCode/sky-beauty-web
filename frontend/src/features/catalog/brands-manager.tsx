@@ -82,7 +82,7 @@ export function BrandsManager() {
             </div>
 
             <Button onClick={() => setIsCreateOpen(true)} className="max-[600px]:w-full">
-              <Plus size={15} className="mr-1.5" /> Nueva marca
+              <Plus size={15} className="mr-1.5" /> Crear marca
             </Button>
           </div>
         </div>
@@ -376,7 +376,7 @@ function BrandCard({
             className="text-danger hover:border-danger hover:bg-danger-bg cursor-pointer"
             aria-label={`Eliminar marca ${brand.name}`}
           >
-            <Trash2 size={13} />
+            <Trash2 size={13} className="mr-1" /> Eliminar
           </Button>
         ) : (
           <span

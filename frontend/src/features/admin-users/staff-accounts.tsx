@@ -94,7 +94,7 @@ export function StaffAccounts() {
             </div>
 
             <Button onClick={() => setIsCreateOpen(true)} className="max-[600px]:w-full">
-              <Plus size={15} className="mr-1.5" /> Nueva cuenta
+              <Plus size={15} className="mr-1.5" /> Crear cuenta
             </Button>
           </div>
         </div>
