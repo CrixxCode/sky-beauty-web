@@ -127,6 +127,22 @@ Prioridad de cálculo en checkout:
 
 ---
 
+## 2026-10-13 — Confirmar un pedido exige el costo del envío
+
+**Decisión:** un pedido solo se puede confirmar cuando tiene registrado el costo del envío (calculado en el checkout o cotizado por la tienda). Así el cliente conoce el total que debe pagar antes de que empiece el plazo de 24 horas para enviar el comprobante.
+
+---
+
+## 2026-10-13 — Envío recalculado al editar un pedido sin confirmar
+
+**Decisión:** al editar un pedido sin confirmar, el costo del envío se recalcula con la misma prioridad del checkout (envío gratis nacional, envío gratis por monto mínimo sobre el subtotal editado, tarifa del municipio) y con la configuración vigente al editar.
+
+- Si ninguna regla da un valor y la tienda ya había cotizado el envío a mano, se conserva esa cotización.
+- Si el envío era gratis y deja de serlo, y el municipio no tiene tarifa, vuelve a quedar por confirmar.
+- Cada recálculo que cambia el envío queda en el historial del pedido.
+
+---
+
 ## 2026-10-13 — Bajar el límite del descuento porcentual
 
 **Decisión:** no se puede bajar el límite del descuento porcentual mientras haya promociones porcentuales activas, vigentes o programadas, cuyo descuento lo supere. El sistema no guarda el cambio y muestra cuáles son, para que la propietaria las edite o desactive primero.

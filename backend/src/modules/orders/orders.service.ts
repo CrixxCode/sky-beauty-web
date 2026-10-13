@@ -961,7 +961,13 @@ export class OrdersService {
         (sum, item) => sum + item.unitDiscount * item.quantity,
         0,
       );
-      const shippingCost = order.shippingCost?.toNumber() ?? null;
+      const previousShipping = order.shippingCost?.toNumber() ?? null;
+      const shippingCost = await this.shippingAfterEdit(
+        tx,
+        order.municipalityCode,
+        subtotal - discountTotal,
+        previousShipping,
+      );
       const total = this.totalWithShipping(
         new Prisma.Decimal(subtotal),
         new Prisma.Decimal(discountTotal),
@@ -974,6 +980,7 @@ export class OrdersService {
         data: {
           subtotal,
           discountTotal,
+          shippingCost,
           total,
           items: {
             create: finalItems.map((item) => ({
@@ -1003,6 +1010,16 @@ export class OrdersService {
           changedById: adminId,
         },
       });
+      if (shippingCost !== previousShipping) {
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId: id,
+            type: OrderEventType.SHIPPING,
+            note: `Envío recalculado al editar: ${shippingLabel(shippingCost)}.`,
+            changedById: adminId,
+          },
+        });
+      }
     });
 
     return this.findAdmin(id, role);
@@ -1357,6 +1374,30 @@ export class OrdersService {
       .minus(discountTotal)
       .plus(shippingCost ?? 0)
       .toNumber();
+  }
+
+  /**
+   * Envío de un pedido sin confirmar después de editarlo (decisión del 2026-10-13): se recalcula
+   * con la regla del checkout (gratis nacional, gratis por monto mínimo, tarifa del municipio) y la
+   * configuración vigente. Si ninguna regla da un valor, se conserva el costo que la tienda cotizó
+   * a mano; si el envío era gratis y deja de serlo, vuelve a quedar por confirmar.
+   */
+  private async shippingAfterEdit(
+    tx: Prisma.TransactionClient,
+    municipalityCode: string,
+    productsTotal: number,
+    previous: number | null,
+  ): Promise<number | null> {
+    const settings = await this.settings.get();
+    const rate = await tx.municipalShippingRate.findUnique({ where: { municipalityCode } });
+    const computed = this.checkoutShippingCost(
+      productsTotal,
+      settings.nationalFreeShipping,
+      settings.freeShippingThreshold,
+      rate?.amount.toNumber() ?? null,
+    );
+    if (computed !== null) return computed;
+    return previous !== null && previous > 0 ? previous : null;
   }
 
   private checkoutShippingCost(

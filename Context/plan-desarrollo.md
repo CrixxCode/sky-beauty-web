@@ -271,12 +271,12 @@ La lógica más delicada del sistema: debe tener pruebas exhaustivas antes de co
 **Estado:** terminado el 2026-10-13.
 
 - Pruebas: `test/orders-admin.e2e-spec.ts`, `test/orders-stock.e2e-spec.ts` (integración) y `e2e/orders.spec.ts` (Playwright, celular y escritorio).
-- Confirmar exige tener registrado el costo del envío cotizado (para que el cliente conozca el total que debe pagar). Pendiente de confirmar con la propietaria.
+- Confirmar exige tener registrado el costo del envío (ver `decisiones.md`, 2026-10-13).
 - Cambios de estado solo hacia adelante: Confirmado → Preparando (opcional) → Despachado → Entregado. Confirmar y cancelar tienen acciones propias.
 - Confirmar, cotizar envío, cambiar estado, editar y cancelar usan un bloqueo optimista del pedido: operaciones simultáneas no se pisan (por ejemplo, confirmar y cancelar a la vez).
 - Las respuestas al personal nunca incluyen el costo de compra.
 - Edición: los productos que ya estaban conservan su precio; los agregados toman el precio y la promoción del día del pedido; el máximo por pedido se valida también al aumentar.
-- Al editar, el costo de envío ya registrado no se recalcula, aunque cambie el subtotal (por ejemplo, frente al monto mínimo de envío gratis). No está definido.
+- Al editar, el envío se recalcula con la regla del checkout; sin tarifa se conserva la cotización manual (ver `decisiones.md`, 2026-10-13).
 
 ---
 

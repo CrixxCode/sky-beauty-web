@@ -364,6 +364,72 @@ describe('Gestión de pedidos (integración)', () => {
     });
   });
 
+  describe('envío al editar un pedido sin confirmar', () => {
+    const editTo = async (id: string, quantity: number) =>
+      (
+        await staff
+          .patch(`${ORDERS}/${id}/items`)
+          .send({ items: [{ variantId: otherVariantId, quantity }] })
+          .expect(200)
+      ).body as AdminOrder;
+
+    it('se recalcula con la tarifa del municipio y el monto mínimo de envío gratis', async () => {
+      await prisma.municipalShippingRate.create({
+        data: { municipalityCode: '44001', amount: 5000 },
+      });
+      await prisma.storeSettings.update({
+        where: { id: 'default' },
+        data: { freeShippingThreshold: 40000 },
+      });
+      const id = await createOrder({ items: [{ variantId: otherVariantId, quantity: 2 }] });
+      expect(
+        (await prisma.order.findUniqueOrThrow({ where: { id } })).shippingCost?.toNumber(),
+      ).toBe(5000);
+
+      expect(await editTo(id, 4)).toMatchObject({ shippingCost: 0, total: 40000 });
+      expect(await editTo(id, 2)).toMatchObject({ shippingCost: 5000, total: 25000 });
+
+      const notes = await prisma.orderStatusHistory.findMany({
+        where: { orderId: id, type: 'SHIPPING' },
+        orderBy: { createdAt: 'asc' },
+      });
+      const nbsp = String.fromCharCode(160);
+      expect(notes.map((n) => n.note?.replaceAll(nbsp, ' '))).toEqual([
+        'Envío recalculado al editar: Envío gratis.',
+        'Envío recalculado al editar: Envío: $ 5.000.',
+      ]);
+    });
+
+    it('sin tarifa conserva el costo cotizado a mano, salvo que pase a ser gratis', async () => {
+      await prisma.storeSettings.update({
+        where: { id: 'default' },
+        data: { freeShippingThreshold: 40000 },
+      });
+      const id = await createOrder({
+        municipalityCode: '05001',
+        items: [{ variantId: otherVariantId, quantity: 2 }],
+      });
+      await staff.patch(`${ORDERS}/${id}/shipping-cost`).send({ shippingCost: 12000 }).expect(200);
+
+      expect(await editTo(id, 3)).toMatchObject({ shippingCost: 12000, total: 42000 });
+      expect(await editTo(id, 4)).toMatchObject({ shippingCost: 0 });
+      // Deja de ser gratis y no hay tarifa: vuelve a quedar por confirmar.
+      expect(await editTo(id, 2)).toMatchObject({ shippingCost: null, total: 20000 });
+    });
+
+    it('con envío gratis nacional activo queda gratis', async () => {
+      const id = await createOrder({
+        municipalityCode: '05001',
+        items: [{ variantId: otherVariantId, quantity: 1 }],
+      });
+      await prisma.storeSettings.update({
+        where: { id: 'default' },
+        data: { nationalFreeShipping: true },
+      });
+      expect(await editTo(id, 2)).toMatchObject({ shippingCost: 0, total: 20000 });
+    });
+  });
+
   describe('cancelación manual', () => {
     it('exige motivo, libera existencias y deja el motivo en el pedido', async () => {
       const id = await createOrder();
