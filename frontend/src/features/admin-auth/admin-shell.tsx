@@ -45,10 +45,14 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
     'flex w-full items-center gap-3 p-3 text-left text-[11px] text-[#756d76] hover:bg-admin-active hover:font-semibold hover:text-admin-active-text';
 
   return (
-    <div className="grid min-h-screen bg-admin-bg min-[851px]:grid-cols-[238px_1fr]">
+    // h-dvh + overflow-hidden en el contenedor fija la altura total de la pantalla.
+    // Cada columna (aside y main) maneja su propio scroll de forma independiente.
+    <div className="grid h-dvh overflow-hidden bg-admin-bg min-[851px]:grid-cols-[238px_1fr]">
       <aside
         className={cn(
-          'flex min-h-screen flex-col border-r border-[#eae6ea] bg-white',
+          // El aside ocupa toda la altura del contenedor y nunca hace scroll propio:
+          // solo el <nav> interno tiene overflow-y-auto.
+          'flex h-full flex-col border-r border-[#eae6ea] bg-white',
           'max-[850px]:fixed max-[850px]:inset-y-0 max-[850px]:left-0 max-[850px]:z-[143] max-[850px]:w-63.75 max-[850px]:transition-transform max-[850px]:duration-[250ms]',
           mobileOpen ? 'max-[850px]:translate-x-0' : 'max-[850px]:-translate-x-full',
         )}
@@ -72,7 +76,11 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
             <X size={20} />
           </Button>
         </div>
-        <nav aria-label="Panel" className="flex flex-col gap-1 px-3 py-5">
+        {/* Único elemento con scroll en el aside; se desplaza independientemente del contenido. */}
+        <nav
+          aria-label="Panel"
+          className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-3 py-5"
+        >
           {items.map(({ href, label, icon: Icon }) => {
             const active = isActive(href, pathname);
             return (
@@ -92,7 +100,7 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
             );
           })}
         </nav>
-        <div className="mt-auto border-t border-[#eee9ec] px-3 pb-5.75 pt-3.5">
+        <div className="shrink-0 border-t border-[#eee9ec] px-3 pb-5.75 pt-3.5">
           <Link href="/" className={sideButton}>
             <ArrowLeft size={17} /> Ver tienda
           </Link>
@@ -113,8 +121,9 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
         </div>
       </aside>
 
-      <main className="min-w-0">
-        <header className="flex h-24 items-center justify-between gap-3.75 border-b border-[#eae6ea] bg-white px-10.5 max-[850px]:h-19 max-[850px]:px-6.75 max-[600px]:h-15 max-[600px]:px-4.5">
+      {/* El main tiene su propio overflow-y-auto: scrollea independientemente del aside. */}
+      <main className="flex min-w-0 flex-col overflow-y-auto">
+        <header className="flex h-24 shrink-0 items-center justify-between gap-3.75 border-b border-[#eae6ea] bg-white px-10.5 max-[850px]:h-19 max-[850px]:px-6.75 max-[600px]:h-15 max-[600px]:px-4.5">
           <Button
             variant="ghost"
             size="icon"
