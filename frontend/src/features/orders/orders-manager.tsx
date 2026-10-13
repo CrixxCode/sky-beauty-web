@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FormError } from '@/components/ui/form-field';
+import { FormError, FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
@@ -19,15 +19,26 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from '@/components/ui/input-group';
 import { AdminPanel, AdminPanelTitle, AdminStatus } from '@/features/admin-auth/admin-ui';
 import { ApiError, apiFetch } from '@/lib/api';
+import { QuantityStepper } from '@/features/cart/quantity-stepper';
 import { formatCOP } from '@/lib/format';
 import type { AdminRole } from '@/types/admin';
 import type { PaginatedProducts, Product } from '@/types/catalog';
 import type { AdminOrder, AdminOrderItem, PaginatedAdminOrders } from '@/types/orders';
 import type { OrderStatus, PaymentStatus } from '@/types/orders-labels';
-import { ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS } from '@/types/orders-labels';
+import {
+  NEXT_ORDER_STATUSES,
+  ORDER_EVENT_LABELS,
+  ORDER_STATUS_LABELS,
+  PAYMENT_STATUS_LABELS,
+} from '@/types/orders-labels';
 import type { Carrier, ShippingStatus } from '@/types/shipping';
 import { SHIPPING_STATUS_LABELS } from '@/types/shipping';
 
@@ -132,7 +143,7 @@ export function OrdersManager({
             <InputGroupInput
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar pedido, cliente o telefono..."
+              placeholder="Buscar pedido, cliente o teléfono..."
               aria-label="Buscar pedido"
               className="min-w-0"
             />
@@ -164,7 +175,9 @@ export function OrdersManager({
         </div>
 
         {ordersQuery.isPending && <p className="text-[11px] text-muted">Cargando pedidos...</p>}
-        {ordersQuery.isError && <p className="text-[11px] text-danger">No se pudieron cargar los pedidos.</p>}
+        {ordersQuery.isError && (
+          <p className="text-[11px] text-danger">No se pudieron cargar los pedidos.</p>
+        )}
 
         {orders.length > 0 && (
           <Table className="min-w-[920px]">
@@ -176,7 +189,7 @@ export function OrdersManager({
                 <TableHead>Pago</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Fecha</TableHead>
-                <TableHead className="text-right">Accion</TableHead>
+                <TableHead className="text-right">Acción</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -184,11 +197,15 @@ export function OrdersManager({
                 <TableRow key={order.id}>
                   <TableCell>
                     <strong className="block text-[11px] text-[#493a45]">{order.code}</strong>
-                    <span className="text-[10px] text-[#8b7f87]">{order.itemCount} producto(s)</span>
+                    <span className="text-[10px] text-[#8b7f87]">
+                      {order.itemCount} producto(s)
+                    </span>
                   </TableCell>
                   <TableCell>
                     <span className="block text-[11px]">{order.customerName}</span>
-                    <span className="text-[10px] text-[#8b7f87]">{order.city}, {order.department}</span>
+                    <span className="text-[10px] text-[#8b7f87]">
+                      {order.city}, {order.department}
+                    </span>
                   </TableCell>
                   <TableCell>
                     <AdminStatus tone={statusTone(order.status)}>
@@ -219,7 +236,11 @@ export function OrdersManager({
         isOpen={Boolean(selectedId)}
         onClose={() => setSelectedId(null)}
         title={detailQuery.data ? `Pedido ${detailQuery.data.code}` : 'Pedido'}
-        description={detailQuery.data ? `${detailQuery.data.customerName} - ${detailQuery.data.city}` : undefined}
+        description={
+          detailQuery.data
+            ? `${detailQuery.data.customerName} - ${detailQuery.data.city}`
+            : undefined
+        }
         maxWidth="4xl"
       >
         {detailQuery.isPending && <p className="text-[11px] text-muted">Cargando detalle...</p>}
@@ -246,7 +267,8 @@ function OrderDetail({
   refresh: () => Promise<void>;
 }) {
   const [shippingCost, setShippingCost] = useState(order.shippingCost?.toString() ?? '');
-  const [nextStatus, setNextStatus] = useState<OrderStatus>('PREPARING');
+  const nextStatuses = NEXT_ORDER_STATUSES[order.status];
+  const [nextStatus, setNextStatus] = useState<OrderStatus | ''>(nextStatuses[0] ?? '');
   const [statusNote, setStatusNote] = useState('');
   const [cancelReason, setCancelReason] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
@@ -260,8 +282,12 @@ function OrderDetail({
   const [shippingStatus, setShippingStatus] = useState<ShippingStatus>(
     order.shipping?.status ?? 'NOT_SHIPPED',
   );
-  const [dispatchedAt, setDispatchedAt] = useState(toDateTimeInput(order.shipping?.dispatchedAt ?? null));
-  const [deliveredAt, setDeliveredAt] = useState(toDateTimeInput(order.shipping?.deliveredAt ?? null));
+  const [dispatchedAt, setDispatchedAt] = useState(
+    toDateTimeInput(order.shipping?.dispatchedAt ?? null),
+  );
+  const [deliveredAt, setDeliveredAt] = useState(
+    toDateTimeInput(order.shipping?.deliveredAt ?? null),
+  );
   const [shippingNotes, setShippingNotes] = useState(order.shipping?.notes ?? '');
   const [editOpen, setEditOpen] = useState(false);
 
@@ -286,7 +312,10 @@ function OrderDetail({
       if (task === 'confirm') {
         return apiFetch<AdminOrder>(`/admin/orders/${order.id}/confirm`, {
           method: 'PATCH',
-          body: JSON.stringify({ shippingCost: Number(shippingCost) }),
+          // Un campo vacío no es envío gratis: se confirma con el costo ya registrado.
+          body: JSON.stringify(
+            shippingCost.trim() === '' ? {} : { shippingCost: Number(shippingCost) },
+          ),
         });
       }
       if (task === 'shipping') {
@@ -368,7 +397,14 @@ function OrderDetail({
   });
 
   const canEditItems = order.status === 'PENDING_CONFIRMATION';
-  const canCancel = order.status !== 'CANCELLED' && order.status !== 'SHIPPED' && order.status !== 'DELIVERED';
+  const cancellable =
+    order.status !== 'CANCELLED' && order.status !== 'SHIPPED' && order.status !== 'DELIVERED';
+  // El personal solo cancela por pago no demostrado, después del plazo de aclaración (el backend
+  // valida el plazo). La propietaria cancela en cualquier otro caso.
+  const canCancel = cancellable && (role === 'ADMIN' || order.paymentStatus === 'REJECTED');
+  const canQuoteShipping = order.status !== 'CANCELLED' && order.status !== 'DELIVERED';
+  const shippingCostValid = shippingCost.trim() !== '' && Number(shippingCost) >= 0;
+  const canConfirm = order.shippingCost !== null || shippingCostValid;
   const requiresVerification = order.paymentMethodCode !== 'CASH_ON_DELIVERY';
   const carriers = (carriersQuery.data ?? []).filter(
     (carrier) => carrier.isActive || carrier.id === order.shipping?.carrierId,
@@ -380,7 +416,9 @@ function OrderDetail({
         <section className="border border-[#eee8ed] p-4.5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div className="flex gap-2">
-              <AdminStatus tone={statusTone(order.status)}>{ORDER_STATUS_LABELS[order.status]}</AdminStatus>
+              <AdminStatus tone={statusTone(order.status)}>
+                {ORDER_STATUS_LABELS[order.status]}
+              </AdminStatus>
               <AdminStatus tone={paymentTone(order.paymentStatus)}>
                 {PAYMENT_STATUS_LABELS[order.paymentStatus]}
               </AdminStatus>
@@ -404,7 +442,11 @@ function OrderDetail({
           <div className="space-y-2.5">
             {order.events.map((event) => (
               <div key={event.id} className="border-b border-[#f0ecf0] pb-2.5 text-[11px]">
-                <strong>{event.toStatus ?? event.type}</strong>
+                <strong>
+                  {event.toStatus
+                    ? (ORDER_STATUS_LABELS[event.toStatus as OrderStatus] ?? event.toStatus)
+                    : (ORDER_EVENT_LABELS[event.type] ?? event.type)}
+                </strong>
                 <span className="ml-2 text-[#8b7f87]">{formatDate(event.createdAt)}</span>
                 {event.note && <p className="mt-1 text-[#6f606a]">{event.note}</p>}
               </div>
@@ -415,7 +457,7 @@ function OrderDetail({
         <section className="border border-[#eee8ed] p-4.5">
           <h3 className="mb-3 text-xs font-semibold text-[#493a45]">Pagos</h3>
           {order.paymentRecords.length === 0 && (
-            <p className="text-[11px] text-[#8b7f87]">Todavia no hay registros de pago.</p>
+            <p className="text-[11px] text-[#8b7f87]">Todavía no hay registros de pago.</p>
           )}
           <div className="space-y-2.5">
             {order.paymentRecords.map((record) => (
@@ -440,38 +482,62 @@ function OrderDetail({
       <div className="space-y-5">
         <section className="border border-[#eee8ed] p-4.5 text-[11px] leading-[1.8]">
           <h3 className="mb-3 text-xs font-semibold text-[#493a45]">Cliente y entrega</h3>
-          <p><strong>{order.customerName}</strong></p>
+          <p>
+            <strong>{order.customerName}</strong>
+          </p>
           <p>{order.customerPhone}</p>
           <p>{order.addressLine}</p>
-          <p>{order.city}, {order.department}</p>
+          <p>
+            {order.city}, {order.department}
+          </p>
           {order.deliveryNotes && <p className="mt-2 text-[#7b6775]">{order.deliveryNotes}</p>}
-          <p className="mt-3">Pago: <strong>{order.paymentMethodName}</strong></p>
+          <p className="mt-3">
+            Pago: <strong>{order.paymentMethodName}</strong>
+          </p>
         </section>
 
         <section className="border border-[#eee8ed] p-4.5">
           <h3 className="mb-3 text-xs font-semibold text-[#493a45]">Totales</h3>
           <Summary label="Subtotal" value={formatCOP(order.subtotal)} />
           <Summary label="Descuentos" value={`-${formatCOP(order.discountTotal)}`} />
-          <Summary label="Envio" value={order.shippingCost === null ? 'Por confirmar' : formatCOP(order.shippingCost)} />
-          <Summary label="Total" value={formatCOP(order.total)} strong />
-          <div className="mt-4 flex gap-2">
-            <Input
-              value={shippingCost}
-              onChange={(event) => setShippingCost(event.target.value)}
-              type="number"
-              min={0}
-              placeholder="Costo envio"
-            />
-            <Button disabled={action.isPending} onClick={() => action.mutate('shipping')}>
-              <Truck size={15} />
-              Guardar
-            </Button>
-          </div>
+          <Summary
+            label="Envío"
+            value={order.shippingCost === null ? 'Por confirmar' : formatCOP(order.shippingCost)}
+          />
+          <Summary
+            label={order.shippingCost === null ? 'Total sin envío' : 'Total'}
+            value={formatCOP(order.total)}
+            strong
+          />
+          {canQuoteShipping && (
+            <div className="mt-4">
+              <FormField id="order-shipping-cost" label="Costo del envío cotizado (COP)">
+                <div className="flex gap-2">
+                  <Input
+                    id="order-shipping-cost"
+                    value={shippingCost}
+                    onChange={(event) => setShippingCost(event.target.value)}
+                    type="number"
+                    min={0}
+                    step={1}
+                    inputMode="numeric"
+                  />
+                  <Button
+                    disabled={action.isPending || !shippingCostValid}
+                    onClick={() => action.mutate('shipping')}
+                  >
+                    <Truck size={15} />
+                    Guardar
+                  </Button>
+                </div>
+              </FormField>
+            </div>
+          )}
         </section>
 
         <section className="border border-[#eee8ed] p-4.5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-xs font-semibold text-[#493a45]">Envio operativo</h3>
+            <h3 className="text-xs font-semibold text-[#493a45]">Envío</h3>
             <AdminStatus tone={shippingTone(shippingStatus)}>
               {SHIPPING_STATUS_LABELS[shippingStatus]}
             </AdminStatus>
@@ -524,7 +590,7 @@ function OrderDetail({
               rows={2}
               value={shippingNotes}
               onChange={(event) => setShippingNotes(event.target.value)}
-              placeholder="Notas internas del envio"
+              placeholder="Notas internas del envío"
             />
             {order.shipping?.trackingUrl && (
               <a
@@ -542,7 +608,7 @@ function OrderDetail({
               onClick={() => action.mutate('shippingRecord')}
             >
               <Truck size={15} />
-              Guardar envio
+              Guardar envío
             </Button>
           </div>
         </section>
@@ -550,46 +616,84 @@ function OrderDetail({
         <section className="border border-[#eee8ed] p-4.5">
           <h3 className="mb-3 text-xs font-semibold text-[#493a45]">Acciones</h3>
           {order.status === 'PENDING_CONFIRMATION' && (
-            <Button className="mb-3 w-full" disabled={action.isPending} onClick={() => action.mutate('confirm')}>
-              <PackageCheck size={16} />
-              Confirmar pedido
-            </Button>
+            <div className="mb-3">
+              <Button
+                className="w-full"
+                disabled={action.isPending || !canConfirm}
+                onClick={() => action.mutate('confirm')}
+              >
+                <PackageCheck size={16} />
+                Confirmar pedido
+              </Button>
+              {!canConfirm && (
+                <p className="mt-2 text-[10px] text-[#8b7f87]">
+                  Registra primero el costo del envío cotizado.
+                </p>
+              )}
+            </div>
           )}
-          <div className="grid gap-2">
-            <Select value={nextStatus} onChange={(event) => setNextStatus(event.target.value as OrderStatus)}>
-              <option value="PREPARING">Preparando</option>
-              <option value="SHIPPED">Despachado</option>
-              <option value="DELIVERED">Entregado</option>
-            </Select>
-            <Textarea
-              rows={2}
-              value={statusNote}
-              onChange={(event) => setStatusNote(event.target.value)}
-              placeholder="Nota opcional"
-            />
-            <Button variant="outline" disabled={action.isPending} onClick={() => action.mutate('status')}>
-              Cambiar estado
-            </Button>
-          </div>
+          {nextStatuses.length > 0 && (
+            <div className="grid gap-2">
+              <FormField id="order-next-status" label="Nuevo estado">
+                <Select
+                  id="order-next-status"
+                  value={nextStatus}
+                  onChange={(event) => setNextStatus(event.target.value as OrderStatus)}
+                >
+                  {nextStatuses.map((value) => (
+                    <option key={value} value={value}>
+                      {ORDER_STATUS_LABELS[value]}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+              <FormField id="order-status-note" label="Nota (opcional)">
+                <Textarea
+                  id="order-status-note"
+                  rows={2}
+                  value={statusNote}
+                  onChange={(event) => setStatusNote(event.target.value)}
+                />
+              </FormField>
+              <Button
+                variant="outline"
+                disabled={action.isPending || !nextStatus}
+                onClick={() => action.mutate('status')}
+              >
+                Cambiar estado
+              </Button>
+            </div>
+          )}
+          {order.status === 'DELIVERED' && (
+            <p className="text-[11px] text-[#8b7f87]">El pedido fue entregado.</p>
+          )}
+          {order.status === 'CANCELLED' && (
+            <p className="text-[11px] text-[#8b7f87]">
+              Pedido cancelado{order.cancelReason ? `: ${order.cancelReason}` : '.'}
+            </p>
+          )}
           {canCancel && (
             <div className="mt-4 border-t border-[#f0ecf0] pt-4">
-              <Textarea
-                rows={2}
-                value={cancelReason}
-                onChange={(event) => setCancelReason(event.target.value)}
-                placeholder="Motivo de cancelacion"
-              />
+              <FormField id="order-cancel-reason" label="Motivo de la cancelación">
+                <Textarea
+                  id="order-cancel-reason"
+                  rows={2}
+                  value={cancelReason}
+                  onChange={(event) => setCancelReason(event.target.value)}
+                />
+              </FormField>
               <Button
                 className="mt-2 w-full"
                 variant="destructive"
                 disabled={action.isPending || cancelReason.trim().length < 3}
                 onClick={() => action.mutate('cancel')}
               >
-                Cancelar y liberar stock
+                Cancelar pedido y liberar existencias
               </Button>
               {role !== 'ADMIN' && (
                 <p className="mt-2 text-[10px] text-[#8b7f87]">
-                  El personal solo puede cancelar por pago no demostrado vencido.
+                  El personal solo puede cancelar cuando el pago no se demostró y venció el plazo de
+                  aclaración.
                 </p>
               )}
             </div>
@@ -597,7 +701,7 @@ function OrderDetail({
         </section>
 
         <section className="border border-[#eee8ed] p-4.5">
-          <h3 className="mb-3 text-xs font-semibold text-[#493a45]">Gestion de pago</h3>
+          <h3 className="mb-3 text-xs font-semibold text-[#493a45]">Gestión de pago</h3>
           {!requiresVerification && (
             <p className="text-[11px] text-[#8b7f87]">
               El contra entrega queda pagado al marcar el pedido como entregado.
@@ -619,7 +723,11 @@ function OrderDetail({
               <Button
                 className="w-full"
                 variant="outline"
-                disabled={action.isPending || order.paymentStatus === 'PAID' || order.paymentStatus === 'REFUNDED'}
+                disabled={
+                  action.isPending ||
+                  order.paymentStatus === 'PAID' ||
+                  order.paymentStatus === 'REFUNDED'
+                }
                 onClick={() => action.mutate('paymentReceived')}
               >
                 <CreditCard size={15} />
@@ -665,7 +773,7 @@ function OrderDetail({
                       rows={2}
                       value={refundNote}
                       onChange={(event) => setRefundNote(event.target.value)}
-                      placeholder="Motivo o soporte de devolucion"
+                      placeholder="Motivo o soporte de la devolución"
                     />
                     <Button
                       className="mt-2 w-full"
@@ -678,7 +786,7 @@ function OrderDetail({
                       }
                       onClick={() => action.mutate('refundPayment')}
                     >
-                      Registrar devolucion
+                      Registrar devolución
                     </Button>
                   </div>
                 </>
@@ -692,10 +800,16 @@ function OrderDetail({
         isOpen={editOpen}
         onClose={() => setEditOpen(false)}
         title="Editar productos"
-        description="Disponible solo mientras el pedido no este confirmado."
+        description="Disponible solo mientras el pedido no esté confirmado."
         maxWidth="3xl"
       >
-        <EditItemsForm order={order} onSaved={async () => { setEditOpen(false); await refresh(); }} />
+        <EditItemsForm
+          order={order}
+          onSaved={async () => {
+            setEditOpen(false);
+            await refresh();
+          }}
+        />
       </Modal>
     </div>
   );
@@ -706,10 +820,14 @@ function OrderItemRow({ item, role }: { item: AdminOrderItem; role: AdminRole })
     <div className="flex items-start justify-between gap-3 border-b border-[#f0ecf0] pb-3 text-[11px]">
       <div>
         <strong className="block text-[#493a45]">{item.productName}</strong>
-        <span className="text-[#8b7f87]">{item.variantName} - {item.sku}</span>
+        <span className="text-[#8b7f87]">
+          {item.variantName} - {item.sku}
+        </span>
         {item.promotionName && <span className="ml-2 text-[#7a5178]">{item.promotionName}</span>}
         {role === 'ADMIN' && item.unitCost !== null && (
-          <span className="block text-[10px] text-[#9b8d95]">Costo: {formatCOP(item.unitCost)}</span>
+          <span className="block text-[10px] text-[#9b8d95]">
+            Costo: {formatCOP(item.unitCost)}
+          </span>
         )}
       </div>
       <div className="text-right">
@@ -720,7 +838,15 @@ function OrderItemRow({ item, role }: { item: AdminOrderItem; role: AdminRole })
   );
 }
 
-function Summary({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+function Summary({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+}) {
   return (
     <div className="my-2 flex justify-between gap-3 text-[11px]">
       <span className="text-[#756a72]">{label}</span>
@@ -731,11 +857,13 @@ function Summary({ label, value, strong = false }: { label: string; value: strin
 
 function EditItemsForm({ order, onSaved }: { order: AdminOrder; onSaved: () => Promise<void> }) {
   const [lines, setLines] = useState(
-    order.items.filter((item) => item.variantId).map((item) => ({
-      variantId: item.variantId as string,
-      label: `${item.productName} - ${item.variantName}`,
-      quantity: item.quantity,
-    })),
+    order.items
+      .filter((item) => item.variantId)
+      .map((item) => ({
+        variantId: item.variantId as string,
+        label: `${item.productName} - ${item.variantName}`,
+        quantity: item.quantity,
+      })),
   );
   const [productId, setProductId] = useState('');
   const [variantId, setVariantId] = useState('');
@@ -765,7 +893,8 @@ function EditItemsForm({ order, onSaved }: { order: AdminOrder; onSaved: () => P
       toast.success('Productos actualizados.');
       await onSaved();
     },
-    onError: (error) => setFormError(errorMessage(error, 'No se pudieron actualizar los productos.')),
+    onError: (error) =>
+      setFormError(errorMessage(error, 'No se pudieron actualizar los productos.')),
   });
 
   const variants = productQuery.data?.variants ?? [];
@@ -775,7 +904,14 @@ function EditItemsForm({ order, onSaved }: { order: AdminOrder; onSaved: () => P
     if (!selectedVariant) return;
     setLines((current) => {
       if (current.some((line) => line.variantId === selectedVariant.id)) return current;
-      return [...current, { variantId: selectedVariant.id, label: `${productQuery.data?.name} - ${selectedVariant.name}`, quantity: 1 }];
+      return [
+        ...current,
+        {
+          variantId: selectedVariant.id,
+          label: `${productQuery.data?.name} - ${selectedVariant.name}`,
+          quantity: 1,
+        },
+      ];
     });
     setVariantId('');
   }
@@ -785,23 +921,26 @@ function EditItemsForm({ order, onSaved }: { order: AdminOrder; onSaved: () => P
       {formError && <FormError>{formError}</FormError>}
       <div className="space-y-2">
         {lines.map((line) => (
-          <div key={line.variantId} className="grid grid-cols-[1fr_90px_auto] items-center gap-2">
+          <div key={line.variantId} className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
             <span className="text-[11px]">{line.label}</span>
-            <Input
-              type="number"
-              min={1}
+            <QuantityStepper
               value={line.quantity}
-              onChange={(event) =>
+              max={999}
+              label={line.label}
+              className="w-27.5"
+              onChange={(quantity) =>
                 setLines((current) =>
                   current.map((item) =>
-                    item.variantId === line.variantId ? { ...item, quantity: Number(event.target.value) } : item,
+                    item.variantId === line.variantId ? { ...item, quantity } : item,
                   ),
                 )
               }
             />
             <Button
               variant="outline"
-              onClick={() => setLines((current) => current.filter((item) => item.variantId !== line.variantId))}
+              onClick={() =>
+                setLines((current) => current.filter((item) => item.variantId !== line.variantId))
+              }
             >
               Quitar
             </Button>
@@ -810,20 +949,45 @@ function EditItemsForm({ order, onSaved }: { order: AdminOrder; onSaved: () => P
       </div>
 
       <div className="grid gap-2 border-t border-[#f0ecf0] pt-4 md:grid-cols-[1fr_1fr_auto]">
-        <Select value={productId} onChange={(event) => { setProductId(event.target.value); setVariantId(''); }}>
-          <option value="">Selecciona producto</option>
-          {(productsQuery.data?.items ?? []).map((product) => (
-            <option key={product.id} value={product.id}>{product.name}</option>
-          ))}
-        </Select>
-        <Select value={variantId} onChange={(event) => setVariantId(event.target.value)} disabled={!productId}>
-          <option value="">Selecciona variante</option>
-          {variants.map((variant) => (
-            <option key={variant.id} value={variant.id}>{variant.name} - {variant.sku}</option>
-          ))}
-        </Select>
-        <Button variant="outline" onClick={addVariant} disabled={!selectedVariant}>
-          Agregar
+        <FormField id="edit-product" label="Producto" className="mb-0">
+          <Select
+            id="edit-product"
+            value={productId}
+            onChange={(event) => {
+              setProductId(event.target.value);
+              setVariantId('');
+            }}
+          >
+            <option value="">Selecciona producto</option>
+            {(productsQuery.data?.items ?? []).map((product) => (
+              <option key={product.id} value={product.id}>
+                {product.name}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+        <FormField id="edit-variant" label="Variante" className="mb-0">
+          <Select
+            id="edit-variant"
+            value={variantId}
+            onChange={(event) => setVariantId(event.target.value)}
+            disabled={!productId}
+          >
+            <option value="">Selecciona variante</option>
+            {variants.map((variant) => (
+              <option key={variant.id} value={variant.id}>
+                {variant.name} - {variant.sku}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+        <Button
+          variant="outline"
+          onClick={addVariant}
+          disabled={!selectedVariant}
+          className="self-end"
+        >
+          Agregar producto
         </Button>
       </div>
 

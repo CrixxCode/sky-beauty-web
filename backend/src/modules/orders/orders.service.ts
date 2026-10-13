@@ -59,6 +59,28 @@ const ORDER_DETAIL_INCLUDE = {
 
 type OrderDetail = Prisma.OrderGetPayload<{ include: typeof ORDER_DETAIL_INCLUDE }>;
 
+/**
+ * Cambios de estado permitidos desde "cambiar estado". Solo hacia adelante; preparar es opcional.
+ * Confirmar y cancelar tienen sus propias acciones (costo de envío, motivo y existencias).
+ */
+const NEXT_STATUSES: Record<OrderStatus, OrderStatus[]> = {
+  PENDING_CONFIRMATION: [],
+  CONFIRMED: [OrderStatus.PREPARING, OrderStatus.SHIPPED],
+  PREPARING: [OrderStatus.SHIPPED],
+  SHIPPED: [OrderStatus.DELIVERED],
+  DELIVERED: [],
+  CANCELLED: [],
+};
+
+const ORDER_STATUS_NAMES: Record<OrderStatus, string> = {
+  PENDING_CONFIRMATION: 'Sin confirmar',
+  CONFIRMED: 'Confirmado',
+  PREPARING: 'Preparando',
+  SHIPPED: 'Despachado',
+  DELIVERED: 'Entregado',
+  CANCELLED: 'Cancelado',
+};
+
 function money(value: number): number {
   return Math.round(value);
 }
@@ -516,7 +538,12 @@ export class OrdersService {
     return this.toDetail(order, role);
   }
 
-  async confirm(id: string, dto: ConfirmOrderDto, adminId: string): Promise<AdminOrderDto> {
+  async confirm(
+    id: string,
+    dto: ConfirmOrderDto,
+    adminId: string,
+    role: AdminRole,
+  ): Promise<AdminOrderDto> {
     const order = await this.prisma.order.findUnique({ where: { id } });
     if (!order) throw new NotFoundException('No existe ese pedido.');
     if (order.status !== OrderStatus.PENDING_CONFIRMATION) {
@@ -525,10 +552,11 @@ export class OrdersService {
 
     const nextShippingCost = dto.shippingCost ?? order.shippingCost?.toNumber() ?? null;
     if (nextShippingCost === null) {
-      throw new BadRequestException('Registra el costo de envio cotizado antes de confirmar.');
+      throw new BadRequestException('Registra el costo de envío cotizado antes de confirmar.');
     }
 
     await this.prisma.$transaction(async (tx) => {
+      await this.claimOrder(tx, order);
       await tx.order.update({
         where: { id },
         data: {
@@ -550,69 +578,69 @@ export class OrdersService {
       });
     });
 
-    return this.findAdmin(id, AdminRole.ADMIN);
+    return this.findAdmin(id, role);
   }
 
-  async quoteShipping(id: string, dto: QuoteShippingDto, adminId: string): Promise<AdminOrderDto> {
+  async quoteShipping(
+    id: string,
+    dto: QuoteShippingDto,
+    adminId: string,
+    role: AdminRole,
+  ): Promise<AdminOrderDto> {
     const order = await this.prisma.order.findUnique({ where: { id } });
     if (!order) throw new NotFoundException('No existe ese pedido.');
     if (order.status === OrderStatus.CANCELLED || order.status === OrderStatus.DELIVERED) {
-      throw new BadRequestException('No se puede modificar el envio de este pedido.');
+      throw new BadRequestException('No se puede modificar el envío de este pedido.');
     }
 
-    await this.prisma.$transaction([
-      this.prisma.order.update({
+    await this.prisma.$transaction(async (tx) => {
+      await this.claimOrder(tx, order);
+      await tx.order.update({
         where: { id },
         data: {
           shippingCost: dto.shippingCost,
           total: this.totalWithShipping(order.subtotal, order.discountTotal, dto.shippingCost),
         },
-      }),
-      this.prisma.orderStatusHistory.create({
+      });
+      await tx.orderStatusHistory.create({
         data: {
           orderId: id,
           type: OrderEventType.SHIPPING,
-          note: `Costo de envio cotizado: ${dto.shippingCost} COP.`,
+          note: `Costo de envío cotizado: ${cop(dto.shippingCost)}.`,
           changedById: adminId,
         },
-      }),
-    ]);
+      });
+    });
 
-    return this.findAdmin(id, AdminRole.ADMIN);
+    return this.findAdmin(id, role);
   }
 
   async changeStatus(
     id: string,
     dto: ChangeOrderStatusDto,
     adminId: string,
+    role: AdminRole,
   ): Promise<AdminOrderDto> {
     const order = await this.prisma.order.findUnique({ where: { id } });
     if (!order) throw new NotFoundException('No existe ese pedido.');
-    if (dto.status === OrderStatus.PENDING_CONFIRMATION) {
-      throw new BadRequestException('No se puede devolver un pedido a pendiente.');
-    }
     if (dto.status === OrderStatus.CANCELLED) {
-      throw new BadRequestException('Usa la accion de cancelar para liberar inventario.');
+      throw new BadRequestException('Usa la acción de cancelar para liberar las existencias.');
     }
-    if (order.status === OrderStatus.CANCELLED) {
-      throw new BadRequestException('No se puede cambiar el estado de un pedido cancelado.');
+    if (dto.status === OrderStatus.CONFIRMED) {
+      throw new BadRequestException('Usa la acción de confirmar pedido.');
     }
-    if (order.status === OrderStatus.PENDING_CONFIRMATION && dto.status !== OrderStatus.CONFIRMED) {
-      throw new BadRequestException('Primero confirma el pedido.');
-    }
-    if (dto.status === OrderStatus.CONFIRMED && order.status !== OrderStatus.PENDING_CONFIRMATION) {
-      throw new BadRequestException('El pedido ya fue confirmado.');
+    if (!NEXT_STATUSES[order.status].includes(dto.status)) {
+      throw new BadRequestException(
+        `No se puede pasar de "${ORDER_STATUS_NAMES[order.status]}" a "${ORDER_STATUS_NAMES[dto.status]}".`,
+      );
     }
 
     await this.prisma.$transaction(async (tx) => {
+      await this.claimOrder(tx, order);
       await tx.order.update({
         where: { id },
         data: {
           status: dto.status,
-          confirmedAt:
-            dto.status === OrderStatus.CONFIRMED && !order.confirmedAt
-              ? new Date()
-              : order.confirmedAt,
           paymentStatus:
             dto.status === OrderStatus.DELIVERED && order.paymentMethodCode === 'CASH_ON_DELIVERY'
               ? PaymentStatus.PAID
@@ -642,7 +670,7 @@ export class OrdersService {
       }
     });
 
-    return this.findAdmin(id, AdminRole.ADMIN);
+    return this.findAdmin(id, role);
   }
 
   async upsertShipping(
@@ -790,7 +818,12 @@ export class OrdersService {
     return this.findAdmin(id, role);
   }
 
-  async updateItems(id: string, dto: UpdateOrderItemsDto, adminId: string): Promise<AdminOrderDto> {
+  async updateItems(
+    id: string,
+    dto: UpdateOrderItemsDto,
+    adminId: string,
+    role: AdminRole,
+  ): Promise<AdminOrderDto> {
     const order = await this.prisma.order.findUnique({
       where: { id },
       include: { items: true },
@@ -806,7 +839,7 @@ export class OrdersService {
     );
     const desiredByVariant = new Map(desiredItems.map((item) => [item.variantId, item.quantity]));
     const finalItems: Array<{
-      variantId: string;
+      variantId: string | null;
       productId: string;
       productName: string;
       productSlug: string;
@@ -822,13 +855,27 @@ export class OrdersService {
       promotionName: string | null;
     }> = [];
 
+    const keptWithoutVariant: typeof order.items = [];
     await this.prisma.$transaction(async (tx) => {
       await this.claimOrder(tx, order);
       for (const existing of order.items) {
-        if (!existing.variantId) continue;
+        // Un producto cuya variante ya no existe se conserva tal cual: no se puede editar.
+        if (!existing.variantId) {
+          keptWithoutVariant.push(existing);
+          continue;
+        }
         const nextQuantity = desiredByVariant.get(existing.variantId) ?? 0;
         const delta = nextQuantity - existing.quantity;
         if (delta > 0) {
+          const limit = await tx.productVariant.findUnique({
+            where: { id: existing.variantId },
+            select: { maxPerOrder: true },
+          });
+          if (limit?.maxPerOrder != null && nextQuantity > limit.maxPerOrder) {
+            throw new BadRequestException(
+              `${existing.productName} permite máximo ${limit.maxPerOrder} unidades por pedido.`,
+            );
+          }
           await this.reserveStock(tx, existing.variantId, delta, id);
         } else if (delta < 0) {
           await this.releaseStock(tx, existing.variantId, Math.abs(delta), id);
@@ -860,11 +907,11 @@ export class OrdersService {
           include: { product: true },
         });
         if (!variant || !variant.isActive || variant.product.status !== 'ACTIVE') {
-          throw new BadRequestException('Uno o mas productos agregados no estan disponibles.');
+          throw new BadRequestException('Uno o más productos agregados no están disponibles.');
         }
         if (variant.maxPerOrder !== null && desired.quantity > variant.maxPerOrder) {
           throw new BadRequestException(
-            `${variant.product.name} permite maximo ${variant.maxPerOrder} unidades por pedido.`,
+            `${variant.product.name} permite máximo ${variant.maxPerOrder} unidades por pedido.`,
           );
         }
         await this.reserveStock(tx, desired.variantId, desired.quantity, id);
@@ -884,6 +931,25 @@ export class OrdersService {
           lineTotal: money(price.finalPrice * desired.quantity),
           promotionId: price.appliedPromotion?.promotionId ?? null,
           promotionName: price.appliedPromotion?.promotionName ?? null,
+        });
+      }
+
+      for (const kept of keptWithoutVariant) {
+        finalItems.push({
+          variantId: null,
+          productId: kept.productId,
+          productName: kept.productName,
+          productSlug: kept.productSlug,
+          variantName: kept.variantName,
+          sku: kept.sku,
+          unitListPrice: kept.unitListPrice.toNumber(),
+          unitDiscount: kept.unitDiscount.toNumber(),
+          unitFinalPrice: kept.unitFinalPrice.toNumber(),
+          unitCost: kept.unitCost,
+          quantity: kept.quantity,
+          lineTotal: kept.lineTotal.toNumber(),
+          promotionId: kept.promotionId,
+          promotionName: kept.promotionName,
         });
       }
 
@@ -939,7 +1005,7 @@ export class OrdersService {
       });
     });
 
-    return this.findAdmin(id, AdminRole.ADMIN);
+    return this.findAdmin(id, role);
   }
 
   async cancel(
@@ -949,6 +1015,9 @@ export class OrdersService {
     role: AdminRole,
   ): Promise<AdminOrderDto> {
     const reason = dto.reason.trim();
+    if (reason.length < 3) {
+      throw new BadRequestException('Escribe el motivo de la cancelación.');
+    }
     const order = await this.prisma.order.findUnique({ where: { id }, include: { items: true } });
     if (!order) throw new NotFoundException('No existe ese pedido.');
     if (order.status === OrderStatus.CANCELLED) {

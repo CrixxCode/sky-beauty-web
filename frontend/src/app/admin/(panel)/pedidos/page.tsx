@@ -12,7 +12,7 @@ export default async function PedidosPage() {
     <>
       <AdminHeading
         title="Pedidos"
-        description="Confirma pedidos, ajusta productos pendientes, cotiza envio y actualiza estados."
+        description="Confirma pedidos, ajusta productos pendientes, cotiza el envío y actualiza estados."
       />
       <OrdersManager role={admin.role} />
     </>

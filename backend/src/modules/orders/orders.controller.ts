@@ -77,7 +77,7 @@ export class AdminOrdersController {
     @Body() dto: ConfirmOrderDto,
     @CurrentAdmin() admin: AuthenticatedAdmin,
   ): Promise<AdminOrderDto> {
-    return this.orders.confirm(id, dto, admin.id);
+    return this.orders.confirm(id, dto, admin.id, admin.role);
   }
 
   @Patch(':id/shipping-cost')
@@ -87,7 +87,7 @@ export class AdminOrdersController {
     @Body() dto: QuoteShippingDto,
     @CurrentAdmin() admin: AuthenticatedAdmin,
   ): Promise<AdminOrderDto> {
-    return this.orders.quoteShipping(id, dto, admin.id);
+    return this.orders.quoteShipping(id, dto, admin.id, admin.role);
   }
 
   @Patch(':id/status')
@@ -97,7 +97,7 @@ export class AdminOrdersController {
     @Body() dto: ChangeOrderStatusDto,
     @CurrentAdmin() admin: AuthenticatedAdmin,
   ): Promise<AdminOrderDto> {
-    return this.orders.changeStatus(id, dto, admin.id);
+    return this.orders.changeStatus(id, dto, admin.id, admin.role);
   }
 
   @Patch(':id/shipping')
@@ -117,7 +117,7 @@ export class AdminOrdersController {
     @Body() dto: UpdateOrderItemsDto,
     @CurrentAdmin() admin: AuthenticatedAdmin,
   ): Promise<AdminOrderDto> {
-    return this.orders.updateItems(id, dto, admin.id);
+    return this.orders.updateItems(id, dto, admin.id, admin.role);
   }
 
   @Patch(':id/cancel')

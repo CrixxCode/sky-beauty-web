@@ -354,7 +354,7 @@ export class ConfirmOrderDto {
 
 export class ChangeOrderStatusDto {
   @ApiProperty({ enum: OrderStatus })
-  @IsString()
+  @IsEnum(OrderStatus)
   status!: OrderStatus;
 
   @ApiPropertyOptional()

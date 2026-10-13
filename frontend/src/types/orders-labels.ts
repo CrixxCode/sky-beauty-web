@@ -9,7 +9,7 @@ export type OrderStatus =
 export type PaymentStatus = 'PENDING' | 'AWAITING_VERIFICATION' | 'PAID' | 'REJECTED' | 'REFUNDED';
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
-  PENDING_CONFIRMATION: 'Pendiente',
+  PENDING_CONFIRMATION: 'Sin confirmar',
   CONFIRMED: 'Confirmado',
   PREPARING: 'Preparando',
   SHIPPED: 'Despachado',
@@ -23,4 +23,24 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   PAID: 'Pagado',
   REJECTED: 'Rechazado',
   REFUNDED: 'Devuelto',
+};
+
+/**
+ * Estados a los que se puede pasar desde "cambiar estado" (igual que el backend). Confirmar y
+ * cancelar tienen sus propias acciones.
+ */
+export const NEXT_ORDER_STATUSES: Record<OrderStatus, OrderStatus[]> = {
+  PENDING_CONFIRMATION: [],
+  CONFIRMED: ['PREPARING', 'SHIPPED'],
+  PREPARING: ['SHIPPED'],
+  SHIPPED: ['DELIVERED'],
+  DELIVERED: [],
+  CANCELLED: [],
+};
+
+export const ORDER_EVENT_LABELS: Record<string, string> = {
+  ITEMS_CHANGED: 'Productos editados',
+  PAYMENT_STATUS: 'Pago',
+  SHIPPING: 'Envío',
+  NOTE: 'Nota',
 };
