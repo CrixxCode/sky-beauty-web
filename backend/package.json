@@ -20,6 +20,7 @@
     "db:seed": "prisma db seed",
     "owner:reset-password": "node dist/cli/reset-owner-password.js",
     "owner:reset-password:dev": "tsx src/cli/reset-owner-password.ts",
+    "orders:run-deadlines": "node dist/cli/run-order-deadlines.js",
     "test": "node --experimental-vm-modules --no-warnings=ExperimentalWarning node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules --no-warnings=ExperimentalWarning node_modules/jest/bin/jest.js --watch",
     "test:cov": "node --experimental-vm-modules --no-warnings=ExperimentalWarning node_modules/jest/bin/jest.js --coverage",

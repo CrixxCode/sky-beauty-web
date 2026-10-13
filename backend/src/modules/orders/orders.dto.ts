@@ -230,6 +230,13 @@ export class PublicTrackingItemDto {
   @ApiProperty() lineTotal!: number;
 }
 
+/** Aviso de cancelación visible para el cliente en su seguimiento. */
+export class PublicTrackingNoticeDto {
+  @ApiProperty({ enum: ['BEFORE', 'AFTER'] }) stage!: 'BEFORE' | 'AFTER';
+  @ApiProperty() text!: string;
+  @ApiProperty() deadlineAt!: Date;
+}
+
 export class PublicOrderTrackingDto {
   @ApiProperty() code!: string;
   @ApiProperty({ enum: OrderStatus }) status!: OrderStatus;
@@ -246,6 +253,8 @@ export class PublicOrderTrackingDto {
   @ApiProperty({ nullable: true, type: Date }) cancelledAt!: Date | null;
   @ApiProperty({ nullable: true, type: () => PublicTrackingShippingDto })
   shipping!: PublicTrackingShippingDto | null;
+  @ApiProperty({ nullable: true, type: () => PublicTrackingNoticeDto })
+  notice!: PublicTrackingNoticeDto | null;
 }
 
 export class ListOrdersQueryDto {

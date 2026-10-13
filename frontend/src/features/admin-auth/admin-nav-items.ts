@@ -1,5 +1,6 @@
 import {
   BadgePercent,
+  BellRing,
   Boxes,
   ClipboardList,
   CreditCard,
@@ -28,6 +29,7 @@ export interface AdminNavItem {
 export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin', label: 'Resumen', icon: LayoutDashboard },
   { href: '/admin/pedidos', label: 'Pedidos', icon: FileText },
+  { href: '/admin/avisos', label: 'Avisos', icon: BellRing },
   { href: '/admin/pagos', label: 'Pagos', icon: CreditCard },
   { href: '/admin/envios', label: 'Envíos', icon: Truck },
   { href: '/admin/productos', label: 'Productos', icon: ShoppingBag },

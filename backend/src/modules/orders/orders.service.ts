@@ -9,7 +9,11 @@ import { ConfigService } from '@nestjs/config';
 import { createHash, createHmac, randomBytes } from 'node:crypto';
 import type { Env } from '../../config/env';
 import {
+  AdminNotificationType,
   AdminRole,
+  CancellationNoticeCase,
+  CancellationNoticeStage,
+  CancellationNoticeStatus,
   InventoryMovementType,
   OrderEventType,
   OrderStatus,
@@ -20,6 +24,13 @@ import {
 } from '../../generated/prisma/client';
 import { normalizeWhatsappNumber, WHATSAPP_NUMBER_PATTERN } from '../../shared/phone';
 import { PrismaService } from '../../shared/prisma/prisma.service';
+import {
+  ALL_NOTICE_CASES,
+  autoCancelReason,
+  closePendingBeforeNotices,
+  createNotice,
+  publicNoticeText,
+} from '../notices/notice-records';
 import { PricingService } from '../promotions/pricing.service';
 import { StoreSettingsService } from '../store-settings/store-settings.service';
 import type {
@@ -519,7 +530,24 @@ export class OrdersService {
 
     const trackingTemplate = order.shipping?.carrier?.trackingUrlTemplate ?? null;
     const trackingNumber = order.shipping?.trackingNumber ?? null;
+    const cancelled = order.status === OrderStatus.CANCELLED;
+    // El aviso vigente: el de cancelación si el pedido está cancelado; si no, el de "antes".
+    const notice = await this.prisma.cancellationNotice.findFirst({
+      where: {
+        orderId: order.id,
+        stage: cancelled ? CancellationNoticeStage.AFTER : CancellationNoticeStage.BEFORE,
+        status: { in: [CancellationNoticeStatus.PENDING, CancellationNoticeStatus.SENT] },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
     return {
+      notice: notice
+        ? {
+            stage: notice.stage,
+            text: publicNoticeText(notice.case, notice.stage, order.code, notice.deadlineAt),
+            deadlineAt: notice.deadlineAt,
+          }
+        : null,
       code: order.code,
       status: order.status,
       paymentStatus: order.paymentStatus,
@@ -632,6 +660,7 @@ export class OrdersService {
           changedById: adminId,
         },
       });
+      await closePendingBeforeNotices(tx, id, [CancellationNoticeCase.UNCONFIRMED]);
     });
 
     return this.findAdmin(id, role);
@@ -1146,6 +1175,17 @@ export class OrdersService {
           changedById: adminId,
         },
       });
+      await closePendingBeforeNotices(tx, id, ALL_NOTICE_CASES);
+      // Pago no demostrado tras el plazo de aclaración: aviso de cancelación al cliente.
+      const deadline = this.clarificationDeadline(order);
+      if (deadline && deadline <= new Date()) {
+        await createNotice(tx, {
+          order,
+          noticeCase: CancellationNoticeCase.PAYMENT_NOT_PROVEN,
+          stage: CancellationNoticeStage.AFTER,
+          deadlineAt: deadline,
+        });
+      }
     });
 
     return this.findAdmin(id, role);
@@ -1198,6 +1238,10 @@ export class OrdersService {
           changedById: adminId,
         },
       });
+      await closePendingBeforeNotices(tx, id, [
+        CancellationNoticeCase.NO_PAYMENT_PROOF,
+        CancellationNoticeCase.PAYMENT_NOT_PROVEN,
+      ]);
     });
 
     return this.findAdmin(id, role);
@@ -1242,6 +1286,10 @@ export class OrdersService {
           changedById: adminId,
         },
       });
+      await closePendingBeforeNotices(tx, id, [
+        CancellationNoticeCase.NO_PAYMENT_PROOF,
+        CancellationNoticeCase.PAYMENT_NOT_PROVEN,
+      ]);
     });
 
     return this.findAdmin(id, AdminRole.ADMIN);
@@ -1511,6 +1559,80 @@ export class OrdersService {
     if (nationalFreeShipping) return 0;
     if (freeShippingThreshold !== null && productsTotal >= freeShippingThreshold) return 0;
     return municipalRate;
+  }
+
+  /**
+   * Cancelación automática por plazo vencido (decisiones del 2026-10-09): pedido sin confirmar a
+   * las 48 horas o confirmado sin comprobante a las 24 horas. Libera existencias, deja el motivo,
+   * crea el aviso de cancelación y notifica al panel. Devuelve false si el pedido ya no está en ese
+   * caso o cambió mientras se procesaba.
+   */
+  async autoCancel(
+    orderId: string,
+    noticeCase: CancellationNoticeCase,
+    deadlineAt: Date,
+    now = new Date(),
+  ): Promise<boolean> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true },
+    });
+    if (!order) return false;
+    const stillDue =
+      noticeCase === CancellationNoticeCase.UNCONFIRMED
+        ? order.status === OrderStatus.PENDING_CONFIRMATION
+        : noticeCase === CancellationNoticeCase.NO_PAYMENT_PROOF &&
+          (order.status === OrderStatus.CONFIRMED || order.status === OrderStatus.PREPARING) &&
+          order.paymentStatus === PaymentStatus.PENDING;
+    if (!stillDue) return false;
+
+    const hours = this.config.get(
+      noticeCase === CancellationNoticeCase.UNCONFIRMED
+        ? 'ORDER_PENDING_TTL_HOURS'
+        : 'ORDER_UNPAID_TTL_HOURS',
+      { infer: true },
+    );
+    const reason = autoCancelReason(noticeCase, hours);
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await this.claimOrder(tx, order);
+        for (const item of order.items) {
+          if (item.variantId) await this.releaseStock(tx, item.variantId, item.quantity, orderId);
+        }
+        await tx.order.update({
+          where: { id: orderId },
+          data: { status: OrderStatus.CANCELLED, cancelledAt: now, cancelReason: reason },
+        });
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId,
+            type: OrderEventType.ORDER_STATUS,
+            fromStatus: order.status,
+            toStatus: OrderStatus.CANCELLED,
+            note: reason,
+          },
+        });
+        await closePendingBeforeNotices(tx, orderId, ALL_NOTICE_CASES, now);
+        await createNotice(tx, {
+          order,
+          noticeCase,
+          stage: CancellationNoticeStage.AFTER,
+          deadlineAt,
+        });
+        await tx.adminNotification.create({
+          data: {
+            type: AdminNotificationType.ORDER_AUTO_CANCELLED,
+            orderId,
+            title: `Pedido ${order.code} cancelado automáticamente`,
+            body: reason,
+          },
+        });
+      });
+      return true;
+    } catch (err: unknown) {
+      if (err instanceof ConflictException) return false;
+      throw err;
+    }
   }
 
   /**

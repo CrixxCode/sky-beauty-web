@@ -51,6 +51,8 @@ model AdminUser {
   paymentRecords     PaymentRecord[]
   priceChanges       VariantPriceHistory[]
   promotionRevisions PromotionRevision[]
+  noticesSent        CancellationNotice[]
+  notificationReads  AdminNotificationRead[]
 }
 
 /// Sesión administrativa. El JWT solo contiene el id de la sesión; revocarla invalida el token.
@@ -477,11 +479,13 @@ model Order {
   createdAt               DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt               DateTime  @updatedAt @db.Timestamptz(3)
 
-  items              OrderItem[]
-  statusHistory      OrderStatusHistory[]
-  paymentRecords     PaymentRecord[]
-  shipping           Shipping?
-  inventoryMovements InventoryMovement[]
+  items               OrderItem[]
+  statusHistory       OrderStatusHistory[]
+  paymentRecords      PaymentRecord[]
+  shipping            Shipping?
+  inventoryMovements  InventoryMovement[]
+  cancellationNotices CancellationNotice[]
+  adminNotifications  AdminNotification[]
 
   @@index([status, createdAt])
   @@index([paymentStatus])
@@ -683,4 +687,94 @@ model StoreSettings {
   /// Muestra un aviso de "tienda de demostración" en todo el sitio.
   demoMode                 Boolean  @default(false)
   updatedAt                DateTime @updatedAt @db.Timestamptz(3)
+}
+
+// ─────────────────────────── Avisos y notificaciones ───────────────────────────
+
+/// Caso del aviso de cancelación (decisión "Avisos de cancelación", 2026-10-09).
+enum CancellationNoticeCase {
+  /// Pedido sin confirmar a las 48 horas (ORDER_PENDING_TTL_HOURS).
+  UNCONFIRMED
+  /// Pedido confirmado sin comprobante a las 24 horas (ORDER_UNPAID_TTL_HOURS).
+  NO_PAYMENT_PROOF
+  /// Pago no demostrado tras el plazo de aclaración (ORDER_PAYMENT_CLARIFICATION_HOURS).
+  PAYMENT_NOT_PROVEN
+}
+
+enum CancellationNoticeStage {
+  /// 1 hora antes del vencimiento del plazo.
+  BEFORE
+  /// Después de cancelar el pedido.
+  AFTER
+}
+
+enum CancellationNoticeStatus {
+  /// Por enviar por WhatsApp.
+  PENDING
+  /// La tienda lo marcó como enviado.
+  SENT
+  /// Aviso "antes" que nadie envió y cuyo plazo ya venció (se canceló el pedido).
+  EXPIRED
+  /// Ya no aplica: el cliente resolvió a tiempo o el pedido se canceló por otro motivo.
+  DISCARDED
+}
+
+/// Aviso al cliente sobre una cancelación. Se envía a mano por WhatsApp y se muestra en el
+/// seguimiento. La fecha límite distingue avisos del mismo caso (p. ej., dos rechazos del pago).
+model CancellationNotice {
+  id         String                   @id @default(uuid()) @db.Uuid
+  orderId    String                   @db.Uuid
+  order      Order                    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  case       CancellationNoticeCase
+  stage      CancellationNoticeStage
+  deadlineAt DateTime                 @db.Timestamptz(3)
+  /// Mensaje aprobado ya armado con el nombre del cliente y el código del pedido.
+  message    String
+  status     CancellationNoticeStatus @default(PENDING)
+  sentAt     DateTime?                @db.Timestamptz(3)
+  sentById   String?                  @db.Uuid
+  sentBy     AdminUser?               @relation(fields: [sentById], references: [id], onDelete: SetNull)
+  resolvedAt DateTime?                @db.Timestamptz(3)
+  createdAt  DateTime                 @default(now()) @db.Timestamptz(3)
+
+  notifications AdminNotification[]
+
+  @@unique([orderId, case, stage, deadlineAt])
+  @@index([status, createdAt])
+}
+
+enum AdminNotificationType {
+  /// Hay un aviso de cancelación por enviar al cliente.
+  NOTICE_PENDING
+  /// El sistema canceló un pedido por plazo vencido.
+  ORDER_AUTO_CANCELLED
+}
+
+/// Notificación del panel para la propietaria y el personal (campana del panel).
+model AdminNotification {
+  id        String                @id @default(uuid()) @db.Uuid
+  type      AdminNotificationType
+  title     String
+  body      String
+  orderId   String?               @db.Uuid
+  order     Order?                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  noticeId  String?               @db.Uuid
+  notice    CancellationNotice?   @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+  createdAt DateTime              @default(now()) @db.Timestamptz(3)
+
+  reads AdminNotificationRead[]
+
+  @@index([createdAt])
+}
+
+/// Lectura de una notificación por cada usuario del panel.
+model AdminNotificationRead {
+  notificationId String            @db.Uuid
+  notification   AdminNotification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  adminId        String            @db.Uuid
+  admin          AdminUser         @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  readAt         DateTime          @default(now()) @db.Timestamptz(3)
+
+  @@id([notificationId, adminId])
+  @@index([adminId])
 }

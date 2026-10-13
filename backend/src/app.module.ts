@@ -1,6 +1,7 @@
 import { Module, ValidationPipe } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { type Env, validateEnv } from './config/env';
@@ -10,6 +11,7 @@ import { CatalogModule } from './modules/catalog/catalog.module';
 import { HealthModule } from './modules/health/health.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { LocationsModule } from './modules/locations/locations.module';
+import { NoticesModule } from './modules/notices/notices.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentMethodsModule } from './modules/payment-methods/payment-methods.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
@@ -44,6 +46,8 @@ import { PrismaModule } from './shared/prisma/prisma.module';
         skipIf: () => config.get('NODE_ENV', { infer: true }) === 'test',
       }),
     }),
+    // Tareas programadas: cancelaciones automáticas y avisos (módulo 11).
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
     AdminUsersModule,
@@ -55,6 +59,7 @@ import { PrismaModule } from './shared/prisma/prisma.module';
     PromotionsModule,
     ShippingModule,
     OrdersModule,
+    NoticesModule,
     HealthModule,
   ],
   providers: [

@@ -96,9 +96,24 @@ export default async function SeguimientoPage({ params }: SeguimientoPageProps) 
           role="status"
           className="mb-5 border border-[#ead0d4] bg-[#fff7f7] p-4.5 text-[11px] leading-[1.8] text-[#8f313f]"
         >
-          Este pedido fue cancelado
-          {order.cancelledAt ? ` el ${formatDateTime(order.cancelledAt)}` : ''}. Si tienes dudas o
-          ya habías pagado, ponte en contacto con la tienda por WhatsApp.
+          {order.notice?.stage === 'AFTER' ? (
+            order.notice.text
+          ) : (
+            <>
+              Este pedido fue cancelado
+              {order.cancelledAt ? ` el ${formatDateTime(order.cancelledAt)}` : ''}. Si tienes dudas
+              o ya habías pagado, ponte en contacto con la tienda por WhatsApp.
+            </>
+          )}
+        </div>
+      )}
+
+      {!cancelled && order.notice?.stage === 'BEFORE' && (
+        <div
+          role="alert"
+          className="mb-5 border border-[#ecd9b5] bg-[#fff9ee] p-4.5 text-[11px] leading-[1.8] text-[#7a5413]"
+        >
+          {order.notice.text}
         </div>
       )}
 

@@ -10,6 +10,7 @@ import { ApiError, apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ROLE_LABELS, type AdminProfile } from '@/types/admin';
+import { NotificationsBell, usePendingNoticesCount } from '@/features/notices/notifications-bell';
 import { navItemsFor } from './admin-nav-items';
 
 const isActive = (href: string, pathname: string) =>
@@ -23,6 +24,7 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
   const [loggingOut, setLoggingOut] = useState(false);
 
   const items = navItemsFor(admin.role);
+  const pendingNotices = usePendingNoticesCount();
   const current = items.find((item) => isActive(item.href, pathname));
 
   async function logout() {
@@ -96,6 +98,14 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
               >
                 <Icon size={18} strokeWidth={1.7} />
                 {label}
+                {href === '/admin/avisos' && pendingNotices > 0 && (
+                  <span
+                    className="ml-auto grid min-w-5 place-items-center rounded-full bg-mauve-dark px-1.5 text-[9px] font-semibold leading-5 text-white"
+                    aria-label={`${pendingNotices} por enviar`}
+                  >
+                    {pendingNotices}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -136,9 +146,12 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
           <span className="flex items-center gap-2.25 text-[11px] text-[#726971]">
             Sky Beauty <ChevronRight size={14} /> {current?.label}
           </span>
-          <span className="rounded-[3px] bg-[#f1e4f0] px-2.5 py-1.75 text-[9px] font-semibold uppercase tracking-[.09em] text-[#8a5886]">
-            {ROLE_LABELS[admin.role]}
-          </span>
+          <div className="flex items-center gap-3">
+            <NotificationsBell />
+            <span className="rounded-[3px] bg-[#f1e4f0] px-2.5 py-1.75 text-[9px] font-semibold uppercase tracking-[.09em] text-[#8a5886]">
+              {ROLE_LABELS[admin.role]}
+            </span>
+          </div>
         </header>
         <div className="mx-auto w-full max-w-387.5 px-11.25 pb-17.5 pt-11.25 max-[850px]:px-5.5 max-[850px]:py-7.5 max-[600px]:px-3.5 max-[600px]:py-6.75">
           {children}

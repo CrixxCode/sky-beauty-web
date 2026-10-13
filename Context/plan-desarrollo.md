@@ -367,6 +367,18 @@ La lógica más delicada del sistema: debe tener pruebas exhaustivas antes de co
 
 **Terminado cuando:** los pedidos vencidos se cancelan solos con motivo y liberación de existencias, y el personal ve y envía los avisos antes y después.
 
+**Estado:** terminado el 2026-10-13.
+
+- Esquema: `CancellationNotice`, `AdminNotification` y `AdminNotificationRead` (migración `20261013222441_avisos_y_notificaciones`).
+- Ciclo de plazos cada minuto (`@nestjs/schedule`) con bloqueo de PostgreSQL para que corra una sola instancia. Comando manual: `npm run orders:run-deadlines`.
+- Pruebas: `test/notices.e2e-spec.ts` (integración, con la hora controlada) y `e2e/notices.spec.ts` (Playwright, celular y escritorio).
+- Panel: bandeja `/admin/avisos` (por enviar y enviados) con contador en el menú, y campana de notificaciones en la cabecera (ver `decisiones.md`, 2026-10-13).
+- Tienda: el seguimiento muestra el aviso vigente.
+- Aplicado por recomendación, **pendiente de confirmar**:
+  - En el seguimiento el aviso se muestra sin el saludo con el nombre del cliente y con la fecha exacta en lugar de "en 1 hora".
+  - Un aviso "antes" que nadie envió a tiempo queda como vencido y sale de la bandeja.
+  - El pago no demostrado no se cancela solo: después de las 8 horas lo cancela una persona (como dice la decisión), y en ese momento se crea el aviso de cancelación.
+
 ---
 
 ## 12. Contenido y páginas legales

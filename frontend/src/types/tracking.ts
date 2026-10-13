@@ -19,6 +19,13 @@ export interface PublicTrackingItem {
   lineTotal: number;
 }
 
+/** Aviso de cancelación vigente del pedido. */
+export interface PublicTrackingNotice {
+  stage: 'BEFORE' | 'AFTER';
+  text: string;
+  deadlineAt: string;
+}
+
 export interface PublicOrderTracking {
   code: string;
   status: OrderStatus;
@@ -33,4 +40,5 @@ export interface PublicOrderTracking {
   confirmedAt: string | null;
   cancelledAt: string | null;
   shipping: PublicTrackingShipping | null;
+  notice: PublicTrackingNotice | null;
 }

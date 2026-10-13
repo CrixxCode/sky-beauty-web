@@ -127,6 +127,17 @@ Prioridad de cálculo en checkout:
 
 ---
 
+## 2026-10-13 — Notificaciones del panel
+
+**Decisión:** el panel administrativo tiene un panel de notificaciones (campana con contador en la cabecera) para la propietaria y el personal. Avisa cuando:
+
+- hay un aviso de cancelación por enviar al cliente (antes o después de cancelar);
+- el sistema canceló un pedido automáticamente por plazo vencido.
+
+Cada usuario marca sus notificaciones como leídas por su cuenta. Los avisos al cliente se envían desde la bandeja "Avisos" del panel, que abre WhatsApp con el chat del cliente y el mensaje aprobado, y se marcan como enviados a mano.
+
+---
+
 ## 2026-10-13 — Rastreador por código y teléfono
 
 **Decisión:** además del enlace privado, el cliente puede consultar su pedido en la página "Rastrear pedido" (`/rastrear`, enlazada desde el pie de la tienda) escribiendo el **código del pedido** y el **teléfono con el que compró**.
