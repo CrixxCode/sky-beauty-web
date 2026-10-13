@@ -12,8 +12,10 @@ export interface CartQuoteItem {
   sku: string;
   imageUrl: string | null;
   quantity: number;
-  stock: number;
+  /** Máximo que se puede pedir ahora (existencias y límite por pedido). */
+  maxQuantity: number;
   maxPerOrder: number | null;
+  issue: 'INSUFFICIENT_STOCK' | 'OVER_MAX_PER_ORDER' | null;
   unitListPrice: number;
   unitDiscount: number;
   unitFinalPrice: number;
@@ -41,6 +43,24 @@ export interface CartQuote {
   freeShippingThreshold: number | null;
   shippingLabel: string;
   availablePaymentMethods: AvailablePaymentMethod[];
+  unavailableVariantIds: string[];
+  canCheckout: boolean;
+}
+
+export interface CreatedOrderSummary {
+  items: Array<{
+    productName: string;
+    variantName: string;
+    quantity: number;
+    unitFinalPrice: number;
+    lineTotal: number;
+  }>;
+  subtotal: number;
+  discountTotal: number;
+  shippingCost: number | null;
+  total: number;
+  shippingLabel: string;
+  paymentMethodName: string;
 }
 
 export interface CreatedOrder {
@@ -50,5 +70,5 @@ export interface CreatedOrder {
   trackingPath: string;
   whatsappMessage: string;
   whatsappUrl: string | null;
-  quote: CartQuote;
+  summary: CreatedOrderSummary;
 }

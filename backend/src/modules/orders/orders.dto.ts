@@ -115,8 +115,17 @@ export class CartQuoteItemDto {
   @ApiProperty() sku!: string;
   @ApiProperty() imageUrl!: string | null;
   @ApiProperty() quantity!: number;
-  @ApiProperty() stock!: number;
+  @ApiProperty({
+    description: 'Máximo que se puede pedir ahora (existencias y límite por pedido).',
+  })
+  maxQuantity!: number;
   @ApiProperty({ nullable: true, type: Number }) maxPerOrder!: number | null;
+  @ApiProperty({
+    nullable: true,
+    enum: ['INSUFFICIENT_STOCK', 'OVER_MAX_PER_ORDER'],
+    description: 'Problema de la línea que impide crear el pedido. null = sin problema.',
+  })
+  issue!: 'INSUFFICIENT_STOCK' | 'OVER_MAX_PER_ORDER' | null;
   @ApiProperty() unitListPrice!: number;
   @ApiProperty() unitDiscount!: number;
   @ApiProperty() unitFinalPrice!: number;
@@ -137,6 +146,33 @@ export class CartQuoteDto {
   @ApiProperty() shippingLabel!: string;
   @ApiProperty({ type: () => AvailablePaymentMethodDto, isArray: true })
   availablePaymentMethods!: AvailablePaymentMethodDto[];
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    description: 'Variantes del carrito que ya no están a la venta.',
+  })
+  unavailableVariantIds!: string[];
+  @ApiProperty({ description: 'true si el carrito no tiene problemas y se puede crear el pedido.' })
+  canCheckout!: boolean;
+}
+
+export class CreatedOrderItemDto {
+  @ApiProperty() productName!: string;
+  @ApiProperty() variantName!: string;
+  @ApiProperty() quantity!: number;
+  @ApiProperty() unitFinalPrice!: number;
+  @ApiProperty() lineTotal!: number;
+}
+
+/** Resumen del pedido tal como quedó registrado. */
+export class CreatedOrderSummaryDto {
+  @ApiProperty({ type: () => CreatedOrderItemDto, isArray: true }) items!: CreatedOrderItemDto[];
+  @ApiProperty() subtotal!: number;
+  @ApiProperty() discountTotal!: number;
+  @ApiProperty({ nullable: true, type: Number }) shippingCost!: number | null;
+  @ApiProperty() total!: number;
+  @ApiProperty() shippingLabel!: string;
+  @ApiProperty() paymentMethodName!: string;
 }
 
 export class CreatedOrderDto {
@@ -146,7 +182,7 @@ export class CreatedOrderDto {
   @ApiProperty() trackingPath!: string;
   @ApiProperty() whatsappMessage!: string;
   @ApiProperty({ nullable: true, type: String }) whatsappUrl!: string | null;
-  @ApiProperty({ type: () => CartQuoteDto }) quote!: CartQuoteDto;
+  @ApiProperty({ type: () => CreatedOrderSummaryDto }) summary!: CreatedOrderSummaryDto;
 }
 
 export class PublicTrackingShippingDto {

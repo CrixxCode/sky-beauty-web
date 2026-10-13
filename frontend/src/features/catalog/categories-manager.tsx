@@ -585,10 +585,10 @@ function CategoryTreeItem({
       <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Eliminar categoria"
+        title="Eliminar categoría"
         description={
           deleteTarget
-            ? `Esta accion eliminara "${deleteTarget.name}". Solo se permite cuando no tiene relaciones que lo impidan.`
+            ? `Esta acción eliminará "${deleteTarget.name}". Solo se permite cuando no tiene relaciones que lo impidan.`
             : ''
         }
         confirmLabel={deleteCategory.isPending ? 'Eliminando...' : 'Eliminar'}

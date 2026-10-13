@@ -1,11 +1,12 @@
 'use client';
 
-import { Minus, Plus, ShoppingBag } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { PublicVariant } from '@/types/catalog';
 import { useCart } from './cart-context';
+import { QuantityStepper } from './quantity-stepper';
 
 export function AddToCartControls({ variant }: { variant: PublicVariant | null }) {
   const { addItem } = useCart();
@@ -19,33 +20,16 @@ export function AddToCartControls({ variant }: { variant: PublicVariant | null }
 
   return (
     <div className="my-8 flex flex-wrap items-center gap-2.5">
-      <div className="flex h-11.25 w-30 items-center justify-between border border-[#e2d8df]">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => update(quantity - 1)}
-          disabled={disabled || quantity <= 1}
-          className="h-full min-h-0 w-9 rounded-none p-0 text-[#6d5868] enabled:hover:translate-y-0 enabled:hover:bg-transparent"
-          aria-label="Disminuir cantidad"
-        >
-          <Minus size={15} />
-        </Button>
-        <span className="text-xs font-semibold">{quantity}</span>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => update(quantity + 1)}
-          disabled={disabled || quantity >= max}
-          className="h-full min-h-0 w-9 rounded-none p-0 text-[#6d5868] enabled:hover:translate-y-0 enabled:hover:bg-transparent"
-          aria-label="Aumentar cantidad"
-        >
-          <Plus size={15} />
-        </Button>
-      </div>
+      <QuantityStepper
+        value={quantity}
+        max={Math.max(1, max)}
+        onChange={update}
+        disabled={disabled}
+      />
       <Button
         disabled={disabled}
         onClick={() => {
-          if (variant) addItem(variant.id, quantity);
+          if (variant) addItem(variant.id, quantity, max);
         }}
         className={cn('min-w-52 max-[600px]:min-w-0 max-[600px]:flex-1')}
       >

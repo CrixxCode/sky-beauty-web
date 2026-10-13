@@ -10,7 +10,10 @@ const STORAGE_KEY = 'sky-beauty-cart';
 interface CartContextValue {
   items: CartLine[];
   count: number;
-  addItem: (variantId: string, quantity?: number) => void;
+  /** false mientras no se ha leído el carrito guardado en el navegador. */
+  ready: boolean;
+  /** Agrega unidades sin pasar de `max` (existencias y límite por pedido) en total. */
+  addItem: (variantId: string, quantity: number, max: number) => void;
   updateItem: (variantId: string, quantity: number) => void;
   removeItem: (variantId: string) => void;
   clear: () => void;
@@ -19,58 +22,82 @@ interface CartContextValue {
 const CartContext = createContext<CartContextValue | null>(null);
 
 function readCart(): CartLine[] {
-  if (typeof window === 'undefined') return [];
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '[]') as CartLine[];
-    return parsed.filter((item) => item.variantId && item.quantity > 0);
+    const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '[]') as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is CartLine =>
+        typeof item?.variantId === 'string' &&
+        Number.isInteger(item?.quantity) &&
+        item.quantity > 0,
+    );
   } catch {
     return [];
   }
 }
 
+function writeCart(items: CartLine[]): void {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  } catch {
+    // Sin almacenamiento (modo privado o bloqueado): el carrito vive solo en esta pestaña.
+  }
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartLine[]>([]);
+  const [ready, setReady] = useState(false);
 
+  // Primero se lee lo guardado; solo después se guarda, para no borrar el carrito al recargar.
   useEffect(() => {
-    const timeout = window.setTimeout(() => setItems(readCart()), 0);
+    const timeout = window.setTimeout(() => {
+      setItems(readCart());
+      setReady(true);
+    }, 0);
     return () => window.clearTimeout(timeout);
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  }, [items]);
+    if (ready) writeCart(items);
+  }, [items, ready]);
 
   const value = useMemo<CartContextValue>(
     () => ({
       items,
+      ready,
       count: items.reduce((sum, item) => sum + item.quantity, 0),
-      addItem: (variantId, quantity = 1) => {
-        setItems((current) => {
-          const existing = current.find((item) => item.variantId === variantId);
-          if (existing) {
-            return current.map((item) =>
-              item.variantId === variantId
-                ? { ...item, quantity: Math.max(1, item.quantity + quantity) }
-                : item,
-            );
-          }
-          return [...current, { variantId, quantity: Math.max(1, quantity) }];
-        });
-        toast.success('Producto agregado a tu bolsa.');
+      addItem: (variantId, quantity, max) => {
+        const current = items.find((item) => item.variantId === variantId)?.quantity ?? 0;
+        const next = Math.min(max, current + Math.max(1, quantity));
+        if (next <= current) {
+          toast.error('Ya tienes en tu bolsa el máximo disponible de este producto.');
+          return;
+        }
+        setItems((list) =>
+          list.some((item) => item.variantId === variantId)
+            ? list.map((item) =>
+                item.variantId === variantId ? { ...item, quantity: next } : item,
+              )
+            : [...list, { variantId, quantity: next }],
+        );
+        toast.success(
+          next < current + quantity
+            ? 'Agregamos a tu bolsa las unidades disponibles.'
+            : 'Producto agregado a tu bolsa.',
+        );
       },
       updateItem: (variantId, quantity) => {
-        setItems((current) =>
-          current
-            .map((item) => (item.variantId === variantId ? { ...item, quantity } : item))
-            .filter((item) => item.quantity > 0),
+        if (!Number.isInteger(quantity) || quantity < 1) return;
+        setItems((list) =>
+          list.map((item) => (item.variantId === variantId ? { ...item, quantity } : item)),
         );
       },
       removeItem: (variantId) => {
-        setItems((current) => current.filter((item) => item.variantId !== variantId));
+        setItems((list) => list.filter((item) => item.variantId !== variantId));
       },
       clear: () => setItems([]),
     }),
-    [items],
+    [items, ready],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

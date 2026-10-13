@@ -50,5 +50,5 @@ export const DISCOUNT_TYPE_LABELS: Record<DiscountType, string> = {
 export const PROMOTION_SCOPE_LABELS: Record<PromotionScope, string> = {
   VARIANT: 'Variantes',
   PRODUCT: 'Productos',
-  CATEGORY: 'Categorias',
+  CATEGORY: 'Categorías',
 };

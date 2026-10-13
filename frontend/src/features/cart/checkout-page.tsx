@@ -3,7 +3,7 @@
 import { ArrowRight, LockKeyhole } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -49,10 +49,10 @@ const errorMessage = (error: unknown, fallback: string) =>
 
 function validate(form: FormState, paymentAvailable: boolean): string | null {
   if (!form.customerName.trim()) return 'Escribe tu nombre completo.';
-  if (!form.customerPhone.trim()) return 'Escribe tu numero de telefono.';
+  if (!form.customerPhone.trim()) return 'Escribe tu número de teléfono.';
   if (!form.departmentCode || !form.municipalityCode) return 'Selecciona departamento y municipio.';
-  if (!form.addressLine.trim()) return 'Escribe la direccion de entrega.';
-  if (!form.paymentMethodId || !paymentAvailable) return 'Selecciona un metodo de pago disponible.';
+  if (!form.addressLine.trim()) return 'Escribe la dirección de entrega.';
+  if (!form.paymentMethodId || !paymentAvailable) return 'Selecciona un método de pago disponible.';
   if (!form.termsAccepted || !form.dataProcessingAccepted) {
     return 'Debes marcar las dos casillas obligatorias.';
   }
@@ -61,8 +61,11 @@ function validate(form: FormState, paymentAvailable: boolean): string | null {
 
 export function CheckoutPage() {
   const router = useRouter();
-  const { items, clear } = useCart();
+  const { items, ready, clear } = useCart();
   const [form, setForm] = useState<FormState>(emptyForm);
+  // Una sola clave por intento de compra: si la respuesta se pierde y el cliente vuelve a enviar,
+  // el servidor devuelve el mismo pedido en lugar de crear otro.
+  const idempotencyKey = useRef<string | null>(null);
   const quoteQuery = useCartQuote(items, form.municipalityCode);
   const quote = quoteQuery.data ?? null;
 
@@ -87,6 +90,7 @@ export function CheckoutPage() {
     mutationFn: async () => {
       const validation = validate(form, Boolean(selectedPayment));
       if (validation) throw new Error(validation);
+      idempotencyKey.current ??= crypto.randomUUID();
       return apiFetch<CreatedOrder>('/store/orders', {
         method: 'POST',
         body: JSON.stringify({
@@ -97,24 +101,33 @@ export function CheckoutPage() {
           addressLine: form.addressLine,
           deliveryNotes: form.deliveryNotes || undefined,
           paymentMethodId: form.paymentMethodId,
-          idempotencyKey: crypto.randomUUID(),
+          idempotencyKey: idempotencyKey.current,
           termsAccepted: form.termsAccepted,
           dataProcessingAccepted: form.dataProcessingAccepted,
         }),
       });
     },
     onSuccess: (order) => {
-      sessionStorage.setItem(`sky-beauty-order-${order.code}`, JSON.stringify(order));
+      try {
+        sessionStorage.setItem(`sky-beauty-order-${order.code}`, JSON.stringify(order));
+      } catch {
+        // Sin almacenamiento: la página del pedido muestra el enlace de seguimiento por otro medio.
+      }
+      idempotencyKey.current = null;
       clear();
       router.push(`/pedido/${order.code}`);
     },
     onError: (error) => toast.error(errorMessage(error, 'No se pudo crear el pedido.')),
   });
 
+  if (!ready) {
+    return <p className="text-[11px] text-muted">Cargando tu bolsa...</p>;
+  }
+
   if (items.length === 0) {
     return (
       <div className="mx-auto max-w-140 bg-[#faf6f8] px-6 py-15 text-center">
-        <h1 className="font-serif mb-3 text-[38px]">Tu carrito esta vacio</h1>
+        <h1 className="font-serif mb-3 text-[38px]">Tu bolsa está vacía</h1>
         <p className="mb-6 text-xs leading-[1.8] text-[#88777e]">
           Agrega productos antes de continuar al checkout.
         </p>
@@ -136,7 +149,7 @@ export function CheckoutPage() {
       >
         <div className="mb-4.5 flex items-center gap-3 border border-[#e2d4de] bg-[#faf4f8] p-4.25 text-[11px] leading-[1.7] text-[#795d77]">
           <LockKeyhole size={19} className="shrink-0" />
-          No necesitas cuenta. El pedido queda registrado y la conversacion continua por WhatsApp.
+          No necesitas cuenta. El pedido queda registrado y la conversación continúa por WhatsApp.
         </div>
 
         <section className="border-b border-[#ece4e8] py-7.5">
@@ -146,15 +159,19 @@ export function CheckoutPage() {
               <Input
                 id="customerName"
                 value={form.customerName}
-                onChange={(event) => setForm((current) => ({ ...current, customerName: event.target.value }))}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, customerName: event.target.value }))
+                }
                 autoComplete="name"
               />
             </FormField>
-            <FormField id="customerPhone" label="Telefono / WhatsApp">
+            <FormField id="customerPhone" label="Teléfono / WhatsApp">
               <Input
                 id="customerPhone"
                 value={form.customerPhone}
-                onChange={(event) => setForm((current) => ({ ...current, customerPhone: event.target.value }))}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, customerPhone: event.target.value }))
+                }
                 autoComplete="tel"
                 placeholder="3001234567"
               />
@@ -207,39 +224,56 @@ export function CheckoutPage() {
                 ))}
               </Select>
             </FormField>
-            <FormField id="addressLine" label="Direccion" className="col-span-2 max-[600px]:col-span-1">
+            <FormField
+              id="addressLine"
+              label="Dirección"
+              className="col-span-2 max-[600px]:col-span-1"
+            >
               <Input
                 id="addressLine"
                 value={form.addressLine}
-                onChange={(event) => setForm((current) => ({ ...current, addressLine: event.target.value }))}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, addressLine: event.target.value }))
+                }
                 autoComplete="street-address"
               />
             </FormField>
-            <FormField id="deliveryNotes" label="Indicaciones adicionales" className="col-span-2 max-[600px]:col-span-1">
+            <FormField
+              id="deliveryNotes"
+              label="Indicaciones adicionales"
+              className="col-span-2 max-[600px]:col-span-1"
+            >
               <Textarea
                 id="deliveryNotes"
                 rows={3}
                 value={form.deliveryNotes}
-                onChange={(event) => setForm((current) => ({ ...current, deliveryNotes: event.target.value }))}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, deliveryNotes: event.target.value }))
+                }
               />
             </FormField>
           </div>
           <p className="mt-3 text-[10px] leading-[1.7] text-[#a0929a]">
-            El envio se confirma por WhatsApp, salvo que aplique envio gratis.
+            El costo del envío depende de tu municipio. Si no tiene tarifa configurada, la tienda te
+            lo confirma por WhatsApp.
           </p>
         </section>
 
         <section className="border-b border-[#ece4e8] py-7.5">
-          <h2 className="font-serif mb-6 text-[25px]">Metodo de pago</h2>
+          <h2 className="font-serif mb-6 text-[25px]">Método de pago</h2>
           {!form.municipalityCode && (
-            <p className="text-[11px] text-[#8b7f87]">Selecciona municipio para ver opciones disponibles.</p>
+            <p className="text-[11px] text-[#8b7f87]">
+              Selecciona tu municipio para ver los métodos de pago disponibles.
+            </p>
           )}
           {form.municipalityCode && quote?.availablePaymentMethods.length === 0 && (
-            <FormError>No hay metodos de pago activos para este municipio y total.</FormError>
+            <FormError>No hay métodos de pago disponibles para este municipio y total.</FormError>
           )}
           <RadioGroup
             value={form.paymentMethodId}
-            onValueChange={(value) => setForm((current) => ({ ...current, paymentMethodId: value }))}
+            onValueChange={(value) =>
+              setForm((current) => ({ ...current, paymentMethodId: value }))
+            }
             aria-label="Método de pago"
           >
             {(quote?.availablePaymentMethods ?? []).map((method) => (
@@ -252,8 +286,8 @@ export function CheckoutPage() {
                   <strong className="block">{method.name}</strong>
                   <small className="mt-1 block text-[#92808e]">
                     {method.requiresVerification
-                      ? 'La tienda verifica el pago despues de recibir el comprobante.'
-                      : 'Disponible segun municipio y monto del pedido.'}
+                      ? 'Envía el comprobante por WhatsApp; la tienda verifica el pago.'
+                      : 'Pagas al recibir el pedido.'}
                   </small>
                 </span>
               </label>
@@ -275,7 +309,7 @@ export function CheckoutPage() {
               }
               className="mt-1"
             />
-            <span>Acepto los terminos y condiciones de compra.</span>
+            <span>Acepto los términos y condiciones.</span>
           </label>
           <label className="flex items-start gap-2.5 text-[11px] leading-[1.7] text-[#5b4c56]">
             <Checkbox
@@ -285,11 +319,25 @@ export function CheckoutPage() {
               }
               className="mt-1"
             />
-            <span>Autorizo el tratamiento de mis datos personales para gestionar este pedido.</span>
+            <span>
+              Autorizo el tratamiento de mis datos personales conforme a la Ley 1581 de 2012.
+            </span>
           </label>
         </section>
 
-        <Button type="submit" className="w-full" disabled={createOrder.isPending || !quote}>
+        {quote && !quote.canCheckout && (
+          <FormError>
+            Hay productos de tu bolsa que necesitan revisión.{' '}
+            <Link href="/carrito" className="underline">
+              Volver a la bolsa
+            </Link>
+          </FormError>
+        )}
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={createOrder.isPending || !quote?.canCheckout}
+        >
           {createOrder.isPending ? 'Creando pedido...' : 'Crear pedido'}
           <ArrowRight size={17} />
         </Button>

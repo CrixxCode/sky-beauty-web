@@ -29,10 +29,11 @@ test('la propietaria configura contacto y pagos, y la tienda muestra el WhatsApp
   ).toBeVisible();
 
   // Contra entrega: agrega un municipio de la lista oficial.
-  await pick(page, 'Departamento', 'Antioquia');
-  await pick(page, 'Municipio', municipality);
-  await page.getByRole('button', { name: 'Agregar municipio' }).click();
-  await page.getByRole('button', { name: 'Guardar municipios' }).click();
+  const cod = page.getByRole('region', { name: 'Efectivo contra entrega' });
+  await pick(page, 'Departamento', 'Antioquia', cod);
+  await pick(page, 'Municipio', municipality, cod);
+  await cod.getByRole('button', { name: 'Agregar municipio' }).click();
+  await cod.getByRole('button', { name: 'Guardar municipios' }).click();
   await expect(page.getByText('Municipios guardados.')).toBeVisible();
   await expect(page.getByText(`${municipality}, Antioquia`)).toBeVisible();
 

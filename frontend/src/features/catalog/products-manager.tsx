@@ -1027,7 +1027,7 @@ function VariantsTab({ product, role }: { product: Product; role: AdminRole }) {
         title="Eliminar variante"
         description={
           deleteTarget
-            ? `Esta accion eliminara la variante "${deleteTarget.name}" (${deleteTarget.sku}) definitivamente.`
+            ? `Esta acción eliminará la variante "${deleteTarget.name}" (${deleteTarget.sku}) definitivamente.`
             : ''
         }
         confirmLabel={deleteVariant.isPending ? 'Eliminando...' : 'Eliminar variante'}
@@ -1560,7 +1560,7 @@ function ProductStatusTab({ product, onDeleted }: { product: Product; onDeleted:
         open={confirmAction === 'delete'}
         onOpenChange={(open) => !open && setConfirmAction(null)}
         title="Eliminar producto definitivamente"
-        description={`Esta accion eliminara "${product.name}" y no se puede deshacer. Si tiene pedidos asociados, el backend la rechazara.`}
+        description={`Esta acción eliminará "${product.name}" y no se puede deshacer. Si tiene pedidos asociados, el sistema la rechazará.`}
         confirmLabel={deleteProduct.isPending ? 'Eliminando...' : 'Eliminar definitivamente'}
         destructive
         onConfirm={() => deleteProduct.mutate()}

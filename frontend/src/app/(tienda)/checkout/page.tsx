@@ -10,8 +10,8 @@ export default function CheckoutRoutePage() {
     <Container className="py-11.25">
       <StorePageHeading
         eyebrow="Finalizar compra"
-        title="Solo un paso mas"
-        description="Completa tus datos de entrega y el metodo de pago para registrar el pedido."
+        title="Solo un paso más"
+        description="Completa tus datos de entrega y el método de pago para registrar el pedido."
       />
       <CheckoutPage />
     </Container>

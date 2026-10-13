@@ -369,7 +369,7 @@ function BrandCard({ brand, onEdit }: { brand: Brand; onEdit: () => void }) {
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         title="Eliminar marca"
-        description={`Esta accion eliminara la marca "${brand.name}". Solo esta disponible porque no tiene productos asociados.`}
+        description={`Esta acción eliminará la marca "${brand.name}". Solo está disponible porque no tiene productos asociados.`}
         confirmLabel={deleteBrand.isPending ? 'Eliminando...' : 'Eliminar marca'}
         destructive
         onConfirm={() => deleteBrand.mutate()}

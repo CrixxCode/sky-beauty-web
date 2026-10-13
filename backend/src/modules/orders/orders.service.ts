@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
 import type { Env } from '../../config/env';
 import {
   AdminRole,
@@ -44,13 +44,6 @@ import type {
   AdminOrderListItemDto,
   VerifyPaymentDto,
 } from './orders.dto';
-
-type VariantForCart = Prisma.ProductVariantGetPayload<{
-  include: {
-    images: { orderBy: { position: 'asc' } };
-    product: { include: { images: { where: { variantId: null }; orderBy: { position: 'asc' } } } };
-  };
-}>;
 
 type MethodForCheckout = Prisma.PaymentMethodGetPayload<{
   include: { cities: true };
@@ -96,6 +89,76 @@ function toPaymentMethodDto(method: MethodForCheckout): AvailablePaymentMethodDt
   };
 }
 
+const copFormatter = new Intl.NumberFormat('es-CO', {
+  style: 'currency',
+  currency: 'COP',
+  maximumFractionDigits: 0,
+});
+
+/** Importe en pesos colombianos, p. ej. "$ 15.000". */
+function cop(value: number): string {
+  return copFormatter.format(value);
+}
+
+/** Envío por confirmar (null), gratis (0) o con tarifa calculada. */
+function shippingLabel(shippingCost: number | null): string {
+  if (shippingCost === null) return 'Envío por confirmar';
+  if (shippingCost === 0) return 'Envío gratis';
+  return `Envío: ${cop(shippingCost)}`;
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    (err as { code: string }).code === 'P2002'
+  );
+}
+
+/**
+ * Mensaje que el cliente envía por WhatsApp al terminar el checkout: identifica el pedido e
+ * incluye productos, variantes, cantidades, importes y datos de entrega (negocio.md, sección 6).
+ */
+function buildWhatsappMessage(
+  order: {
+    code: string;
+    customerName: string;
+    customerPhone: string;
+    city: string;
+    department: string;
+    addressLine: string;
+    deliveryNotes: string | null;
+  },
+  summary: CreatedOrderDto['summary'],
+): string {
+  const lines: Array<string | null> = [
+    `Hola, quiero continuar con mi pedido ${order.code}.`,
+    '',
+    'Productos:',
+    ...summary.items.map(
+      (item) =>
+        `- ${item.productName} (${item.variantName}) x${item.quantity}: ${cop(item.lineTotal)}`,
+    ),
+    '',
+    `Subtotal: ${cop(summary.subtotal)}`,
+    summary.discountTotal > 0 ? `Descuento: -${cop(summary.discountTotal)}` : null,
+    `${summary.shippingLabel}`,
+    summary.shippingCost === null
+      ? `Total sin envío: ${cop(summary.total)}`
+      : `Total: ${cop(summary.total)}`,
+    '',
+    'Datos de entrega:',
+    `Nombre: ${order.customerName}`,
+    `Teléfono: ${order.customerPhone}`,
+    `Municipio: ${order.city}, ${order.department}`,
+    `Dirección: ${order.addressLine}`,
+    order.deliveryNotes ? `Indicaciones: ${order.deliveryNotes}` : null,
+    `Método de pago: ${summary.paymentMethodName}`,
+  ];
+  return lines.filter((line): line is string => line !== null).join('\n');
+}
+
 @Injectable()
 export class OrdersService {
   constructor(
@@ -105,6 +168,11 @@ export class OrdersService {
     private readonly config: ConfigService<Env, true>,
   ) {}
 
+  /**
+   * Valida y cotiza el carrito con precios, promociones y envío calculados en el servidor.
+   * No falla por un artículo con problemas: lo marca para que el cliente lo corrija, y
+   * `canCheckout` indica si se puede crear el pedido.
+   */
   async quoteCart(dto: QuoteCartDto): Promise<CartQuoteDto> {
     const items = uniqueCartItems(dto.items);
     const variants = await this.prisma.productVariant.findMany({
@@ -123,21 +191,20 @@ export class OrdersService {
       },
     });
 
-    if (variants.length !== items.length) {
-      throw new BadRequestException('Uno o mas productos del carrito ya no estan disponibles.');
-    }
-
     const variantById = new Map(variants.map((variant) => [variant.id, variant]));
-    const priceMap = await this.pricing.priceVariantsAt(items.map((item) => item.variantId));
+    const unavailableVariantIds = items
+      .filter((item) => !variantById.has(item.variantId))
+      .map((item) => item.variantId);
+    const available = items.filter((item) => variantById.has(item.variantId));
+    const priceMap = await this.pricing.priceVariantsAt(available.map((item) => item.variantId));
     const quoteItems: CartQuoteItemDto[] = [];
 
-    for (const item of items) {
+    for (const item of available) {
       const variant = variantById.get(item.variantId);
       const price = priceMap.get(item.variantId);
       if (!variant || !price) {
         throw new BadRequestException('No se pudo calcular el precio de un producto.');
       }
-      this.validateItemQuantity(item.quantity, variant);
       const image = variant.images[0] ?? variant.product.images[0] ?? null;
       quoteItems.push({
         variantId: variant.id,
@@ -148,8 +215,9 @@ export class OrdersService {
         sku: variant.sku,
         imageUrl: image?.thumbnailUrl ?? image?.url ?? null,
         quantity: item.quantity,
-        stock: variant.stock,
+        maxQuantity: Math.min(variant.stock, variant.maxPerOrder ?? variant.stock),
         maxPerOrder: variant.maxPerOrder,
+        issue: this.itemIssue(item.quantity, variant),
         unitListPrice: money(price.regularPrice),
         unitDiscount: money(price.discountAmount),
         unitFinalPrice: money(price.finalPrice),
@@ -185,13 +253,13 @@ export class OrdersService {
       shippingCost,
       total,
       freeShippingThreshold: settings.freeShippingThreshold,
-      shippingLabel:
-        shippingCost === 0
-          ? 'Envio gratis'
-          : shippingCost === null
-            ? 'Envio por confirmar'
-            : `Envio: ${shippingCost} COP`,
+      shippingLabel: shippingLabel(shippingCost),
       availablePaymentMethods: await this.availablePaymentMethods(dto.municipalityCode, total),
+      unavailableVariantIds,
+      canCheckout:
+        quoteItems.length > 0 &&
+        unavailableVariantIds.length === 0 &&
+        quoteItems.every((item) => item.issue === null),
     };
   }
 
@@ -202,7 +270,7 @@ export class OrdersService {
 
     const customerPhone = normalizeWhatsappNumber(dto.customerPhone);
     if (!WHATSAPP_NUMBER_PATTERN.test(customerPhone)) {
-      throw new BadRequestException('El telefono no tiene un formato valido.');
+      throw new BadRequestException('El teléfono no tiene un formato válido.');
     }
 
     const normalized = {
@@ -214,27 +282,26 @@ export class OrdersService {
       items: uniqueCartItems(dto.items),
     };
     const requestHash = stableHash(normalized);
-    const existing = await this.prisma.order.findUnique({
-      where: { idempotencyKey: dto.idempotencyKey },
-      include: { items: true },
-    });
-    if (existing) {
-      if (existing.requestHash !== requestHash) {
-        throw new ConflictException('La clave de idempotencia ya fue usada con otro pedido.');
-      }
-      const publicToken = this.publicTokenFor(dto.idempotencyKey, requestHash);
-      return this.createdOrderDto(
-        existing.id,
-        existing.code,
-        publicToken,
-        await this.quoteCart(dto),
-      );
-    }
+    // Reintento del mismo checkout (por ejemplo, tras un corte de red): se devuelve el pedido ya
+    // creado, sin volver a cotizar ni reservar.
+    const replay = await this.replayIdempotent(dto.idempotencyKey, requestHash);
+    if (replay) return replay;
 
     const quote = await this.quoteCart({
       items: normalized.items,
       municipalityCode: dto.municipalityCode,
     });
+    if (quote.unavailableVariantIds.length > 0) {
+      throw new BadRequestException('Uno o más productos del carrito ya no están disponibles.');
+    }
+    const blocked = quote.items.find((item) => item.issue !== null);
+    if (blocked) {
+      throw new BadRequestException(
+        blocked.issue === 'OVER_MAX_PER_ORDER'
+          ? `${blocked.productName} permite máximo ${blocked.maxPerOrder} unidades por pedido.`
+          : `No hay existencias suficientes para ${blocked.productName}.`,
+      );
+    }
     const paymentMethod = await this.ensurePaymentMethod(
       dto.paymentMethodId,
       dto.municipalityCode,
@@ -248,113 +315,126 @@ export class OrdersService {
       throw new BadRequestException('El municipio seleccionado no existe.');
     }
 
-    const publicToken = this.publicTokenFor(dto.idempotencyKey, requestHash);
+    const publicToken = this.publicTokenFor(dto.idempotencyKey);
     const publicTokenHash = sha256(publicToken);
     const now = new Date();
-    const order = await this.prisma.$transaction(async (tx) => {
-      const stockSnapshots = new Map<
-        string,
-        { stockBefore: number; unitCost: Prisma.Decimal | null }
-      >();
-      for (const item of quote.items) {
-        const variant = await tx.productVariant.findUniqueOrThrow({
-          where: { id: item.variantId },
-          select: { costPrice: true },
-        });
-        const reserved = await tx.productVariant.updateMany({
-          where: { id: item.variantId, stock: { gte: item.quantity } },
-          data: { stock: { decrement: item.quantity } },
-        });
-        if (reserved.count !== 1) {
-          throw new BadRequestException(`No hay existencias suficientes para ${item.productName}.`);
+    let orderId: string;
+    try {
+      orderId = await this.prisma.$transaction(async (tx) => {
+        const stockSnapshots = new Map<
+          string,
+          { stockBefore: number; unitCost: Prisma.Decimal | null }
+        >();
+        for (const item of quote.items) {
+          const variant = await tx.productVariant.findUniqueOrThrow({
+            where: { id: item.variantId },
+            select: { costPrice: true },
+          });
+          const reserved = await tx.productVariant.updateMany({
+            where: { id: item.variantId, stock: { gte: item.quantity } },
+            data: { stock: { decrement: item.quantity } },
+          });
+          if (reserved.count !== 1) {
+            throw new BadRequestException(
+              `No hay existencias suficientes para ${item.productName}.`,
+            );
+          }
+          const afterReserve = await tx.productVariant.findUniqueOrThrow({
+            where: { id: item.variantId },
+            select: { stock: true },
+          });
+          stockSnapshots.set(item.variantId, {
+            stockBefore: afterReserve.stock + item.quantity,
+            unitCost: variant.costPrice,
+          });
         }
-        const afterReserve = await tx.productVariant.findUniqueOrThrow({
-          where: { id: item.variantId },
-          select: { stock: true },
-        });
-        stockSnapshots.set(item.variantId, {
-          stockBefore: afterReserve.stock + item.quantity,
-          unitCost: variant.costPrice,
-        });
-      }
 
-      const customer = await tx.customer.upsert({
-        where: { phone: customerPhone },
-        create: { fullName: normalized.customerName, phone: customerPhone },
-        update: { fullName: normalized.customerName },
-      });
+        const customer = await tx.customer.upsert({
+          where: { phone: customerPhone },
+          create: { fullName: normalized.customerName, phone: customerPhone },
+          update: { fullName: normalized.customerName },
+        });
 
-      const created = await tx.order.create({
-        data: {
-          code: await this.generateOrderCode(tx),
-          publicTokenHash,
-          idempotencyKey: dto.idempotencyKey,
-          requestHash,
-          customerId: customer.id,
-          customerName: normalized.customerName,
-          customerPhone,
-          municipalityCode: municipality.code,
-          department: municipality.department.name,
-          city: municipality.name,
-          addressLine: normalized.addressLine,
-          deliveryNotes: normalized.deliveryNotes,
-          paymentMethodId: paymentMethod.id,
-          paymentMethodCode: paymentMethod.code,
-          paymentMethodName: paymentMethod.name,
-          subtotal: quote.subtotal,
-          discountTotal: quote.discountTotal,
-          shippingCost: quote.shippingCost,
-          total: quote.total,
-          termsAcceptedAt: now,
-          dataProcessingConsentAt: now,
-          items: {
-            create: quote.items.map((item) => ({
-              variantId: item.variantId,
-              productId: item.productId,
-              productName: item.productName,
-              productSlug: item.productSlug,
-              variantName: item.variantName,
-              sku: item.sku,
-              unitListPrice: item.unitListPrice,
-              unitDiscount: item.unitDiscount,
-              unitFinalPrice: item.unitFinalPrice,
-              unitCost: stockSnapshots.get(item.variantId)?.unitCost ?? null,
-              quantity: item.quantity,
-              lineTotal: item.lineTotal,
-              promotionId: item.promotionId,
-              promotionName: item.promotionName,
-            })),
-          },
-          statusHistory: {
-            create: {
-              type: OrderEventType.ORDER_STATUS,
-              toStatus: 'PENDING_CONFIRMATION',
-              note: 'Pedido creado desde checkout.',
+        const created = await tx.order.create({
+          data: {
+            code: await this.generateOrderCode(tx),
+            publicTokenHash,
+            idempotencyKey: dto.idempotencyKey,
+            requestHash,
+            customerId: customer.id,
+            customerName: normalized.customerName,
+            customerPhone,
+            municipalityCode: municipality.code,
+            department: municipality.department.name,
+            city: municipality.name,
+            addressLine: normalized.addressLine,
+            deliveryNotes: normalized.deliveryNotes,
+            paymentMethodId: paymentMethod.id,
+            paymentMethodCode: paymentMethod.code,
+            paymentMethodName: paymentMethod.name,
+            subtotal: quote.subtotal,
+            discountTotal: quote.discountTotal,
+            shippingCost: quote.shippingCost,
+            total: quote.total,
+            termsAcceptedAt: now,
+            dataProcessingConsentAt: now,
+            items: {
+              create: quote.items.map((item) => ({
+                variantId: item.variantId,
+                productId: item.productId,
+                productName: item.productName,
+                productSlug: item.productSlug,
+                variantName: item.variantName,
+                sku: item.sku,
+                unitListPrice: item.unitListPrice,
+                unitDiscount: item.unitDiscount,
+                unitFinalPrice: item.unitFinalPrice,
+                unitCost: stockSnapshots.get(item.variantId)?.unitCost ?? null,
+                quantity: item.quantity,
+                lineTotal: item.lineTotal,
+                promotionId: item.promotionId,
+                promotionName: item.promotionName,
+              })),
+            },
+            statusHistory: {
+              create: {
+                type: OrderEventType.ORDER_STATUS,
+                toStatus: 'PENDING_CONFIRMATION',
+                note: 'Pedido creado desde checkout.',
+              },
             },
           },
-        },
+        });
+
+        await tx.inventoryMovement.createMany({
+          data: quote.items.map((item) => {
+            const snapshot = stockSnapshots.get(item.variantId);
+            if (!snapshot) throw new BadRequestException('No se pudo reservar una variante.');
+            return {
+              variantId: item.variantId,
+              type: InventoryMovementType.ORDER_RESERVED,
+              quantity: -item.quantity,
+              stockBefore: snapshot.stockBefore,
+              stockAfter: snapshot.stockBefore - item.quantity,
+              reason: 'Reserva por pedido creado en checkout',
+              orderId: created.id,
+            };
+          }),
+        });
+
+        return created.id;
       });
+    } catch (err: unknown) {
+      // Dos envíos simultáneos del mismo checkout: el segundo choca con la clave única de
+      // idempotencia y devuelve el pedido que creó el primero.
+      if (isUniqueViolation(err)) {
+        const replayed = await this.replayIdempotent(dto.idempotencyKey, requestHash);
+        if (replayed) return replayed;
+      }
+      throw err;
+    }
 
-      await tx.inventoryMovement.createMany({
-        data: quote.items.map((item) => {
-          const snapshot = stockSnapshots.get(item.variantId);
-          if (!snapshot) throw new BadRequestException('No se pudo reservar una variante.');
-          return {
-            variantId: item.variantId,
-            type: InventoryMovementType.ORDER_RESERVED,
-            quantity: -item.quantity,
-            stockBefore: snapshot.stockBefore,
-            stockAfter: snapshot.stockBefore - item.quantity,
-            reason: 'Reserva por pedido creado en checkout',
-            orderId: created.id,
-          };
-        }),
-      });
-
-      return created;
-    });
-
-    return this.createdOrderDto(order.id, order.code, publicToken, quote);
+    return this.createdOrderDto(orderId, publicToken);
   }
 
   async trackPublic(token: string): Promise<PublicOrderTrackingDto> {
@@ -1307,17 +1387,6 @@ export class OrdersService {
     return Date.now() - order.paymentRejectedAt.getTime() >= hours * 60 * 60 * 1000;
   }
 
-  private validateItemQuantity(quantity: number, variant: VariantForCart): void {
-    if (variant.stock < quantity) {
-      throw new BadRequestException(`No hay existencias suficientes para ${variant.product.name}.`);
-    }
-    if (variant.maxPerOrder !== null && quantity > variant.maxPerOrder) {
-      throw new BadRequestException(
-        `${variant.product.name} permite maximo ${variant.maxPerOrder} unidades por pedido.`,
-      );
-    }
-  }
-
   private async availablePaymentMethods(
     municipalityCode: string | undefined,
     total: number,
@@ -1353,8 +1422,40 @@ export class OrdersService {
     });
   }
 
-  private publicTokenFor(idempotencyKey: string, requestHash: string): string {
-    return sha256(`${idempotencyKey}:${requestHash}`).slice(0, 48);
+  /**
+   * Token del enlace privado de seguimiento. Se deriva con HMAC y un secreto del servidor, así que
+   * no se puede calcular a partir de los datos del pedido, y un reintento obtiene el mismo enlace.
+   */
+  private publicTokenFor(idempotencyKey: string): string {
+    return createHmac('sha256', this.config.get('JWT_SECRET', { infer: true }))
+      .update(`order-tracking:${idempotencyKey}`)
+      .digest('hex')
+      .slice(0, 48);
+  }
+
+  /** Si ya existe un pedido con esa clave, lo devuelve; si la clave se usó con otros datos, falla. */
+  private async replayIdempotent(
+    idempotencyKey: string,
+    requestHash: string,
+  ): Promise<CreatedOrderDto | null> {
+    const existing = await this.prisma.order.findUnique({
+      where: { idempotencyKey },
+      select: { id: true, requestHash: true },
+    });
+    if (!existing) return null;
+    if (existing.requestHash !== requestHash) {
+      throw new ConflictException('La clave de idempotencia ya fue usada con otro pedido.');
+    }
+    return this.createdOrderDto(existing.id, this.publicTokenFor(idempotencyKey));
+  }
+
+  private itemIssue(
+    quantity: number,
+    variant: { stock: number; maxPerOrder: number | null },
+  ): CartQuoteItemDto['issue'] {
+    if (variant.maxPerOrder !== null && quantity > variant.maxPerOrder) return 'OVER_MAX_PER_ORDER';
+    if (quantity > variant.stock) return 'INSUFFICIENT_STOCK';
+    return null;
   }
 
   private async generateOrderCode(tx: Prisma.TransactionClient): Promise<string> {
@@ -1368,43 +1469,40 @@ export class OrdersService {
     throw new ConflictException('No se pudo generar un codigo de pedido unico.');
   }
 
-  private async createdOrderDto(
-    id: string,
-    code: string,
-    publicToken: string,
-    quote: CartQuoteDto,
-  ): Promise<CreatedOrderDto> {
+  /** Respuesta del checkout, armada con el pedido tal como quedó registrado. */
+  private async createdOrderDto(orderId: string, publicToken: string): Promise<CreatedOrderDto> {
+    const order = await this.prisma.order.findUniqueOrThrow({
+      where: { id: orderId },
+      include: { items: { orderBy: { createdAt: 'asc' } } },
+    });
     const info = await this.settings.getPublicInfo();
-    const whatsappMessage = this.whatsappMessage(code, quote);
+    const shippingCost = order.shippingCost?.toNumber() ?? null;
+    const summary = {
+      items: order.items.map((item) => ({
+        productName: item.productName,
+        variantName: item.variantName,
+        quantity: item.quantity,
+        unitFinalPrice: item.unitFinalPrice.toNumber(),
+        lineTotal: item.lineTotal.toNumber(),
+      })),
+      subtotal: order.subtotal.toNumber(),
+      discountTotal: order.discountTotal.toNumber(),
+      shippingCost,
+      total: order.total.toNumber(),
+      shippingLabel: shippingLabel(shippingCost),
+      paymentMethodName: order.paymentMethodName,
+    };
+    const whatsappMessage = buildWhatsappMessage(order, summary);
     return {
-      id,
-      code,
+      id: order.id,
+      code: order.code,
       publicToken,
       trackingPath: `/seguimiento/${publicToken}`,
       whatsappMessage,
-      quote,
+      summary,
       whatsappUrl: info.whatsappNumber
         ? `https://wa.me/${info.whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`
         : null,
     };
-  }
-
-  private whatsappMessage(code: string, quote: CartQuoteDto): string {
-    const lines = quote.items.map(
-      (item) =>
-        `- ${item.productName} (${item.variantName}) x${item.quantity}: ${item.lineTotal} COP`,
-    );
-    return [
-      `Hola, quiero continuar con mi pedido ${code}.`,
-      '',
-      'Resumen:',
-      ...lines,
-      `Subtotal: ${quote.subtotal} COP`,
-      quote.discountTotal > 0 ? `Descuento: -${quote.discountTotal} COP` : null,
-      `${quote.shippingLabel}.`,
-      `Total de productos: ${quote.total} COP`,
-    ]
-      .filter(Boolean)
-      .join('\n');
   }
 }

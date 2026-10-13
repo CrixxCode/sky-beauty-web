@@ -41,29 +41,43 @@ export function OrderSummary({
         <SummaryRow label="Descuentos" value={`-${formatCOP(quote.discountTotal)}`} />
       )}
       <SummaryRow
-        label="Envio"
+        label="Envío"
         value={
-          quote?.shippingCost === undefined || quote === null
+          !quote || quote.shippingCost === null
             ? 'Por confirmar'
-            : quote.shippingCost === null
-              ? quote.shippingLabel
+            : quote.shippingCost === 0
+              ? 'Gratis'
               : formatCOP(quote.shippingCost)
         }
       />
       <div className="mt-5.75 flex items-center justify-between gap-3 border-t border-[#e5d9e2] pt-5.5 text-[13px] font-semibold">
-        <span>Total</span>
+        <span>{quote?.shippingCost === null ? 'Total sin envío' : 'Total'}</span>
         <strong className="text-[19px]">{quote ? formatCOP(quote.total) : '-'}</strong>
       </div>
       <p className="my-6 text-[10px] leading-[1.8] text-[#978990]">
-        Si el municipio no tiene tarifa configurada, la tienda confirma el valor por WhatsApp antes
-        de despachar.
+        {checkout
+          ? 'Si tu municipio no tiene tarifa de envío configurada, la tienda te confirma el valor por WhatsApp.'
+          : 'El envío se calcula en el checkout según tu municipio.'}
       </p>
       {!checkout && quote && quote.items.length > 0 && (
-        <Button asChild className="w-full">
-          <Link href="/checkout">
-            Continuar al checkout <ArrowRight size={17} />
-          </Link>
-        </Button>
+        <>
+          {quote.canCheckout ? (
+            <Button asChild className="w-full">
+              <Link href="/checkout">
+                Continuar al checkout <ArrowRight size={17} />
+              </Link>
+            </Button>
+          ) : (
+            <Button className="w-full" disabled>
+              Continuar al checkout <ArrowRight size={17} />
+            </Button>
+          )}
+          {!quote.canCheckout && (
+            <p className="mt-3 text-[10px] text-[#98566f]">
+              Revisa los avisos de tu bolsa para continuar.
+            </p>
+          )}
+        </>
       )}
     </aside>
   );

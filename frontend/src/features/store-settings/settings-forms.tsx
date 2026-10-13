@@ -34,7 +34,7 @@ import type { Location, ShippingRate, StoreSettings } from '@/types/store';
 export const SETTINGS_KEY = ['store-settings'];
 const SHIPPING_RATES_KEY = ['shipping-rates'];
 
-const errorMessage = (error: unknown, fallback = 'No se pudo guardar la configuracion.') =>
+const errorMessage = (error: unknown, fallback = 'No se pudo guardar la configuración.') =>
   error instanceof ApiError ? error.message : fallback;
 
 export function StoreSettingsForms({ canEdit }: { canEdit: boolean }) {
@@ -43,9 +43,9 @@ export function StoreSettingsForms({ canEdit }: { canEdit: boolean }) {
     queryFn: () => apiFetch<StoreSettings>('/admin/settings'),
   });
 
-  if (isPending) return <p className="text-[11px] text-muted">Cargando configuracion...</p>;
+  if (isPending) return <p className="text-[11px] text-muted">Cargando configuración...</p>;
   if (isError)
-    return <p className="text-[11px] text-danger">No se pudo cargar la configuracion.</p>;
+    return <p className="text-[11px] text-danger">No se pudo cargar la configuración.</p>;
 
   return (
     <>
@@ -65,7 +65,7 @@ function useSaveSettings() {
         body: JSON.stringify(body),
       });
       queryClient.setQueryData(SETTINGS_KEY, saved);
-      toast.success('Configuracion guardada.');
+      toast.success('Configuración guardada.');
       return saved;
     } catch (error) {
       toast.error(errorMessage(error));
@@ -127,15 +127,15 @@ function ContactForm({ settings, canEdit }: { settings: StoreSettings; canEdit: 
             placeholder: '300 123 4567',
           })}
           {field('contactEmail', 'Correo de contacto', { type: 'email' })}
-          {field('contactPhone', 'Telefono de contacto', { inputMode: 'tel' })}
-          {field('businessHours', 'Horario de atencion')}
-          {field('addressText', 'Direccion', {}, true)}
+          {field('contactPhone', 'Teléfono de contacto', { inputMode: 'tel' })}
+          {field('businessHours', 'Horario de atención')}
+          {field('addressText', 'Dirección', {}, true)}
           {field('instagramUrl', 'Instagram', { placeholder: 'https://instagram.com/...' })}
           {field('facebookUrl', 'Facebook', { placeholder: 'https://facebook.com/...' })}
           {field('tiktokUrl', 'TikTok', { placeholder: 'https://tiktok.com/@...' })}
         </fieldset>
         <p className="mt-1 text-[10px] leading-relaxed text-[#a0929a]">
-          El numero de WhatsApp se guarda con el codigo de pais (57). Los campos vacios no se
+          El número de WhatsApp se guarda con el código de país (57). Los campos vacios no se
           muestran en la tienda.
         </p>
         {canEdit && (
@@ -191,7 +191,7 @@ function CommercialForm({ settings, canEdit }: { settings: StoreSettings; canEdi
         <fieldset disabled={!canEdit} className="grid gap-x-4.5 min-[601px]:grid-cols-3">
           <FormField
             id="nationalFreeShipping"
-            label="Envio gratis nacional"
+            label="Envío gratis nacional"
             className="min-[601px]:col-span-3"
           >
             <label className="flex min-h-11 items-center justify-between gap-4 border border-input-border bg-white px-3.5 py-2.5 text-[11px]">
@@ -209,8 +209,8 @@ function CommercialForm({ settings, canEdit }: { settings: StoreSettings; canEdi
           </FormField>
           {field(
             'freeShippingThreshold',
-            'Envio gratis desde (COP)',
-            'Subtotal despues de descuentos. Vacio: sin envio gratis por monto.',
+            'Envío gratis desde (COP)',
+            'Subtotal después de descuentos. Vacio: sin envío gratis por monto.',
           )}
           {field(
             'defaultLowStockThreshold',
@@ -219,8 +219,8 @@ function CommercialForm({ settings, canEdit }: { settings: StoreSettings; canEdi
           )}
           {field(
             'maxPercentageDiscount',
-            'Descuento maximo (%)',
-            'Limite para promociones porcentuales. Vacio: hasta 100 %.',
+            'Descuento máximo (%)',
+            'Límite para promociones porcentuales. Vacio: hasta 100 %.',
           )}
         </fieldset>
         {canEdit && (
@@ -283,7 +283,7 @@ function ShippingRatesPanel({ canEdit }: { canEdit: boolean }) {
       );
       setMunicipalityCode('');
       setAmount('');
-      toast.success('Tarifa de envio guardada.');
+      toast.success('Tarifa de envío guardada.');
     } catch (error) {
       toast.error(errorMessage(error, 'No se pudo guardar la tarifa.'));
     } finally {
@@ -308,10 +308,10 @@ function ShippingRatesPanel({ canEdit }: { canEdit: boolean }) {
 
   return (
     <AdminPanel>
-      <AdminPanelTitle>Tarifas de envio por municipio</AdminPanelTitle>
+      <AdminPanelTitle>Tarifas de envío por municipio</AdminPanelTitle>
       <p className="mb-4 text-[10px] leading-relaxed text-[#a0929a]">
-        Si el municipio tiene tarifa, el checkout la usa automaticamente. Si no la tiene, el envio
-        queda por confirmar, salvo que aplique envio gratis.
+        Si el municipio tiene tarifa, el checkout la usa automáticamente. Si no la tiene, el envío
+        queda por confirmar, salvo que aplique envío gratis.
       </p>
       {canEdit && (
         <div className="grid gap-x-3 min-[701px]:grid-cols-[1fr_1fr_150px_auto]">

@@ -9,7 +9,7 @@ export default function CarritoPage() {
   return (
     <Container className="py-11.25">
       <StorePageHeading
-        eyebrow="Tu seleccion"
+        eyebrow="Tu selección"
         title="Tu bolsa de belleza"
         description="Revisa productos, cantidades y precios antes de continuar al checkout."
       />

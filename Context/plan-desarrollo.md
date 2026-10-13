@@ -238,6 +238,18 @@ La lógica más delicada del sistema: debe tener pruebas exhaustivas antes de co
 
 **Terminado cuando:** un cliente completa una compra desde el celular, las existencias quedan reservadas y WhatsApp se abre con el mensaje correcto.
 
+**Estado:** terminado el 2026-10-13.
+
+- Pruebas: `test/checkout.e2e-spec.ts` (integración) y `e2e/checkout.spec.ts` (Playwright, celular y escritorio).
+- Cotización: no falla por un artículo con problemas; marca cada línea (sin existencias suficientes, sobre el máximo por pedido o ya no disponible) y `canCheckout` bloquea el pedido hasta corregirlo. No expone las existencias exactas.
+- Envío según la decisión del 2026-10-13: gratis nacional, gratis por monto mínimo, tarifa del municipio o por confirmar.
+- Idempotencia: un reintento con la misma clave devuelve el mismo pedido sin volver a cotizar ni reservar, también si llegan a la vez. El navegador conserva la clave entre reintentos.
+- Enlace de seguimiento: token derivado con HMAC y un secreto del servidor (no se puede calcular con los datos del pedido).
+- Mensaje de WhatsApp con código, productos, variantes, cantidades, importes, datos de entrega y método de pago, armado con el pedido guardado.
+- Carrito en `localStorage`; ya no se borra al recargar.
+- Provisional: mientras el envío está por confirmar, el resumen dice "Total sin envío". Sigue pendiente decidir cómo se presenta el total antes y después de conocer el envío (`decisiones.md`).
+- Las casillas aún no enlazan a los textos de términos y datos personales: llegan con el módulo 12, cuando estén aprobados.
+
 **Bloqueos de negocio:** los textos de términos y de datos personales deben estar aprobados antes del lanzamiento (no para construir).
 
 ---
