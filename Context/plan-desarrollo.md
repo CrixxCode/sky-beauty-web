@@ -293,6 +293,16 @@ La lógica más delicada del sistema: debe tener pruebas exhaustivas antes de co
 
 **Terminado cuando:** se puede seguir el pago de un pedido desde el comprobante hasta la verificación o el rechazo, con los permisos correctos.
 
+**Estado:** terminado el 2026-10-13.
+
+- Pruebas: `test/payments.e2e-spec.ts` (integración) y `e2e/payments.spec.ts` (Playwright, celular y escritorio).
+- Panel: sección de pago en el detalle del pedido y bandeja `/admin/pagos` (pagos por verificar).
+- El detalle informa el fin del plazo de aclaración y si el personal ya puede cancelar; ambos los calcula el servidor con `ORDER_PAYMENT_CLARIFICATION_HOURS`.
+- Si el cliente envía un nuevo comprobante durante la aclaración, el pago vuelve a quedar por verificar y el plazo se anula.
+- Registrar, verificar, rechazar y devolver usan bloqueo optimista: verificar y rechazar a la vez, o una devolución con doble clic, se aplican una sola vez.
+- La devolución no puede superar lo pagado. Hoy una devolución, aunque sea parcial, deja el pago como devuelto; las devoluciones parciales no están definidas.
+- Se puede registrar el comprobante antes de confirmar el pedido; no está definido si debe impedirse.
+
 ---
 
 ## 9. Envíos

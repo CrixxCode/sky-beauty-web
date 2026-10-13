@@ -66,6 +66,10 @@ export interface AdminOrder extends AdminOrderListItem {
   paymentMethodCode: string;
   confirmedAt: string | null;
   paymentRejectedAt: string | null;
+  /** Fin del plazo de aclaración de un pago rechazado. */
+  paymentClarificationDeadline: string | null;
+  /** El personal ya puede cancelar por pago no demostrado. */
+  staffCanCancel: boolean;
   cancelledAt: string | null;
   cancelReason: string | null;
   items: AdminOrderItem[];

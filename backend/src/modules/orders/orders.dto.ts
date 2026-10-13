@@ -321,6 +321,16 @@ export class AdminOrderDto extends AdminOrderListItemDto {
   @ApiProperty() paymentMethodCode!: string;
   @ApiProperty({ nullable: true, type: Date }) confirmedAt!: Date | null;
   @ApiProperty({ nullable: true, type: Date }) paymentRejectedAt!: Date | null;
+  @ApiProperty({
+    nullable: true,
+    type: Date,
+    description: 'Fin del plazo de aclaración de un pago rechazado. null = sin pago rechazado.',
+  })
+  paymentClarificationDeadline!: Date | null;
+  @ApiProperty({
+    description: 'true si el personal ya puede cancelar el pedido por pago no demostrado.',
+  })
+  staffCanCancel!: boolean;
   @ApiProperty({ nullable: true, type: Date }) cancelledAt!: Date | null;
   @ApiProperty({ nullable: true, type: String }) cancelReason!: string | null;
   @ApiProperty({ type: () => AdminOrderItemDto, isArray: true }) items!: AdminOrderItemDto[];

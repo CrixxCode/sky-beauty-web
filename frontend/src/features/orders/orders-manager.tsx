@@ -28,7 +28,7 @@ import {
 import { AdminPanel, AdminPanelTitle, AdminStatus } from '@/features/admin-auth/admin-ui';
 import { ApiError, apiFetch } from '@/lib/api';
 import { QuantityStepper } from '@/features/cart/quantity-stepper';
-import { formatCOP } from '@/lib/format';
+import { formatCOP, formatDateTime } from '@/lib/format';
 import type { AdminRole } from '@/types/admin';
 import type { PaginatedProducts, Product } from '@/types/catalog';
 import type { AdminOrder, AdminOrderItem, PaginatedAdminOrders } from '@/types/orders';
@@ -48,9 +48,7 @@ const errorMessage = (error: unknown, fallback: string) =>
   error instanceof ApiError ? error.message : error instanceof Error ? error.message : fallback;
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeStyle: 'short' }).format(
-    new Date(value),
-  );
+  return formatDateTime(value);
 }
 
 function toDateTimeInput(value: string | null) {
@@ -399,9 +397,9 @@ function OrderDetail({
   const canEditItems = order.status === 'PENDING_CONFIRMATION';
   const cancellable =
     order.status !== 'CANCELLED' && order.status !== 'SHIPPED' && order.status !== 'DELIVERED';
-  // El personal solo cancela por pago no demostrado, después del plazo de aclaración (el backend
-  // valida el plazo). La propietaria cancela en cualquier otro caso.
-  const canCancel = cancellable && (role === 'ADMIN' || order.paymentStatus === 'REJECTED');
+  // El personal solo cancela por pago no demostrado, cuando venció el plazo de aclaración (lo
+  // calcula el servidor). La propietaria cancela en cualquier otro caso.
+  const canCancel = cancellable && (role === 'ADMIN' || order.staffCanCancel);
   const canQuoteShipping = order.status !== 'CANCELLED' && order.status !== 'DELIVERED';
   const shippingCostValid = shippingCost.trim() !== '' && Number(shippingCost) >= 0;
   const canConfirm = order.shippingCost !== null || shippingCostValid;
@@ -443,9 +441,11 @@ function OrderDetail({
             {order.events.map((event) => (
               <div key={event.id} className="border-b border-[#f0ecf0] pb-2.5 text-[11px]">
                 <strong>
-                  {event.toStatus
-                    ? (ORDER_STATUS_LABELS[event.toStatus as OrderStatus] ?? event.toStatus)
-                    : (ORDER_EVENT_LABELS[event.type] ?? event.type)}
+                  {event.type === 'PAYMENT_STATUS' && event.toStatus
+                    ? `Pago: ${PAYMENT_STATUS_LABELS[event.toStatus as PaymentStatus] ?? event.toStatus}`
+                    : event.toStatus
+                      ? (ORDER_STATUS_LABELS[event.toStatus as OrderStatus] ?? event.toStatus)
+                      : (ORDER_EVENT_LABELS[event.type] ?? event.type)}
                 </strong>
                 <span className="ml-2 text-[#8b7f87]">{formatDate(event.createdAt)}</span>
                 {event.note && <p className="mt-1 text-[#6f606a]">{event.note}</p>}
@@ -702,24 +702,35 @@ function OrderDetail({
 
         <section className="border border-[#eee8ed] p-4.5">
           <h3 className="mb-3 text-xs font-semibold text-[#493a45]">Gestión de pago</h3>
+          {order.paymentStatus === 'REJECTED' && order.paymentClarificationDeadline && (
+            <p className="mb-3 border border-[#efd9df] bg-[#fdf6f8] p-3 text-[11px] text-[#98566f]">
+              Pago no demostrado. El cliente tiene hasta{' '}
+              <strong>{formatDate(order.paymentClarificationDeadline)}</strong> para aclararlo.
+              {order.staffCanCancel && ' El plazo venció: el pedido se puede cancelar.'}
+            </p>
+          )}
           {!requiresVerification && (
             <p className="text-[11px] text-[#8b7f87]">
               El contra entrega queda pagado al marcar el pedido como entregado.
             </p>
           )}
-          {requiresVerification && (
-            <div className="space-y-3">
-              <Input
-                value={paymentReference}
-                onChange={(event) => setPaymentReference(event.target.value)}
-                placeholder="Referencia del comprobante"
-              />
-              <Textarea
-                rows={2}
-                value={paymentNote}
-                onChange={(event) => setPaymentNote(event.target.value)}
-                placeholder="Nota del pago"
-              />
+          {requiresVerification && order.status !== 'CANCELLED' && (
+            <div className="space-y-1">
+              <FormField id="payment-reference" label="Referencia del comprobante (opcional)">
+                <Input
+                  id="payment-reference"
+                  value={paymentReference}
+                  onChange={(event) => setPaymentReference(event.target.value)}
+                />
+              </FormField>
+              <FormField id="payment-note" label="Nota (opcional)">
+                <Textarea
+                  id="payment-note"
+                  rows={2}
+                  value={paymentNote}
+                  onChange={(event) => setPaymentNote(event.target.value)}
+                />
+              </FormField>
               <Button
                 className="w-full"
                 variant="outline"
@@ -733,64 +744,64 @@ function OrderDetail({
                 <CreditCard size={15} />
                 Registrar comprobante recibido
               </Button>
-              {role === 'ADMIN' && (
-                <>
-                  <div className="grid gap-2 min-[501px]:grid-cols-2">
-                    <Button
-                      disabled={action.isPending || order.paymentStatus !== 'AWAITING_VERIFICATION'}
-                      onClick={() => action.mutate('verifyPayment')}
-                    >
-                      Verificar pago
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      disabled={
-                        action.isPending ||
-                        order.paymentStatus !== 'AWAITING_VERIFICATION' ||
-                        rejectReason.trim().length < 3
-                      }
-                      onClick={() => action.mutate('rejectPayment')}
-                    >
-                      Rechazar pago
-                    </Button>
-                  </div>
-                  <Textarea
-                    rows={2}
-                    value={rejectReason}
-                    onChange={(event) => setRejectReason(event.target.value)}
-                    placeholder="Motivo si rechazas el pago"
-                  />
-                  <div className="border-t border-[#f0ecf0] pt-3">
-                    <Input
-                      type="number"
-                      min={0}
-                      value={refundAmount}
-                      onChange={(event) => setRefundAmount(event.target.value)}
-                      placeholder="Monto a devolver"
-                    />
+              {role === 'ADMIN' && order.paymentStatus === 'AWAITING_VERIFICATION' && (
+                <div className="space-y-1 border-t border-[#f0ecf0] pt-3">
+                  <Button
+                    className="w-full"
+                    disabled={action.isPending}
+                    onClick={() => action.mutate('verifyPayment')}
+                  >
+                    Verificar pago
+                  </Button>
+                  <FormField id="payment-reject-reason" label="Motivo si no hay evidencia del pago">
                     <Textarea
-                      className="mt-2"
+                      id="payment-reject-reason"
                       rows={2}
-                      value={refundNote}
-                      onChange={(event) => setRefundNote(event.target.value)}
-                      placeholder="Motivo o soporte de la devolución"
+                      value={rejectReason}
+                      onChange={(event) => setRejectReason(event.target.value)}
                     />
-                    <Button
-                      className="mt-2 w-full"
-                      variant="outline"
-                      disabled={
-                        action.isPending ||
-                        order.paymentStatus !== 'PAID' ||
-                        Number(refundAmount) <= 0 ||
-                        refundNote.trim().length < 3
-                      }
-                      onClick={() => action.mutate('refundPayment')}
-                    >
-                      Registrar devolución
-                    </Button>
-                  </div>
-                </>
+                  </FormField>
+                  <Button
+                    className="w-full"
+                    variant="destructive"
+                    disabled={action.isPending || rejectReason.trim().length < 3}
+                    onClick={() => action.mutate('rejectPayment')}
+                  >
+                    Rechazar pago
+                  </Button>
+                </div>
               )}
+            </div>
+          )}
+          {role === 'ADMIN' && order.paymentStatus === 'PAID' && (
+            <div className="mt-3 border-t border-[#f0ecf0] pt-3">
+              <FormField id="refund-amount" label="Monto a devolver (COP)">
+                <Input
+                  id="refund-amount"
+                  type="number"
+                  min={0}
+                  value={refundAmount}
+                  onChange={(event) => setRefundAmount(event.target.value)}
+                />
+              </FormField>
+              <FormField id="refund-note" label="Motivo o soporte de la devolución">
+                <Textarea
+                  id="refund-note"
+                  rows={2}
+                  value={refundNote}
+                  onChange={(event) => setRefundNote(event.target.value)}
+                />
+              </FormField>
+              <Button
+                className="w-full"
+                variant="outline"
+                disabled={
+                  action.isPending || Number(refundAmount) <= 0 || refundNote.trim().length < 3
+                }
+                onClick={() => action.mutate('refundPayment')}
+              >
+                Registrar devolución
+              </Button>
             </div>
           )}
         </section>

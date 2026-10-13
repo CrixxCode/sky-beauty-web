@@ -1099,12 +1099,13 @@ export class OrdersService {
       throw new BadRequestException('Este pedido ya no admite registro de comprobante.');
     }
 
-    await this.prisma.$transaction([
-      this.prisma.order.update({
+    await this.prisma.$transaction(async (tx) => {
+      await this.claimOrder(tx, order);
+      await tx.order.update({
         where: { id },
         data: { paymentStatus: PaymentStatus.AWAITING_VERIFICATION, paymentRejectedAt: null },
-      }),
-      this.prisma.paymentRecord.create({
+      });
+      await tx.paymentRecord.create({
         data: {
           orderId: id,
           status: PaymentStatus.AWAITING_VERIFICATION,
@@ -1113,8 +1114,8 @@ export class OrdersService {
           note: dto.note?.trim() || 'Comprobante recibido por WhatsApp.',
           recordedById: adminId,
         },
-      }),
-      this.prisma.orderStatusHistory.create({
+      });
+      await tx.orderStatusHistory.create({
         data: {
           orderId: id,
           type: OrderEventType.PAYMENT_STATUS,
@@ -1123,8 +1124,8 @@ export class OrdersService {
           note: 'Comprobante de pago recibido por WhatsApp.',
           changedById: adminId,
         },
-      }),
-    ]);
+      });
+    });
 
     return this.findAdmin(id, role);
   }
@@ -1142,12 +1143,13 @@ export class OrdersService {
       throw new BadRequestException('Solo se verifican pedidos con comprobante recibido.');
     }
 
-    await this.prisma.$transaction([
-      this.prisma.order.update({
+    await this.prisma.$transaction(async (tx) => {
+      await this.claimOrder(tx, order);
+      await tx.order.update({
         where: { id },
         data: { paymentStatus: PaymentStatus.PAID, paymentRejectedAt: null },
-      }),
-      this.prisma.paymentRecord.create({
+      });
+      await tx.paymentRecord.create({
         data: {
           orderId: id,
           status: PaymentStatus.PAID,
@@ -1156,8 +1158,8 @@ export class OrdersService {
           note: dto.note?.trim() || 'Pago verificado por la propietaria.',
           recordedById: adminId,
         },
-      }),
-      this.prisma.orderStatusHistory.create({
+      });
+      await tx.orderStatusHistory.create({
         data: {
           orderId: id,
           type: OrderEventType.PAYMENT_STATUS,
@@ -1166,14 +1168,17 @@ export class OrdersService {
           note: 'Pago verificado.',
           changedById: adminId,
         },
-      }),
-    ]);
+      });
+    });
 
     return this.findAdmin(id, AdminRole.ADMIN);
   }
 
   async rejectPayment(id: string, dto: RejectPaymentDto, adminId: string): Promise<AdminOrderDto> {
     const reason = dto.reason.trim();
+    if (reason.length < 3) {
+      throw new BadRequestException('Escribe el motivo del rechazo.');
+    }
     const order = await this.prisma.order.findUnique({ where: { id } });
     if (!order) throw new NotFoundException('No existe ese pedido.');
     if (order.status === OrderStatus.CANCELLED) {
@@ -1189,12 +1194,13 @@ export class OrdersService {
     }
 
     const now = new Date();
-    await this.prisma.$transaction([
-      this.prisma.order.update({
+    await this.prisma.$transaction(async (tx) => {
+      await this.claimOrder(tx, order);
+      await tx.order.update({
         where: { id },
         data: { paymentStatus: PaymentStatus.REJECTED, paymentRejectedAt: now },
-      }),
-      this.prisma.paymentRecord.create({
+      });
+      await tx.paymentRecord.create({
         data: {
           orderId: id,
           status: PaymentStatus.REJECTED,
@@ -1202,8 +1208,8 @@ export class OrdersService {
           note: reason,
           recordedById: adminId,
         },
-      }),
-      this.prisma.orderStatusHistory.create({
+      });
+      await tx.orderStatusHistory.create({
         data: {
           orderId: id,
           type: OrderEventType.PAYMENT_STATUS,
@@ -1212,8 +1218,8 @@ export class OrdersService {
           note: reason,
           changedById: adminId,
         },
-      }),
-    ]);
+      });
+    });
 
     return this.findAdmin(id, AdminRole.ADMIN);
   }
@@ -1222,35 +1228,52 @@ export class OrdersService {
     const order = await this.prisma.order.findUnique({ where: { id } });
     if (!order) throw new NotFoundException('No existe ese pedido.');
     if (order.paymentStatus !== PaymentStatus.PAID) {
-      throw new BadRequestException('Solo se puede registrar devolucion sobre un pago verificado.');
+      throw new BadRequestException(
+        'Solo se puede registrar una devolución sobre un pago verificado.',
+      );
+    }
+    const note = dto.note.trim();
+    if (note.length < 3) {
+      throw new BadRequestException('Escribe el motivo o soporte de la devolución.');
+    }
+    const paid = await this.prisma.paymentRecord.aggregate({
+      where: { orderId: id, status: PaymentStatus.PAID },
+      _sum: { amount: true },
+    });
+    const paidAmount = paid._sum.amount?.toNumber() ?? 0;
+    if (dto.amount > paidAmount) {
+      throw new BadRequestException(
+        `La devolución no puede superar lo pagado (${cop(paidAmount)}).`,
+      );
     }
 
-    await this.prisma.$transaction([
-      this.prisma.order.update({
+    await this.prisma.$transaction(async (tx) => {
+      await this.claimOrder(tx, order);
+      await tx.order.update({
         where: { id },
         data: { paymentStatus: PaymentStatus.REFUNDED },
-      }),
-      this.prisma.paymentRecord.create({
+      });
+      await tx.paymentRecord.create({
         data: {
           orderId: id,
           status: PaymentStatus.REFUNDED,
           amount: dto.amount,
           reference: dto.reference?.trim() || null,
-          note: dto.note.trim(),
+          note,
           recordedById: adminId,
         },
-      }),
-      this.prisma.orderStatusHistory.create({
+      });
+      await tx.orderStatusHistory.create({
         data: {
           orderId: id,
           type: OrderEventType.PAYMENT_STATUS,
           fromStatus: order.paymentStatus,
           toStatus: PaymentStatus.REFUNDED,
-          note: dto.note.trim(),
+          note,
           changedById: adminId,
         },
-      }),
-    ]);
+      });
+    });
 
     return this.findAdmin(id, AdminRole.ADMIN);
   }
@@ -1289,6 +1312,8 @@ export class OrdersService {
       paymentMethodCode: order.paymentMethodCode,
       confirmedAt: order.confirmedAt,
       paymentRejectedAt: order.paymentRejectedAt,
+      paymentClarificationDeadline: this.clarificationDeadline(order),
+      staffCanCancel: this.staffCanCancelRejected(order),
       cancelledAt: order.cancelledAt,
       cancelReason: order.cancelReason,
       items: order.items.map((item) => ({
@@ -1485,6 +1510,16 @@ export class OrdersService {
         orderId,
       },
     });
+  }
+
+  /** Fin del plazo de aclaración de un pago rechazado (ORDER_PAYMENT_CLARIFICATION_HOURS). */
+  private clarificationDeadline(order: {
+    paymentStatus: PaymentStatus;
+    paymentRejectedAt: Date | null;
+  }): Date | null {
+    if (order.paymentStatus !== PaymentStatus.REJECTED || !order.paymentRejectedAt) return null;
+    const hours = this.config.get('ORDER_PAYMENT_CLARIFICATION_HOURS', { infer: true });
+    return new Date(order.paymentRejectedAt.getTime() + hours * 60 * 60 * 1000);
   }
 
   private staffCanCancelRejected(order: {
