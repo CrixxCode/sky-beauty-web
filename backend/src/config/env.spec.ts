@@ -4,6 +4,7 @@ const validEnv = {
   NODE_ENV: 'development',
   PORT: '4000',
   CORS_ORIGINS: 'http://localhost:3000, https://skybeauty.test',
+  PUBLIC_SITE_URL: 'http://localhost:3000',
   LOG_LEVEL: 'info',
   TRUST_PROXY_HOPS: '1',
   DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
@@ -27,6 +28,15 @@ describe('validateEnv', () => {
     expect(env.CORS_ORIGINS).toEqual(['http://localhost:3000', 'https://skybeauty.test']);
     expect(env.ORDER_UNPAID_TTL_HOURS).toBe(24);
     expect(env.TEST_DATABASE_URL).toBeUndefined();
+  });
+
+  it('exige la dirección pública de la tienda', () => {
+    expect(() => validateEnv({ ...validEnv, PUBLIC_SITE_URL: undefined })).toThrow(
+      'PUBLIC_SITE_URL',
+    );
+    expect(() => validateEnv({ ...validEnv, PUBLIC_SITE_URL: 'no-es-url' })).toThrow(
+      'PUBLIC_SITE_URL',
+    );
   });
 
   it('rechaza un JWT_SECRET corto', () => {

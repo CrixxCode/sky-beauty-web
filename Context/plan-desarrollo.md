@@ -344,6 +344,7 @@ La lógica más delicada del sistema: debe tener pruebas exhaustivas antes de co
 - Cualquier enlace inválido (formato incorrecto o inexistente) responde el mismo 404 genérico.
 - La página no se indexa en buscadores (`noindex, nofollow`) y el enlace de rastreo se abre sin enviar la dirección de la página (`rel="noreferrer"`).
 - Un pedido cancelado muestra el aviso con la fecha, sin los pasos de avance.
+- El enlace de seguimiento va en el mensaje de WhatsApp del cliente y en el detalle del pedido del panel (con botón para copiarlo), para reenviarlo si el cliente lo pierde. Lo arma el backend con `PUBLIC_SITE_URL`, que en producción debe ser el dominio de la tienda.
 - La vista no existe en el prototipo; usa el mismo lenguaje visual de la tienda.
 
 ---
@@ -400,7 +401,7 @@ La lógica más delicada del sistema: debe tener pruebas exhaustivas antes de co
 
 ## 14. Despliegue
 
-- Despliegue en **Railway**: backend, frontend y PostgreSQL. Volumen persistente para las imágenes (`UPLOADS_DIR`), variables de producción, dominio y HTTPS.
+- Despliegue en **Railway**: backend, frontend y PostgreSQL. Volumen persistente para las imágenes (`UPLOADS_DIR`), variables de producción (incluida `PUBLIC_SITE_URL` con el dominio de la tienda), dominio y HTTPS.
 - Sin servicios de pago adicionales (ver `decisiones.md`, "Infraestructura sin servicios de pago").
 
 **Bloqueos de negocio:** compra del dominio; estrategia de copias de seguridad de la base de datos y de las imágenes.

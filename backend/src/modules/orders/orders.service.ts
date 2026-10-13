@@ -173,6 +173,7 @@ function buildWhatsappMessage(
     deliveryNotes: string | null;
   },
   summary: CreatedOrderDto['summary'],
+  trackingUrl: string,
 ): string {
   const lines: Array<string | null> = [
     `Hola, quiero continuar con mi pedido ${order.code}.`,
@@ -197,6 +198,8 @@ function buildWhatsappMessage(
     `Dirección: ${order.addressLine}`,
     order.deliveryNotes ? `Indicaciones: ${order.deliveryNotes}` : null,
     `Método de pago: ${summary.paymentMethodName}`,
+    '',
+    `Seguimiento del pedido: ${trackingUrl}`,
   ];
   return lines.filter((line): line is string => line !== null).join('\n');
 }
@@ -1361,6 +1364,7 @@ export class OrdersService {
       deliveryNotes: order.deliveryNotes,
       paymentMethodCode: order.paymentMethodCode,
       confirmedAt: order.confirmedAt,
+      trackingUrl: this.trackingUrlFor(this.publicTokenFor(order.idempotencyKey)),
       paymentRejectedAt: order.paymentRejectedAt,
       paymentClarificationDeadline: this.clarificationDeadline(order),
       staffCanCancel: this.staffCanCancelRejected(order),
@@ -1631,6 +1635,12 @@ export class OrdersService {
       .slice(0, 48);
   }
 
+  /** Enlace completo de seguimiento (PUBLIC_SITE_URL + /seguimiento/<token>). */
+  private trackingUrlFor(publicToken: string): string {
+    const site = this.config.get('PUBLIC_SITE_URL', { infer: true }).replace(/\/$/, '');
+    return `${site}/seguimiento/${publicToken}`;
+  }
+
   /** Si ya existe un pedido con esa clave, lo devuelve; si la clave se usó con otros datos, falla. */
   private async replayIdempotent(
     idempotencyKey: string,
@@ -1690,12 +1700,14 @@ export class OrdersService {
       shippingLabel: shippingLabel(shippingCost),
       paymentMethodName: order.paymentMethodName,
     };
-    const whatsappMessage = buildWhatsappMessage(order, summary);
+    const trackingUrl = this.trackingUrlFor(publicToken);
+    const whatsappMessage = buildWhatsappMessage(order, summary, trackingUrl);
     return {
       id: order.id,
       code: order.code,
       publicToken,
       trackingPath: `/seguimiento/${publicToken}`,
+      trackingUrl,
       whatsappMessage,
       summary,
       whatsappUrl: info.whatsappNumber

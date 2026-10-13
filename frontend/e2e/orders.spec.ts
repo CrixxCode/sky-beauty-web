@@ -93,6 +93,9 @@ test('el personal edita un pedido sin confirmar, lo confirma y avanza su estado;
   await login(page, staff.email, staff.password);
   await expect(page).toHaveURL(/\/admin$/);
   let dialog = await openOrder(page, first.code);
+  await expect(dialog.getByLabel('Enlace de seguimiento del cliente')).toHaveValue(
+    /^http:\/\/localhost:3100\/seguimiento\/[a-f0-9]{48}$/,
+  );
   await dialog.getByRole('button', { name: 'Editar productos' }).click();
   const edit = page.getByRole('dialog', { name: 'Editar productos' });
   await edit.getByRole('button', { name: /Aumentar cantidad/ }).click();

@@ -185,6 +185,8 @@ export class CreatedOrderDto {
   @ApiProperty() code!: string;
   @ApiProperty() publicToken!: string;
   @ApiProperty() trackingPath!: string;
+  @ApiProperty({ description: 'Enlace privado de seguimiento completo, para compartir.' })
+  trackingUrl!: string;
   @ApiProperty() whatsappMessage!: string;
   @ApiProperty({ nullable: true, type: String }) whatsappUrl!: string | null;
   @ApiProperty({ type: () => CreatedOrderSummaryDto }) summary!: CreatedOrderSummaryDto;
@@ -340,6 +342,10 @@ export class AdminOrderDto extends AdminOrderListItemDto {
   @ApiProperty({ nullable: true, type: String }) deliveryNotes!: string | null;
   @ApiProperty() paymentMethodCode!: string;
   @ApiProperty({ nullable: true, type: Date }) confirmedAt!: Date | null;
+  @ApiProperty({
+    description: 'Enlace privado de seguimiento del cliente, para reenviárselo si lo pide.',
+  })
+  trackingUrl!: string;
   @ApiProperty({ nullable: true, type: Date }) paymentRejectedAt!: Date | null;
   @ApiProperty({
     nullable: true,

@@ -68,6 +68,7 @@ export interface CreatedOrder {
   code: string;
   publicToken: string;
   trackingPath: string;
+  trackingUrl: string;
   whatsappMessage: string;
   whatsappUrl: string | null;
   summary: CreatedOrderSummary;

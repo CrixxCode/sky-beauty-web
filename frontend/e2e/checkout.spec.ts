@@ -100,6 +100,7 @@ test('un cliente compra sin cuenta, las existencias quedan reservadas y WhatsApp
   expect(message).toContain(`${product} (${variantName}) x2`);
   expect(message).toContain('Municipio: Riohacha, La Guajira');
   expect(message).toContain('Dirección: Dirección ficticia 123');
+  expect(message).toMatch(/Seguimiento del pedido: http:\/\/localhost:3100\/seguimiento\/[a-f0-9]{48}/);
 
   // El carrito quedó vacío.
   await expect(page.getByRole('link', { name: 'Bolsa de compra, 0 productos' })).toBeVisible();

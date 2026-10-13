@@ -2,7 +2,8 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { seed } from '../prisma/seed';
 import type { PrismaService } from '../src/shared/prisma/prisma.service';
-import { createTestApp } from './utils/app';
+import { AdminRole } from '../src/generated/prisma/client';
+import { createAdminUser, createTestApp, loginAgent } from './utils/app';
 import { resetDatabase } from './utils/database';
 
 const QUOTE = '/api/v1/store/orders/quote';
@@ -417,9 +418,26 @@ describe('Carrito y checkout (integración)', () => {
       expect(message).toContain('Dirección: Dirección ficticia 123');
       expect(message).toContain('Indicaciones: Portería ficticia');
       expect(message).toContain('Método de pago: Transferencia bancaria');
+      // El enlace de seguimiento queda en el chat del cliente y abre su pedido.
+      const trackingUrl = `http://localhost:3000/seguimiento/${created.publicToken}`;
+      expect(message).toContain(`Seguimiento del pedido: ${trackingUrl}`);
+      expect((created as Created & { trackingUrl: string }).trackingUrl).toBe(trackingUrl);
       expect(created.whatsappUrl).toBe(
         `https://wa.me/573000000000?text=${encodeURIComponent(created.whatsappMessage)}`,
       );
+    });
+
+    it('el panel muestra el mismo enlace de seguimiento para reenviárselo al cliente', async () => {
+      const created = (await request(server()).post(ORDERS).send(orderBody()).expect(201))
+        .body as Created;
+      await createAdminUser(prisma, { email: 'personal@ejemplo.test', role: AdminRole.STAFF });
+      const staff = await loginAgent(app, 'personal@ejemplo.test');
+      const detail = (await staff.get(`/api/v1/admin/orders/${created.id}`).expect(200)).body as {
+        trackingUrl: string;
+      };
+      expect(detail.trackingUrl).toBe(`http://localhost:3000/seguimiento/${created.publicToken}`);
+      const token = detail.trackingUrl.split('/seguimiento/')[1];
+      await request(server()).get(`${TRACKING}/${token}`).expect(200);
     });
 
     it('sin número de WhatsApp configurado no ofrece el enlace', async () => {

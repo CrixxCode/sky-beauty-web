@@ -65,6 +65,8 @@ export interface AdminOrder extends AdminOrderListItem {
   deliveryNotes: string | null;
   paymentMethodCode: string;
   confirmedAt: string | null;
+  /** Enlace privado de seguimiento del cliente, para reenviárselo. */
+  trackingUrl: string;
   paymentRejectedAt: string | null;
   /** Fin del plazo de aclaración de un pago rechazado. */
   paymentClarificationDeadline: string | null;

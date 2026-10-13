@@ -38,6 +38,7 @@ export default defineConfig({
         NODE_ENV: 'test',
         LOG_LEVEL: 'silent',
         CORS_ORIGINS: frontendUrl,
+        PUBLIC_SITE_URL: frontendUrl,
         // Las fotos de las pruebas no se mezclan con las de desarrollo.
         UPLOADS_DIR: './uploads-e2e',
         PUBLIC_UPLOADS_BASE_URL: `${backendUrl}/uploads`,

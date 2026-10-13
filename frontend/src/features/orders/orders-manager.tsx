@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CreditCard, Edit2, Eye, PackageCheck, Search, Truck, X } from 'lucide-react';
+import { Copy, CreditCard, Edit2, Eye, PackageCheck, Search, Truck, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -506,6 +506,38 @@ function OrderDetail({
           <p className="mt-3">
             Pago: <strong>{order.paymentMethodName}</strong>
           </p>
+          <div className="mt-3 border-t border-[#f0ecf0] pt-3">
+            <FormField
+              id="order-tracking-url"
+              label="Enlace de seguimiento del cliente"
+              description="Reenvíaselo por WhatsApp si lo perdió. Es privado: no lo publiques."
+              className="mb-0"
+            >
+              <div className="flex gap-2">
+                <Input
+                  id="order-tracking-url"
+                  value={order.trackingUrl}
+                  readOnly
+                  className="text-[10px]"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="Copiar enlace de seguimiento"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(order.trackingUrl);
+                      toast.success('Enlace copiado.');
+                    } catch {
+                      toast.error('No se pudo copiar. Selecciona el enlace y cópialo a mano.');
+                    }
+                  }}
+                >
+                  <Copy size={15} />
+                </Button>
+              </div>
+            </FormField>
+          </div>
         </section>
 
         <section className="border border-[#eee8ed] p-4.5">

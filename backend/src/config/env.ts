@@ -17,6 +17,9 @@ export const envSchema = z.object({
         .map((origin) => origin.trim())
         .filter(Boolean),
     ),
+  // Dirección pública de la tienda (frontend), para armar enlaces que se comparten con el
+  // cliente, como el de seguimiento del pedido.
+  PUBLIC_SITE_URL: z.url(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   TRUST_PROXY_HOPS: nonNegativeInt.default(0),
 
