@@ -145,3 +145,12 @@ button:not(:disabled) {
     animation: none !important;
   }
 }
+/* Barra de scroll fina que solo se nota al pasar el cursor (menú lateral del panel). */
+@utility scrollbar-subtle {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  &:hover,
+  &:focus-within {
+    scrollbar-color: #e2d6e0 transparent;
+  }
+}
