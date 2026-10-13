@@ -1,5 +1,6 @@
 import {
   Boxes,
+  ClipboardList,
   KeyRound,
   LayoutDashboard,
   Settings,
@@ -23,6 +24,7 @@ export interface AdminNavItem {
 export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin', label: 'Resumen', icon: LayoutDashboard },
   { href: '/admin/productos', label: 'Productos', icon: ShoppingBag },
+  { href: '/admin/inventario', label: 'Inventario', icon: ClipboardList },
   { href: '/admin/categorias', label: 'Categorías', icon: Boxes },
   { href: '/admin/marcas', label: 'Marcas', icon: Tag },
   { href: '/admin/cuentas', label: 'Cuentas', icon: Users, roles: ['ADMIN'] },

@@ -9,6 +9,17 @@ export function formatCOP(value: number): string {
   return copFormatter.format(value);
 }
 
+const dateTimeFormatter = new Intl.DateTimeFormat('es-CO', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+  timeZone: 'America/Bogota',
+});
+
+/** Fecha y hora en la zona horaria de la tienda (America/Bogota). */
+export function formatDateTime(value: string | Date): string {
+  return dateTimeFormatter.format(new Date(value));
+}
+
 /**
  * Normaliza un número de WhatsApp como lo hace el backend (backend/src/shared/phone.ts):
  * solo dígitos y, si es un celular colombiano de 10 dígitos, con el 57 delante.

@@ -171,6 +171,15 @@ El módulo más grande. Se recomienda dividirlo en dos PRs: primero el panel, de
 
 **Terminado cuando:** se registran entradas y ajustes, el historial cuadra con el stock y aparecen las alertas de stock bajo.
 
+**Estado:** terminado el 2026-10-13.
+
+- Pruebas: `test/inventory.e2e-spec.ts` (backend) y `e2e/inventory.spec.ts` (Playwright, celular y escritorio).
+- Panel: `/admin/inventario`, para la propietaria y el personal.
+- La justificación es obligatoria en los ajustes y opcional en las entradas (existencias iniciales y compras).
+- Las existencias iniciales solo se registran antes de cualquier otro movimiento de la variante.
+- El stock se actualiza con un incremento atómico: movimientos simultáneos no se pisan ni dejan existencias negativas.
+- Los movimientos de pedidos (reserva, liberación, devolución) no se registran a mano; los crea el módulo de pedidos.
+
 ---
 
 ## 5. Promociones y precios
