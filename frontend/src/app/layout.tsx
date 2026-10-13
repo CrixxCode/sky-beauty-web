@@ -26,6 +26,7 @@ export const metadata: Metadata = {
   },
   description:
     'Tienda de maquillaje, cuidado personal y belleza en Riohacha, La Guajira, Colombia.',
+  icons: { icon: { url: '/brand/favicon.svg', type: 'image/svg+xml' } },
 };
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {

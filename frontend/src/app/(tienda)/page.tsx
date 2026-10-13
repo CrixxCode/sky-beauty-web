@@ -45,12 +45,12 @@ export default async function InicioPage() {
               </p>
             )}
             <div className="mt-7.75 flex flex-wrap gap-2.75">
+              <StoreSearch compact />
               <Button asChild>
                 <Link href="/productos">
                   Ver productos <ArrowRight size={17} />
                 </Link>
               </Button>
-              <StoreSearch compact />
             </div>
           </div>
           <div className="relative min-h-148.75 overflow-hidden max-[600px]:mx-[-17px] max-[600px]:min-h-100">

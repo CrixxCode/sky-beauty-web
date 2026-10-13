@@ -337,7 +337,7 @@ Una vez confirmado, el pedido no se puede editar.
 - **Prototipo de referencia:** `C:\Users\Usuario\Downloads\Sky_Beauty_React_Demo\sky-beauty-demo`. Toda vista del frontend (tienda y panel) debe verse tal cual el prototipo (ver `AGENTS.md`, sección 4).
 - **Alcance del prototipo:** se copia solo el diseño. La funcionalidad sigue `negocio.md` y este archivo; las funciones del prototipo que el contexto descarta o no menciona (cuentas y registro de clientes, favoritos, cupones, recuperación por correo, testimonios) no se construyen sin consultarlo.
 
-**Pendiente:** el logotipo oficial (horizontal, vertical, monocromo) y las fotografías autorizadas. El prototipo deja un espacio reservado para el logotipo.
+**Pendiente:** el logotipo monocromo y las fotografías autorizadas. Los logotipos horizontal y vertical y el ícono ya se incorporaron (ver la entrada del 2026-10-13).
 
 ---
 
@@ -363,6 +363,18 @@ No se usan S3 ni otros almacenamientos en la nube, CDN, servicios de correo o SM
 
 - Confirmar que el volumen persistente de Railway para las imágenes entra dentro del gasto de Railway permitido.
 - Cómo se harán las copias de seguridad de la base de datos y de las imágenes.
+
+---
+
+## 2026-10-13 — Logotipo e ícono oficiales
+
+**Decisión:** se incorporan los archivos oficiales de marca, ubicados en `frontend/public/brand/`:
+
+- `horizontal_logo.svg`: logotipo horizontal. Reemplaza el espacio reservado del encabezado de la tienda.
+- `vertical_logo.svg`: logotipo vertical. Todavía no se usa en ninguna vista.
+- `favicon.svg`: ícono del sitio.
+
+**Pendiente:** el logotipo monocromo y las fotografías autorizadas.
 
 ---
 

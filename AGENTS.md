@@ -28,7 +28,7 @@ La regla principal de este proyecto: **si algo no está escrito en `Context/` ni
 Están pendientes de confirmar con la propietaria (ver sección 13 de `Context/negocio.md`). Si alguno ya aparece en `Context/decisiones.md`, aplica lo confirmado ahí, solo en lo que la decisión dice; el resto del punto sigue pendiente.
 
 - Catálogo real, productos y categorías comerciales.
-- Logotipo y demás elementos oficiales de marca (los colores y tipografías ya están confirmados en `Context/decisiones.md`).
+- Logotipo monocromo y demás elementos oficiales de marca (los colores, tipografías, logotipos horizontal y vertical e ícono ya están confirmados en `Context/decisiones.md`).
 - Datos de contacto, número comercial de WhatsApp y redes sociales.
 - Precios, márgenes y reglas de descuentos (incluido qué promoción gana cuando coinciden varias).
 - Políticas de cambios, devoluciones y garantías.
@@ -78,7 +78,7 @@ Estas se desprenden directamente de `Context/negocio.md` y deben respetarse. Las
 - **La funcionalidad la manda `Context/`, no el prototipo.** El prototipo es una demostración con datos y funciones simuladas:
   - No construyas funciones que el contexto descarta o no menciona aunque aparezcan en el prototipo: registro, inicio de sesión y "Mi cuenta" de clientes, favoritos, cupones, recuperación de contraseña por correo, testimonios, pasarela de pago. Si una vista del prototipo depende de ellas, replica el resto del diseño y consulta qué hacer con esa parte.
   - No copies sus datos de demostración como si fueran reales: productos, marcas, precios, existencias, métricas del panel, textos comerciales, cupón `CIELO10`, fotografías de Unsplash. Los textos y datos reales salen de la API, de `Context/` o de la persona usuaria.
-  - El logotipo no está en el prototipo (deja un espacio reservado). No lo recrees; usa el espacio reservado hasta tener los archivos oficiales.
+  - El logotipo no está en el prototipo (deja un espacio reservado). Usa los archivos oficiales de `frontend/public/brand/` (logotipo horizontal, vertical e ícono); no los recrees ni los modifiques.
 - **Si una vista no existe en el prototipo** (por ejemplo, la gestión de cuentas del personal), constrúyela con el mismo lenguaje visual de las vistas más parecidas (para el panel, las de `/admin` del prototipo) y menciónalo en tu respuesta.
 
 ## 5. Cuando el código y el contexto no coinciden
