@@ -29,7 +29,9 @@ export function StoreFooter({ info }: { info: PublicStoreInfo | null }) {
 
   return (
     <footer className="bg-[#594052] pt-16.75 text-[#f7edf2] max-[600px]:pt-12">
-      <Container className="grid gap-6.25 min-[601px]:grid-cols-[2fr_1fr_1fr] min-[851px]:grid-cols-[2.1fr_1fr_1fr_1.5fr] min-[851px]:gap-13.75 max-[600px]:grid-cols-2 max-[600px]:gap-x-4.25 max-[600px]:gap-y-8">
+      {/* En escritorio, la marca y luego una columna por sección: las de contacto, redes y
+          WhatsApp solo aparecen si están configuradas, así que las columnas se reparten solas. */}
+      <Container className="grid gap-6.25 min-[601px]:grid-cols-[2fr_1fr_1fr] min-[851px]:auto-cols-fr min-[851px]:grid-flow-col min-[851px]:grid-cols-[1.8fr] min-[851px]:gap-11 max-[600px]:grid-cols-2 max-[600px]:gap-x-4.25 max-[600px]:gap-y-8">
         <div className="col-span-full min-[851px]:col-span-1">
           <h2 className={cn(serifClass, 'mb-4.75 mt-0.75 text-[39px] text-white')}>
             {info?.storeName ?? 'Sky Beauty'}
@@ -43,13 +45,16 @@ export function StoreFooter({ info }: { info: PublicStoreInfo | null }) {
           <Link href="/contacto" className={linkClass}>
             Contacto
           </Link>
+        </div>
+        <nav aria-label="Información legal">
+          <h3 className={heading}>Información legal</h3>
           {/* Las páginas sin texto publicado avisan que la información estará disponible pronto. */}
           {STORE_PAGE_LINKS.map((page) => (
             <Link key={page.slug} href={`/${page.slug}`} className={linkClass}>
               {page.label}
             </Link>
           ))}
-        </div>
+        </nav>
         {contactLines.length > 0 && (
           <div>
             <h3 className={heading}>Contacto</h3>
