@@ -72,6 +72,24 @@ const NEXT_STATUSES: Record<OrderStatus, OrderStatus[]> = {
   CANCELLED: [],
 };
 
+/**
+ * Avance del envío. Una novedad (por ejemplo, una dirección errada) puede volver a tránsito o
+ * terminar en entrega; un envío entregado ya no cambia de estado (sí se pueden corregir sus datos).
+ */
+const NEXT_SHIPPING_STATUSES: Record<ShippingStatus, ShippingStatus[]> = {
+  NOT_SHIPPED: [ShippingStatus.NOT_SHIPPED, ShippingStatus.IN_TRANSIT, ShippingStatus.DELIVERED],
+  IN_TRANSIT: [ShippingStatus.IN_TRANSIT, ShippingStatus.INCIDENT, ShippingStatus.DELIVERED],
+  INCIDENT: [ShippingStatus.INCIDENT, ShippingStatus.IN_TRANSIT, ShippingStatus.DELIVERED],
+  DELIVERED: [ShippingStatus.DELIVERED],
+};
+
+const SHIPPING_STATUS_NAMES: Record<ShippingStatus, string> = {
+  NOT_SHIPPED: 'Sin despachar',
+  IN_TRANSIT: 'En tránsito',
+  DELIVERED: 'Entregado',
+  INCIDENT: 'Con novedad',
+};
+
 const ORDER_STATUS_NAMES: Record<OrderStatus, string> = {
   PENDING_CONFIRMATION: 'Sin confirmar',
   CONFIRMED: 'Confirmado',
@@ -635,16 +653,20 @@ export class OrdersService {
       );
     }
 
+    // Contra entrega: queda pagado al entregarse (decisión del 2026-10-09), una sola vez.
+    const codPaidNow =
+      dto.status === OrderStatus.DELIVERED &&
+      order.paymentMethodCode === 'CASH_ON_DELIVERY' &&
+      order.paymentStatus !== PaymentStatus.PAID &&
+      order.paymentStatus !== PaymentStatus.REFUNDED;
+
     await this.prisma.$transaction(async (tx) => {
       await this.claimOrder(tx, order);
       await tx.order.update({
         where: { id },
         data: {
           status: dto.status,
-          paymentStatus:
-            dto.status === OrderStatus.DELIVERED && order.paymentMethodCode === 'CASH_ON_DELIVERY'
-              ? PaymentStatus.PAID
-              : order.paymentStatus,
+          paymentStatus: codPaidNow ? PaymentStatus.PAID : order.paymentStatus,
         },
       });
       await tx.orderStatusHistory.create({
@@ -657,7 +679,8 @@ export class OrdersService {
           changedById: adminId,
         },
       });
-      if (dto.status === OrderStatus.DELIVERED && order.paymentMethodCode === 'CASH_ON_DELIVERY') {
+      await this.syncShippingWithOrder(tx, id, dto.status);
+      if (codPaidNow) {
         await tx.paymentRecord.create({
           data: {
             orderId: id,
@@ -685,7 +708,13 @@ export class OrdersService {
     });
     if (!order) throw new NotFoundException('No existe ese pedido.');
     if (order.status === OrderStatus.CANCELLED) {
-      throw new BadRequestException('No se puede registrar envio en un pedido cancelado.');
+      throw new BadRequestException('No se puede registrar el envío de un pedido cancelado.');
+    }
+    const currentShippingStatus = order.shipping?.status ?? ShippingStatus.NOT_SHIPPED;
+    if (!NEXT_SHIPPING_STATUSES[currentShippingStatus].includes(dto.status)) {
+      throw new BadRequestException(
+        `El envío no puede pasar de "${SHIPPING_STATUS_NAMES[currentShippingStatus]}" a "${SHIPPING_STATUS_NAMES[dto.status]}".`,
+      );
     }
     if (
       order.status === OrderStatus.PENDING_CONFIRMATION &&
@@ -727,21 +756,31 @@ export class OrdersService {
       (dto.status === ShippingStatus.IN_TRANSIT || dto.status === ShippingStatus.DELIVERED) &&
       (!carrierId || !trackingNumber)
     ) {
-      throw new BadRequestException('Para despachar registra transportadora y numero de guia.');
+      throw new BadRequestException('Para despachar registra transportadora y número de guía.');
+    }
+    if (dispatchedAt && deliveredAt && deliveredAt < dispatchedAt) {
+      throw new BadRequestException('La fecha de entrega no puede ser anterior a la de despacho.');
     }
 
     let carrierName: string | null = null;
     if (carrierId) {
       const carrier = await this.prisma.carrier.findUnique({ where: { id: carrierId } });
       if (!carrier) throw new BadRequestException('La transportadora seleccionada no existe.');
-      if (!carrier.isActive) throw new BadRequestException('La transportadora no esta activa.');
+      // Una transportadora desactivada no se puede elegir de nuevo, pero el envío que ya la usa
+      // se puede seguir corrigiendo.
+      if (!carrier.isActive && carrier.id !== order.shipping?.carrierId) {
+        throw new BadRequestException('La transportadora no está activa.');
+      }
       carrierName = carrier.name;
     }
 
+    // El estado del pedido solo avanza: despachado con el envío en tránsito o con novedad,
+    // entregado con el envío entregado.
     const nextOrderStatus =
       dto.status === ShippingStatus.DELIVERED
         ? OrderStatus.DELIVERED
-        : dto.status === ShippingStatus.IN_TRANSIT
+        : (dto.status === ShippingStatus.IN_TRANSIT || dto.status === ShippingStatus.INCIDENT) &&
+            (order.status === OrderStatus.CONFIRMED || order.status === OrderStatus.PREPARING)
           ? OrderStatus.SHIPPED
           : order.status;
     const shouldRegisterCodPayment =
@@ -751,6 +790,7 @@ export class OrdersService {
       order.paymentStatus !== PaymentStatus.REFUNDED;
 
     await this.prisma.$transaction(async (tx) => {
+      await this.claimOrder(tx, order);
       await tx.shipping.upsert({
         where: { orderId: id },
         create: {
@@ -797,7 +837,7 @@ export class OrdersService {
             type: OrderEventType.ORDER_STATUS,
             fromStatus: order.status,
             toStatus: nextOrderStatus,
-            note: 'Estado actualizado desde la gestion de envio.',
+            note: 'Estado actualizado desde la gestión del envío.',
             changedById: adminId,
           },
         });
@@ -808,7 +848,7 @@ export class OrdersService {
             orderId: id,
             status: PaymentStatus.PAID,
             amount: order.total,
-            note: 'Pago contra entrega registrado al marcar el envio como entregado.',
+            note: 'Pago contra entrega registrado al marcar el envío como entregado.',
             recordedById: adminId,
           },
         });
@@ -1375,19 +1415,56 @@ export class OrdersService {
     };
   }
 
+  /**
+   * Al marcar el pedido como despachado o entregado desde "cambiar estado" (por ejemplo, una
+   * entrega local sin transportadora), el envío refleja el mismo avance para el seguimiento.
+   */
+  private async syncShippingWithOrder(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+    status: OrderStatus,
+  ): Promise<void> {
+    if (status !== OrderStatus.SHIPPED && status !== OrderStatus.DELIVERED) return;
+    const now = new Date();
+    const current = await tx.shipping.findUnique({ where: { orderId } });
+    const nextStatus =
+      status === OrderStatus.DELIVERED
+        ? ShippingStatus.DELIVERED
+        : current?.status === ShippingStatus.INCIDENT
+          ? ShippingStatus.INCIDENT
+          : ShippingStatus.IN_TRANSIT;
+    await tx.shipping.upsert({
+      where: { orderId },
+      create: {
+        orderId,
+        status: nextStatus,
+        dispatchedAt: now,
+        deliveredAt: nextStatus === ShippingStatus.DELIVERED ? now : null,
+      },
+      update: {
+        status: nextStatus,
+        dispatchedAt: current?.dispatchedAt ?? now,
+        deliveredAt:
+          nextStatus === ShippingStatus.DELIVERED
+            ? (current?.deliveredAt ?? now)
+            : current?.deliveredAt,
+      },
+    });
+  }
+
   private shippingEventNote(
     status: ShippingStatus,
     carrierName: string | null,
     trackingNumber: string | null,
   ): string {
-    if (status === ShippingStatus.NOT_SHIPPED) return 'Envio registrado como sin despachar.';
+    if (status === ShippingStatus.NOT_SHIPPED) return 'Envío registrado como sin despachar.';
     if (status === ShippingStatus.IN_TRANSIT) {
       return `Pedido despachado${carrierName ? ` con ${carrierName}` : ''}${
-        trackingNumber ? `, guia ${trackingNumber}` : ''
+        trackingNumber ? `, guía ${trackingNumber}` : ''
       }.`;
     }
-    if (status === ShippingStatus.DELIVERED) return 'Envio marcado como entregado.';
-    return 'Incidencia registrada en el envio.';
+    if (status === ShippingStatus.DELIVERED) return 'Envío marcado como entregado.';
+    return 'Novedad registrada en el envío.';
   }
 
   private totalWithShipping(

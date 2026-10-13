@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Carrier } from '../../generated/prisma/client';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import type { CarrierDto, CreateCarrierDto, UpdateCarrierDto } from './shipping.dto';
@@ -16,15 +21,20 @@ export class ShippingService {
 
   async createCarrier(dto: CreateCarrierDto): Promise<CarrierDto> {
     const data = this.normalizeCarrierInput(dto);
-    const carrier = await this.prisma.carrier.create({
-      data: {
-        name: data.name ?? '',
-        trackingUrlTemplate: data.trackingUrlTemplate,
-        phone: data.phone,
-        isActive: data.isActive ?? true,
-      },
-    });
-    return toCarrierDto(carrier);
+    if (!data.name) throw new BadRequestException('Escribe el nombre de la transportadora.');
+    try {
+      const carrier = await this.prisma.carrier.create({
+        data: {
+          name: data.name,
+          trackingUrlTemplate: data.trackingUrlTemplate,
+          phone: data.phone,
+          isActive: data.isActive ?? true,
+        },
+      });
+      return toCarrierDto(carrier);
+    } catch (err: unknown) {
+      throw duplicateNameError(err);
+    }
   }
 
   async updateCarrier(id: string, dto: UpdateCarrierDto): Promise<CarrierDto> {
@@ -32,11 +42,13 @@ export class ShippingService {
     if (!existing) throw new NotFoundException('No existe esa transportadora.');
 
     const data = this.normalizeCarrierInput(dto);
-    const carrier = await this.prisma.carrier.update({
-      where: { id },
-      data,
-    });
-    return toCarrierDto(carrier);
+    if (data.name === '') throw new BadRequestException('Escribe el nombre de la transportadora.');
+    try {
+      const carrier = await this.prisma.carrier.update({ where: { id }, data });
+      return toCarrierDto(carrier);
+    } catch (err: unknown) {
+      throw duplicateNameError(err);
+    }
   }
 
   private normalizeCarrierInput(dto: CreateCarrierDto | UpdateCarrierDto) {
@@ -56,6 +68,14 @@ export class ShippingService {
       ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
     };
   }
+}
+
+/** Nombre repetido (restricción única) → 409; cualquier otro error se propaga igual. */
+function duplicateNameError(err: unknown): unknown {
+  if (typeof err === 'object' && err !== null && 'code' in err && err.code === 'P2002') {
+    return new ConflictException('Ya existe una transportadora con ese nombre.');
+  }
+  return err;
 }
 
 function toCarrierDto(carrier: Carrier): CarrierDto {

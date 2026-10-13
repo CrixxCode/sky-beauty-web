@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FormError } from '@/components/ui/form-field';
+import { FormError, FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
 import { Switch } from '@/components/ui/switch';
@@ -148,7 +148,7 @@ export function ShippingManager() {
                 <TableHead>Seguimiento</TableHead>
                 <TableHead>Contacto</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Accion</TableHead>
+                <TableHead className="text-right">Acción</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -160,7 +160,7 @@ export function ShippingManager() {
                   <TableCell className="max-w-[320px] truncate">
                     {carrier.trackingUrlTemplate ?? 'Sin plantilla'}
                   </TableCell>
-                  <TableCell>{carrier.phone ?? 'Sin telefono'}</TableCell>
+                  <TableCell>{carrier.phone ?? 'Sin teléfono'}</TableCell>
                   <TableCell>
                     <AdminStatus tone={carrier.isActive ? 'ok' : 'out'}>
                       {carrier.isActive ? 'Activa' : 'Inactiva'}
@@ -190,28 +190,41 @@ export function ShippingManager() {
         isOpen={formOpen}
         onClose={closeForm}
         title={editing ? 'Editar transportadora' : 'Crear transportadora'}
-        description="La plataforma guarda la guia y arma el enlace de consulta; no consulta APIs externas."
+        description="La tienda guarda la guía y arma el enlace de rastreo; no consulta a la transportadora."
         maxWidth="md"
       >
         <div className="space-y-3">
           {formError && <FormError>{formError}</FormError>}
-          <Input
-            value={form.name}
-            onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-            placeholder="Nombre"
-          />
-          <Input
-            value={form.trackingUrlTemplate}
-            onChange={(event) =>
-              setForm((current) => ({ ...current, trackingUrlTemplate: event.target.value }))
-            }
-            placeholder="https://transportadora.com/guia/{tracking}"
-          />
-          <Input
-            value={form.phone}
-            onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
-            placeholder="Telefono opcional"
-          />
+          <FormField id="carrier-name" label="Nombre">
+            <Input
+              id="carrier-name"
+              value={form.name}
+              onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+            />
+          </FormField>
+          <FormField
+            id="carrier-template"
+            label="Enlace de rastreo (opcional)"
+            description="Usa {tracking} donde va el número de guía."
+          >
+            <Input
+              id="carrier-template"
+              value={form.trackingUrlTemplate}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, trackingUrlTemplate: event.target.value }))
+              }
+              placeholder="https://…/{tracking}"
+            />
+          </FormField>
+          <FormField id="carrier-phone" label="Teléfono (opcional)">
+            <Input
+              id="carrier-phone"
+              value={form.phone}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, phone: event.target.value }))
+              }
+            />
+          </FormField>
           <label className="flex min-h-11.25 items-center justify-between border border-[#eee8ed] px-3.5 text-[11px] text-[#493a45]">
             Transportadora activa
             <Switch
@@ -225,7 +238,10 @@ export function ShippingManager() {
             <Button variant="outline" onClick={closeForm}>
               Cancelar
             </Button>
-            <Button disabled={save.isPending || form.name.trim().length < 2} onClick={() => save.mutate()}>
+            <Button
+              disabled={save.isPending || form.name.trim().length < 2}
+              onClick={() => save.mutate()}
+            >
               {save.isPending ? 'Guardando...' : 'Guardar'}
             </Button>
           </div>

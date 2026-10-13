@@ -316,6 +316,15 @@ La lógica más delicada del sistema: debe tener pruebas exhaustivas antes de co
 
 **Terminado cuando:** un pedido se despacha con transportadora y guía, y se marca como entregado.
 
+**Estado:** terminado el 2026-10-13.
+
+- Pruebas: `test/shipping.e2e-spec.ts` (integración) y `e2e/shipping.spec.ts` (Playwright, celular y escritorio).
+- Panel: `/admin/envios` (transportadoras, para la propietaria y el personal) y sección de envío en el detalle del pedido.
+- Despachar desde la sección de envío exige transportadora y guía. Marcar el pedido como despachado o entregado desde "cambiar estado" (por ejemplo, una entrega local sin transportadora) también actualiza el envío. Pendiente de confirmar si la guía debe ser obligatoria siempre.
+- Avance del envío: sin despachar → en tránsito → (con novedad →) entregado. Un envío entregado no retrocede, pero sus datos se pueden corregir. El pedido solo avanza.
+- Una transportadora desactivada no se elige de nuevo, pero los envíos que ya la usan se pueden corregir.
+- Registrar el envío usa bloqueo optimista: despachar y cancelar a la vez quedan coherentes.
+
 ---
 
 ## 10. Seguimiento del pedido

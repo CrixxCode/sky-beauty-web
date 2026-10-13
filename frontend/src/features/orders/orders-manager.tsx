@@ -40,7 +40,7 @@ import {
   PAYMENT_STATUS_LABELS,
 } from '@/types/orders-labels';
 import type { Carrier, ShippingStatus } from '@/types/shipping';
-import { SHIPPING_STATUS_LABELS } from '@/types/shipping';
+import { NEXT_SHIPPING_STATUSES, SHIPPING_STATUS_LABELS } from '@/types/shipping';
 
 const ORDERS_KEY = ['admin-orders'];
 
@@ -58,8 +58,9 @@ function toDateTimeInput(value: string | null) {
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
+/** Vacío = no se envía: el servidor usa la hora actual al despachar o entregar. */
 function toIsoDateTime(value: string) {
-  return value ? new Date(value).toISOString() : null;
+  return value ? new Date(value).toISOString() : undefined;
 }
 
 function statusTone(status: OrderStatus): 'ok' | 'out' | 'neutral' | 'warning' {
@@ -277,9 +278,8 @@ function OrderDetail({
   const [carrierId, setCarrierId] = useState(order.shipping?.carrierId ?? '');
   const [trackingNumber, setTrackingNumber] = useState(order.shipping?.trackingNumber ?? '');
   const [carrierCost, setCarrierCost] = useState(order.shipping?.carrierCost?.toString() ?? '');
-  const [shippingStatus, setShippingStatus] = useState<ShippingStatus>(
-    order.shipping?.status ?? 'NOT_SHIPPED',
-  );
+  const savedShippingStatus: ShippingStatus = order.shipping?.status ?? 'NOT_SHIPPED';
+  const [shippingStatus, setShippingStatus] = useState<ShippingStatus>(savedShippingStatus);
   const [dispatchedAt, setDispatchedAt] = useState(
     toDateTimeInput(order.shipping?.dispatchedAt ?? null),
   );
@@ -441,11 +441,13 @@ function OrderDetail({
             {order.events.map((event) => (
               <div key={event.id} className="border-b border-[#f0ecf0] pb-2.5 text-[11px]">
                 <strong>
-                  {event.type === 'PAYMENT_STATUS' && event.toStatus
-                    ? `Pago: ${PAYMENT_STATUS_LABELS[event.toStatus as PaymentStatus] ?? event.toStatus}`
-                    : event.toStatus
-                      ? (ORDER_STATUS_LABELS[event.toStatus as OrderStatus] ?? event.toStatus)
-                      : (ORDER_EVENT_LABELS[event.type] ?? event.type)}
+                  {event.type === 'SHIPPING' && event.toStatus
+                    ? `Envío: ${SHIPPING_STATUS_LABELS[event.toStatus as ShippingStatus] ?? event.toStatus}`
+                    : event.type === 'PAYMENT_STATUS' && event.toStatus
+                      ? `Pago: ${PAYMENT_STATUS_LABELS[event.toStatus as PaymentStatus] ?? event.toStatus}`
+                      : event.toStatus
+                        ? (ORDER_STATUS_LABELS[event.toStatus as OrderStatus] ?? event.toStatus)
+                        : (ORDER_EVENT_LABELS[event.type] ?? event.type)}
                 </strong>
                 <span className="ml-2 text-[#8b7f87]">{formatDate(event.createdAt)}</span>
                 {event.note && <p className="mt-1 text-[#6f606a]">{event.note}</p>}
@@ -538,79 +540,108 @@ function OrderDetail({
         <section className="border border-[#eee8ed] p-4.5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-xs font-semibold text-[#493a45]">Envío</h3>
-            <AdminStatus tone={shippingTone(shippingStatus)}>
-              {SHIPPING_STATUS_LABELS[shippingStatus]}
+            <AdminStatus tone={shippingTone(savedShippingStatus)}>
+              {SHIPPING_STATUS_LABELS[savedShippingStatus]}
             </AdminStatus>
           </div>
-          <div className="grid gap-2">
-            <Select value={carrierId} onChange={(event) => setCarrierId(event.target.value)}>
-              <option value="">Selecciona transportadora</option>
-              {carriers.map((carrier) => (
-                <option key={carrier.id} value={carrier.id}>
-                  {carrier.name}
-                  {!carrier.isActive ? ' (inactiva)' : ''}
-                </option>
-              ))}
-            </Select>
-            <Input
-              value={trackingNumber}
-              onChange={(event) => setTrackingNumber(event.target.value)}
-              placeholder="Numero de guia"
-            />
-            <Input
-              type="number"
-              min={0}
-              value={carrierCost}
-              onChange={(event) => setCarrierCost(event.target.value)}
-              placeholder="Costo real transportadora"
-            />
-            <Select
-              value={shippingStatus}
-              onChange={(event) => setShippingStatus(event.target.value as ShippingStatus)}
+          {order.shipping?.trackingUrl && (
+            <a
+              className="mb-3 inline-block text-[11px] font-medium text-[#7a5178] underline-offset-4 hover:underline"
+              href={order.shipping.trackingUrl}
+              target="_blank"
+              rel="noreferrer"
             >
-              {Object.entries(SHIPPING_STATUS_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </Select>
-            <div className="grid gap-2 min-[501px]:grid-cols-2">
-              <Input
-                type="datetime-local"
-                value={dispatchedAt}
-                onChange={(event) => setDispatchedAt(event.target.value)}
-              />
-              <Input
-                type="datetime-local"
-                value={deliveredAt}
-                onChange={(event) => setDeliveredAt(event.target.value)}
-              />
-            </div>
-            <Textarea
-              rows={2}
-              value={shippingNotes}
-              onChange={(event) => setShippingNotes(event.target.value)}
-              placeholder="Notas internas del envío"
-            />
-            {order.shipping?.trackingUrl && (
-              <a
-                className="text-[11px] font-medium text-[#7a5178] underline-offset-4 hover:underline"
-                href={order.shipping.trackingUrl}
-                target="_blank"
-                rel="noreferrer"
+              Abrir el rastreo de la transportadora
+            </a>
+          )}
+          {order.status === 'CANCELLED' ? (
+            <p className="text-[11px] text-[#8b7f87]">El pedido está cancelado.</p>
+          ) : (
+            <div className="grid gap-x-2">
+              <FormField id="shipping-carrier" label="Transportadora">
+                <Select
+                  id="shipping-carrier"
+                  value={carrierId}
+                  onChange={(event) => setCarrierId(event.target.value)}
+                >
+                  <option value="">Sin transportadora</option>
+                  {carriers.map((carrier) => (
+                    <option key={carrier.id} value={carrier.id}>
+                      {carrier.name}
+                      {!carrier.isActive ? ' (inactiva)' : ''}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+              <FormField id="shipping-tracking" label="Número de guía">
+                <Input
+                  id="shipping-tracking"
+                  value={trackingNumber}
+                  onChange={(event) => setTrackingNumber(event.target.value)}
+                />
+              </FormField>
+              <FormField id="shipping-carrier-cost" label="Costo real de la transportadora (COP)">
+                <Input
+                  id="shipping-carrier-cost"
+                  type="number"
+                  min={0}
+                  value={carrierCost}
+                  onChange={(event) => setCarrierCost(event.target.value)}
+                />
+              </FormField>
+              <FormField id="shipping-status" label="Estado del envío">
+                <Select
+                  id="shipping-status"
+                  value={shippingStatus}
+                  onChange={(event) => setShippingStatus(event.target.value as ShippingStatus)}
+                >
+                  {NEXT_SHIPPING_STATUSES[savedShippingStatus].map((value) => (
+                    <option key={value} value={value}>
+                      {SHIPPING_STATUS_LABELS[value]}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+              <div className="grid gap-x-2 min-[501px]:grid-cols-2">
+                <FormField id="shipping-dispatched" label="Despacho (opcional)">
+                  <Input
+                    id="shipping-dispatched"
+                    type="datetime-local"
+                    value={dispatchedAt}
+                    onChange={(event) => setDispatchedAt(event.target.value)}
+                  />
+                </FormField>
+                <FormField id="shipping-delivered" label="Entrega (opcional)">
+                  <Input
+                    id="shipping-delivered"
+                    type="datetime-local"
+                    value={deliveredAt}
+                    onChange={(event) => setDeliveredAt(event.target.value)}
+                  />
+                </FormField>
+              </div>
+              <FormField id="shipping-notes" label="Notas internas (opcional)">
+                <Textarea
+                  id="shipping-notes"
+                  rows={2}
+                  value={shippingNotes}
+                  onChange={(event) => setShippingNotes(event.target.value)}
+                />
+              </FormField>
+              <p className="mb-3 text-[10px] text-[#8b7f87]">
+                Para despachar registra transportadora y guía. Si dejas las fechas vacías, se usa la
+                hora en que guardas.
+              </p>
+              <Button
+                variant="outline"
+                disabled={action.isPending || carriersQuery.isPending}
+                onClick={() => action.mutate('shippingRecord')}
               >
-                Abrir enlace de seguimiento
-              </a>
-            )}
-            <Button
-              variant="outline"
-              disabled={action.isPending || carriersQuery.isPending}
-              onClick={() => action.mutate('shippingRecord')}
-            >
-              <Truck size={15} />
-              Guardar envío
-            </Button>
-          </div>
+                <Truck size={15} />
+                Guardar envío
+              </Button>
+            </div>
+          )}
         </section>
 
         <section className="border border-[#eee8ed] p-4.5">

@@ -2,9 +2,17 @@ export type ShippingStatus = 'NOT_SHIPPED' | 'IN_TRANSIT' | 'DELIVERED' | 'INCID
 
 export const SHIPPING_STATUS_LABELS: Record<ShippingStatus, string> = {
   NOT_SHIPPED: 'Sin despachar',
-  IN_TRANSIT: 'En transito',
+  IN_TRANSIT: 'En tránsito',
   DELIVERED: 'Entregado',
-  INCIDENT: 'Incidencia',
+  INCIDENT: 'Con novedad',
+};
+
+/** Avance permitido del envío (igual que el backend). Un envío entregado no cambia de estado. */
+export const NEXT_SHIPPING_STATUSES: Record<ShippingStatus, ShippingStatus[]> = {
+  NOT_SHIPPED: ['NOT_SHIPPED', 'IN_TRANSIT', 'DELIVERED'],
+  IN_TRANSIT: ['IN_TRANSIT', 'INCIDENT', 'DELIVERED'],
+  INCIDENT: ['INCIDENT', 'IN_TRANSIT', 'DELIVERED'],
+  DELIVERED: ['DELIVERED'],
 };
 
 export interface Carrier {
