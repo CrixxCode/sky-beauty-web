@@ -152,7 +152,7 @@ export function ProductDetail({
             </span>
             <span className="flex items-center gap-2 text-[10px] text-[#786a75]">
               <Truck size={17} className="text-[#a1769f]" />
-              Envío por confirmar
+              Envío según tu municipio
             </span>
           </div>
         </div>

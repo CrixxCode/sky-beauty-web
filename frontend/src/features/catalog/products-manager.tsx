@@ -19,13 +19,20 @@ import {
   X,
 } from 'lucide-react';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { FormField, fieldA11y } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from '@/components/ui/input-group';
 import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import {
@@ -36,6 +43,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { AdminPanel, AdminPanelTitle, AdminStatus } from '@/features/admin-auth/admin-ui';
 import { ApiError, apiFetch } from '@/lib/api';
@@ -146,28 +154,23 @@ export function ProductsManager({ role }: { role: AdminRole }) {
 
           <div className="flex flex-wrap items-center gap-2.5 max-[600px]:w-full">
             {/* Buscador */}
-            <div className="relative flex min-h-11.25 items-center border border-[#e8dfe6] bg-white text-[#917987] transition-colors focus-within:border-[#936591] max-[600px]:w-full">
-              <span className="pl-3 text-[#917987]">
+            <InputGroup className="max-[600px]:w-full">
+              <InputGroupAddon>
                 <Search size={15} />
-              </span>
-              <input
+              </InputGroupAddon>
+              <InputGroupInput
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar por nombre..."
                 aria-label="Buscar producto"
-                className="min-h-11.25 w-44 px-2.5 py-0 text-[11px] outline-none placeholder:text-[#a0929b] max-[600px]:w-full"
+                className="w-44 flex-none max-[600px]:w-full max-[600px]:flex-1"
               />
               {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch('')}
-                  aria-label="Limpiar búsqueda"
-                  className="flex min-h-11.25 items-center px-2.5 text-[#a0929b] hover:text-[#493a45] cursor-pointer"
-                >
+                <InputGroupButton onClick={() => setSearch('')} aria-label="Limpiar búsqueda">
                   <X size={14} />
-                </button>
+                </InputGroupButton>
               )}
-            </div>
+            </InputGroup>
 
             {/* Filtro de Categoría */}
             <Select
@@ -524,9 +527,7 @@ function ProductDetailModalContent({
   validCategories: { id: string; name: string }[];
   onClose: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<'variants' | 'images' | 'info' | 'status'>(
-    'variants',
-  );
+  const [activeTab, setActiveTab] = useState<'variants' | 'images' | 'info' | 'status'>('variants');
 
   const {
     data: product,
@@ -548,7 +549,7 @@ function ProductDetailModalContent({
   }
 
   return (
-    <div className="space-y-4">
+    <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
       {/* Encabezado contextual del producto dentro del modal */}
       <div className="flex flex-wrap items-center justify-between gap-3 border border-[#eee8ed] bg-[#fcfbfa] p-3.5">
         <div>
@@ -571,71 +572,41 @@ function ProductDetailModalContent({
         </div>
 
         {/* Pestañas de navegación */}
-        <div className="flex border border-[#e8dfe6] bg-white p-0.5">
-          <button
-            type="button"
-            onClick={() => setActiveTab('variants')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors cursor-pointer ${
-              activeTab === 'variants'
-                ? 'bg-[#764b77] text-white font-semibold'
-                : 'text-[#625760] hover:text-[#493a45]'
-            }`}
-          >
+        <TabsList>
+          <TabsTrigger value="variants">
             <Layers size={13} />
             Variantes ({product.variants.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('images')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors cursor-pointer ${
-              activeTab === 'images'
-                ? 'bg-[#764b77] text-white font-semibold'
-                : 'text-[#625760] hover:text-[#493a45]'
-            }`}
-          >
+          </TabsTrigger>
+          <TabsTrigger value="images">
             <ImageIcon size={13} />
             Fotos (
-            {product.images.length + product.variants.reduce((acc, v) => acc + v.images.length, 0)}
-            )
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('info')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors cursor-pointer ${
-              activeTab === 'info'
-                ? 'bg-[#764b77] text-white font-semibold'
-                : 'text-[#625760] hover:text-[#493a45]'
-            }`}
-          >
+            {product.images.length + product.variants.reduce((acc, v) => acc + v.images.length, 0)})
+          </TabsTrigger>
+          <TabsTrigger value="info">
             <Edit2 size={13} />
             Información y precios
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('status')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors cursor-pointer ${
-              activeTab === 'status'
-                ? 'bg-[#764b77] text-white font-semibold'
-                : 'text-[#625760] hover:text-[#493a45]'
-            }`}
-          >
+          </TabsTrigger>
+          <TabsTrigger value="status">
             <Archive size={13} />
             Estado y publicación
-          </button>
-        </div>
+          </TabsTrigger>
+        </TabsList>
       </div>
 
       {/* Contenido según pestaña activa */}
-      {activeTab === 'variants' && <VariantsTab product={product} role={role} />}
-
-      {activeTab === 'images' && <ProductImagesTab product={product} />}
-
-      {activeTab === 'info' && (
+      <TabsContent value="variants">
+        <VariantsTab product={product} role={role} />
+      </TabsContent>
+      <TabsContent value="images">
+        <ProductImagesTab product={product} />
+      </TabsContent>
+      <TabsContent value="info">
         <ProductInfoTab product={product} brands={brands} validCategories={validCategories} />
-      )}
-
-      {activeTab === 'status' && <ProductStatusTab product={product} onDeleted={onClose} />}
-    </div>
+      </TabsContent>
+      <TabsContent value="status">
+        <ProductStatusTab product={product} onDeleted={onClose} />
+      </TabsContent>
+    </Tabs>
   );
 }
 
@@ -754,9 +725,7 @@ function ProductImagesTab({ product }: { product: Product }) {
                       {assignedVariantName ? `Variante: ${assignedVariantName}` : 'Foto general'}
                     </Badge>
                     {image.alt && (
-                      <p className="mt-1.5 line-clamp-2 text-[10px] text-[#625760]">
-                        {image.alt}
-                      </p>
+                      <p className="mt-1.5 line-clamp-2 text-[10px] text-[#625760]">{image.alt}</p>
                     )}
                   </div>
                   <Button
@@ -852,13 +821,15 @@ function VariantsTab({ product, role }: { product: Product; role: AdminRole }) {
             <h4 className="text-xs font-semibold text-[#493a45]">
               Agregar nueva variante para &ldquo;{product.name}&rdquo;
             </h4>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setIsAdding(false)}
-              className="text-[#917987] hover:text-[#493a45] cursor-pointer"
+              aria-label="Cerrar formulario de variante"
+              className="h-7 w-7 text-[#917987] enabled:hover:translate-y-0 enabled:hover:text-[#493a45]"
             >
               <X size={15} />
-            </button>
+            </Button>
           </div>
           <VariantFormInline
             productId={product.id}
@@ -881,13 +852,15 @@ function VariantsTab({ product, role }: { product: Product; role: AdminRole }) {
             <h4 className="text-xs font-semibold text-[#493a45]">
               Editar variante: {editingVariant.name} ({editingVariant.sku})
             </h4>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setEditingVariant(null)}
-              className="text-[#917987] hover:text-[#493a45] cursor-pointer"
+              aria-label="Cerrar edición de variante"
+              className="h-7 w-7 text-[#917987] enabled:hover:translate-y-0 enabled:hover:text-[#493a45]"
             >
               <X size={15} />
-            </button>
+            </Button>
           </div>
           <VariantFormInline
             productId={product.id}
@@ -1189,7 +1162,7 @@ function VariantFormInline({
           error={errors.colorHex?.message}
         >
           <div className="flex items-center gap-2">
-            <input
+            <Input
               type="color"
               value={
                 currentColorHex && /^#[0-9A-Fa-f]{6}$/.test(currentColorHex)
@@ -1198,7 +1171,7 @@ function VariantFormInline({
               }
               onChange={(e) => setValue('colorHex', e.target.value.toUpperCase())}
               aria-label="Selector interactivo de color"
-              className="h-8.5 w-10 cursor-pointer border border-[#e8dfe6] bg-white p-0.5"
+              className="h-8.5 min-h-0 w-10 shrink-0 cursor-pointer border-[#e8dfe6] p-0.5"
             />
             <Input
               placeholder="#E57373"
@@ -1305,6 +1278,7 @@ function ProductInfoTab({
   const queryClient = useQueryClient();
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<UpdateProductValues>({
@@ -1431,10 +1405,23 @@ function ProductInfoTab({
       </div>
 
       <div className="flex items-center justify-between border-t border-[#f0ecf0] pt-3">
-        <label className="flex items-center gap-2 text-[11px] text-[#493a45] cursor-pointer">
-          <input type="checkbox" className="rounded border-[#c5bcc3]" {...register('isFeatured')} />
-          <span>Destacar este producto en la página principal</span>
-        </label>
+        <div className="flex items-center gap-2 text-[11px] text-[#493a45]">
+          <Controller
+            control={control}
+            name="isFeatured"
+            render={({ field }) => (
+              <Checkbox
+                id="ep-featured"
+                checked={field.value}
+                onCheckedChange={(checked) => field.onChange(checked === true)}
+                onBlur={field.onBlur}
+              />
+            )}
+          />
+          <label htmlFor="ep-featured" className="cursor-pointer">
+            Destacar este producto en la página principal
+          </label>
+        </div>
 
         <Button size="sm" type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Guardando…' : 'Guardar cambios'}

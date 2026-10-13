@@ -17,6 +17,7 @@ export const buttonVariants = cva(
         secondary: 'bg-[#f4ebf4] text-[#764b77] enabled:hover:bg-[#ebd9eb]',
         ghost: 'bg-transparent text-[#5d405b] enabled:hover:bg-[#faf1fa]',
         destructive: 'border border-danger bg-danger text-white enabled:hover:bg-[#7e3445]',
+        link: 'h-auto min-h-0 p-0 text-[#764b77] underline-offset-4 enabled:hover:translate-y-0 enabled:hover:underline',
       },
       size: {
         md: 'min-h-11.25 px-6.25 py-3 text-xs',

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { ApiError, apiFetch } from '@/lib/api';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ROLE_LABELS, type AdminProfile } from '@/types/admin';
 import { navItemsFor } from './admin-nav-items';
@@ -58,13 +59,15 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
               Gestión
             </small>
           </strong>
-          <button
-            className="min-[851px]:hidden"
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-auto w-auto min-h-0 p-0 text-ink enabled:hover:translate-y-0 enabled:hover:bg-transparent min-[851px]:hidden"
             aria-label="Cerrar navegación"
             onClick={() => setMobileOpen(false)}
           >
             <X size={20} />
-          </button>
+          </Button>
         </div>
         <nav aria-label="Panel" className="flex flex-col gap-1 px-3 py-5">
           {items.map(({ href, label, icon: Icon }) => {
@@ -90,9 +93,17 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
           <Link href="/" className={sideButton}>
             <ArrowLeft size={17} /> Ver tienda
           </Link>
-          <button className={sideButton} onClick={logout} disabled={loggingOut}>
+          <Button
+            variant="ghost"
+            className={cn(
+              sideButton,
+              'min-h-0 justify-start rounded-none font-normal tracking-normal enabled:hover:translate-y-0',
+            )}
+            onClick={logout}
+            disabled={loggingOut}
+          >
             <LogOut size={17} /> Cerrar sesión
-          </button>
+          </Button>
           <small className="mx-3 mt-3.5 block text-[9px] text-[#9b9198]">
             {admin.name} · {admin.email}
           </small>
@@ -101,13 +112,15 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
 
       <main className="min-w-0">
         <header className="flex h-19 items-center justify-between gap-3.75 border-b border-[#eae6ea] bg-white px-10.5 max-[850px]:px-6.75 max-[600px]:h-15 max-[600px]:px-4.5">
-          <button
-            className="min-[851px]:hidden"
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-auto w-auto min-h-0 p-0 text-ink enabled:hover:translate-y-0 enabled:hover:bg-transparent min-[851px]:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Abrir navegación"
           >
             <Menu />
-          </button>
+          </Button>
           <span className="flex items-center gap-2.25 text-[11px] text-[#726971]">
             Sky Beauty <ChevronRight size={14} /> {current?.label}
           </span>

@@ -107,6 +107,12 @@ El monto mínimo se compara con el subtotal **después** de aplicar descuentos.
 
 ---
 
+## 2026-10-13 — Disponibilidad de variantes en la tienda
+
+**Decisión:** la tienda indica si una variante está disponible o agotada, sin mostrar al cliente la cantidad de unidades en existencia.
+
+---
+
 ## 2026-10-09 — Pago contra entrega solo en algunas ciudades
 
 **Decisión:** el pago contra entrega solo se ofrece en los municipios que configure la propietaria y para pedidos que no superen un monto máximo, también configurable. Si no se cumple alguna de las dos condiciones, no aparece como opción en el checkout.

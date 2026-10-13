@@ -58,17 +58,17 @@ test('la propietaria publica un producto con variante y foto, y el cliente lo en
   await expect(page.getByRole('cell', { name: /Tono Ficticio/ }).first()).toBeVisible();
 
   // Foto general.
-  await page.getByRole('button', { name: /^Fotos/ }).click();
+  await page.getByRole('tab', { name: /^Fotos/ }).click();
   await page.locator('input[type="file"]').setInputFiles({
     name: 'foto.png',
     mimeType: 'image/png',
     buffer: PIXEL_PNG,
   });
   await page.getByRole('button', { name: 'Subir foto' }).click();
-  await expect(page.getByRole('button', { name: 'Fotos (1)' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Fotos (1)' })).toBeVisible();
 
   // Publicar.
-  await page.getByRole('button', { name: 'Estado y publicación' }).click();
+  await page.getByRole('tab', { name: 'Estado y publicación' }).click();
   await page.getByRole('button', { name: 'Publicar / Activar en tienda' }).click();
   await expect(
     page.getByText('Este producto está publicado y visible para los clientes en la tienda online.'),

@@ -235,8 +235,10 @@ function CitiesManager({ method, canEdit }: { method: PaymentMethod; canEdit: bo
           >
             {city.municipalityName}, {city.departmentName}
             {canEdit && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-auto w-auto min-h-0 p-0 text-[#70416e] enabled:hover:translate-y-0 enabled:hover:bg-transparent"
                 aria-label={`Quitar ${city.municipalityName}`}
                 onClick={() =>
                   setCities((list) =>
@@ -245,7 +247,7 @@ function CitiesManager({ method, canEdit }: { method: PaymentMethod; canEdit: bo
                 }
               >
                 <X size={12} />
-              </button>
+              </Button>
             )}
           </li>
         ))}

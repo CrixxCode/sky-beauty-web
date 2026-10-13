@@ -11,6 +11,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FormField, fieldA11y } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from '@/components/ui/input-group';
 import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -75,28 +81,23 @@ export function CategoriesManager() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 max-[600px]:w-full">
-            <div className="relative flex min-h-11.25 items-center border border-[#e8dfe6] bg-white text-[#917987] transition-colors focus-within:border-[#936591] max-[600px]:w-full">
-              <span className="pl-3 text-[#917987]">
+            <InputGroup className="max-[600px]:w-full">
+              <InputGroupAddon>
                 <Search size={15} />
-              </span>
-              <input
+              </InputGroupAddon>
+              <InputGroupInput
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar categoría..."
                 aria-label="Buscar categoría"
-                className="min-h-11.25 w-48 px-2.5 py-0 text-[11px] outline-none placeholder:text-[#a0929b] max-[600px]:w-full"
+                className="w-48 flex-none max-[600px]:w-full max-[600px]:flex-1"
               />
               {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch('')}
-                  aria-label="Limpiar búsqueda"
-                  className="flex min-h-11.25 items-center px-2.5 text-[#a0929b] hover:text-[#493a45] cursor-pointer"
-                >
+                <InputGroupButton onClick={() => setSearch('')} aria-label="Limpiar búsqueda">
                   <X size={14} />
-                </button>
+                </InputGroupButton>
               )}
-            </div>
+            </InputGroup>
 
             <Button
               onClick={() => handleOpenCreateWithParent(undefined)}
@@ -572,13 +573,13 @@ function CategoryTreeItem({
       ) : (
         <div className="px-4 py-3 bg-[#faf7f9] text-[10px] text-[#8b7f87] flex items-center justify-between">
           <span>Esta categoría no tiene subcategorías (puede recibir productos directamente).</span>
-          <button
-            type="button"
+          <Button
+            variant="link"
             onClick={() => onAddSubcategory(category.id)}
-            className="text-[10px] font-medium text-[#764b77] hover:underline cursor-pointer"
+            className="min-h-0 p-0 text-[10px] font-medium"
           >
             + Agregar primera subcategoría
-          </button>
+          </Button>
         </div>
       )}
       <ConfirmDialog
