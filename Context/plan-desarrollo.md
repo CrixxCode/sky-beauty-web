@@ -211,7 +211,7 @@ La lógica más delicada del sistema: debe tener pruebas exhaustivas antes de co
 - El precio "desde" de un producto y su precio regular tachado salen de la misma variante (la de menor precio final).
 - La tienda muestra la etiqueta "−X%", el precio regular tachado y el ahorro, como el prototipo. No muestra el nombre de la promoción.
 - Las ediciones simultáneas de una promoción se rechazan con un aviso en lugar de pisarse.
-- Pendiente: qué pasa con las promociones existentes si la propietaria baja después el límite de descuento porcentual. Hoy el límite solo se valida al crear o editar.
+- Bajar el límite del descuento porcentual se rechaza si una promoción activa, vigente o programada lo supera (ver `decisiones.md`, 2026-10-13).
 
 ---
 

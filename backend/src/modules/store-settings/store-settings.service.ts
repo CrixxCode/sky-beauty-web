@@ -21,11 +21,39 @@ export class StoreSettingsService {
 
   async update(dto: UpdateStoreSettingsDto): Promise<StoreSettingsDto> {
     await this.ensure();
-    const settings = await this.prisma.storeSettings.update({
-      where: { id: SETTINGS_ID },
-      data: dto,
+    const settings = await this.prisma.$transaction(async (tx) => {
+      if (dto.maxPercentageDiscount != null) {
+        await this.assertNoPromotionAbove(tx, dto.maxPercentageDiscount);
+      }
+      return tx.storeSettings.update({ where: { id: SETTINGS_ID }, data: dto });
     });
     return toDto(settings);
+  }
+
+  /**
+   * Decisión del 2026-10-13: no se puede bajar el límite del descuento porcentual mientras haya
+   * promociones activas, vigentes o programadas, que lo superen. Las vencidas o inactivas no
+   * bloquean: si se reactivan o editan, se validan contra el límite vigente.
+   */
+  private async assertNoPromotionAbove(tx: Prisma.TransactionClient, limit: number): Promise<void> {
+    const conflicting = await tx.promotion.findMany({
+      where: {
+        discountType: 'PERCENTAGE',
+        isActive: true,
+        endsAt: { gte: new Date() },
+        discountValue: { gt: limit },
+      },
+      select: { name: true, discountValue: true },
+      orderBy: { discountValue: 'desc' },
+    });
+    if (conflicting.length === 0) return;
+
+    const list = conflicting
+      .map((p) => `${p.name} (${p.discountValue.toNumber().toLocaleString('es-CO')} %)`)
+      .join(', ');
+    throw new BadRequestException(
+      `No se puede bajar el límite a ${limit.toLocaleString('es-CO')} %: estas promociones lo superan: ${list}. Edítalas o desactívalas primero.`,
+    );
   }
 
   async listShippingRates(): Promise<ShippingRateDto[]> {

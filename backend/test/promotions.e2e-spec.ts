@@ -148,6 +148,55 @@ describe('Promociones y precios (integración)', () => {
         .expect(201);
     });
 
+    it('no deja bajar el límite si una promoción vigente o programada lo supera', async () => {
+      const settings = '/api/v1/admin/settings';
+      await createPromotion({ name: 'Vigente 40', discountValue: 40 });
+      await createPromotion({
+        name: 'Programada 35',
+        discountValue: 35,
+        startsAt: new Date(Date.now() + 86_400_000).toISOString(),
+        endsAt: new Date(Date.now() + 2 * 86_400_000).toISOString(),
+      });
+
+      const rejected = await owner.patch(settings).send({ maxPercentageDiscount: 30 }).expect(400);
+      expect((rejected.body as { message: string }).message).toBe(
+        'No se puede bajar el límite a 30 %: estas promociones lo superan: Vigente 40 (40 %), Programada 35 (35 %). Edítalas o desactívalas primero.',
+      );
+      const unchanged = await prisma.storeSettings.findUniqueOrThrow({ where: { id: 'default' } });
+      expect(unchanged.maxPercentageDiscount).toBeNull();
+
+      // Un límite que todas cumplen sí se guarda.
+      await owner.patch(settings).send({ maxPercentageDiscount: 40 }).expect(200);
+      // Quitar el límite siempre se permite.
+      await owner.patch(settings).send({ maxPercentageDiscount: null }).expect(200);
+    });
+
+    it('las promociones vencidas, inactivas o de importe fijo no bloquean el límite', async () => {
+      await createPromotion({ name: 'Inactiva 50', discountValue: 50, isActive: false });
+      await createPromotion({
+        name: 'Fija',
+        discountType: 'FIXED_AMOUNT',
+        discountValue: 9000,
+      });
+      const expired = await createPromotion({ name: 'Vencida 60', discountValue: 60 });
+      await prisma.promotion.update({
+        where: { id: expired.id },
+        data: {
+          startsAt: new Date(Date.now() - 2 * 86_400_000),
+          endsAt: new Date(Date.now() - 86_400_000),
+        },
+      });
+
+      await owner.patch('/api/v1/admin/settings').send({ maxPercentageDiscount: 20 }).expect(200);
+
+      // Reactivar la inactiva se valida contra el límite vigente.
+      const inactive = await prisma.promotion.findFirstOrThrow({ where: { name: 'Inactiva 50' } });
+      await owner
+        .patch(`${PROMOTIONS}/${inactive.id}`)
+        .send(body({ name: 'Inactiva 50', discountValue: 50, isActive: true }))
+        .expect(400);
+    });
+
     it('sin límite configurado solo aplica el tope técnico del 100 %', async () => {
       await owner
         .post(PROMOTIONS)

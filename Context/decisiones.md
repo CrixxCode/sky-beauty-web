@@ -127,6 +127,16 @@ Prioridad de cálculo en checkout:
 
 ---
 
+## 2026-10-13 — Bajar el límite del descuento porcentual
+
+**Decisión:** no se puede bajar el límite del descuento porcentual mientras haya promociones porcentuales activas, vigentes o programadas, cuyo descuento lo supere. El sistema no guarda el cambio y muestra cuáles son, para que la propietaria las edite o desactive primero.
+
+- Las promociones vencidas o inactivas no bloquean el cambio. Si después se reactivan o editan, se validan contra el límite vigente.
+- Quitar el límite siempre se permite.
+- El sistema nunca recorta ni desactiva promociones por su cuenta.
+
+---
+
 ## 2026-10-13 — Existencias iniciales una sola vez por variante
 
 **Decisión:** las existencias iniciales de una variante solo se registran antes de cualquier otro movimiento de esa variante. Después, las entradas se registran como compras y las correcciones como ajustes, con su justificación obligatoria.
