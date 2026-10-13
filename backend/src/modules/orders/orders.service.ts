@@ -487,7 +487,10 @@ export class OrdersService {
 
     const order = await this.prisma.order.findFirst({
       where: { publicTokenHash: sha256(normalizedToken) },
-      include: { shipping: { include: { carrier: true } } },
+      include: {
+        shipping: { include: { carrier: true } },
+        items: { orderBy: { createdAt: 'asc' } },
+      },
     });
     if (!order) throw new NotFoundException('No existe ese enlace de seguimiento.');
 
@@ -498,6 +501,15 @@ export class OrdersService {
       status: order.status,
       paymentStatus: order.paymentStatus,
       paymentMethodName: order.paymentMethodName,
+      items: order.items.map((item) => ({
+        productName: item.productName,
+        variantName: item.variantName,
+        quantity: item.quantity,
+        unitFinalPrice: item.unitFinalPrice.toNumber(),
+        lineTotal: item.lineTotal.toNumber(),
+      })),
+      subtotal: order.subtotal.toNumber(),
+      discountTotal: order.discountTotal.toNumber(),
       shippingCost: order.shippingCost?.toNumber() ?? null,
       total: order.total.toNumber(),
       createdAt: order.createdAt,

@@ -200,11 +200,24 @@ export class PublicTrackingShippingDto {
   @ApiProperty({ nullable: true, type: Date }) deliveredAt!: Date | null;
 }
 
+/** Producto del pedido tal como quedó registrado (sin costos internos). */
+export class PublicTrackingItemDto {
+  @ApiProperty() productName!: string;
+  @ApiProperty() variantName!: string;
+  @ApiProperty() quantity!: number;
+  @ApiProperty() unitFinalPrice!: number;
+  @ApiProperty() lineTotal!: number;
+}
+
 export class PublicOrderTrackingDto {
   @ApiProperty() code!: string;
   @ApiProperty({ enum: OrderStatus }) status!: OrderStatus;
   @ApiProperty({ enum: PaymentStatus }) paymentStatus!: PaymentStatus;
   @ApiProperty() paymentMethodName!: string;
+  @ApiProperty({ type: () => PublicTrackingItemDto, isArray: true })
+  items!: PublicTrackingItemDto[];
+  @ApiProperty() subtotal!: number;
+  @ApiProperty() discountTotal!: number;
   @ApiProperty({ nullable: true, type: Number }) shippingCost!: number | null;
   @ApiProperty() total!: number;
   @ApiProperty() createdAt!: Date;

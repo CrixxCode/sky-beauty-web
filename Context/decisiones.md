@@ -127,6 +127,19 @@ Prioridad de cálculo en checkout:
 
 ---
 
+## 2026-10-13 — Información de la página de seguimiento
+
+**Decisión:** completa el pendiente de "Seguimiento del pedido con enlace privado". La página de seguimiento muestra:
+
+- código, fecha y estado del pedido, con su avance (registrado, confirmado, preparando, despachado, entregado);
+- método y estado del pago;
+- estado del envío y, según el tipo de entrega, transportadora, guía y enlace de rastreo, o "Entrega local de la tienda";
+- productos (nombre, variante, cantidad y precio), subtotal, descuentos, envío y total.
+
+No muestra datos del cliente (nombre, teléfono, dirección, indicaciones) ni datos internos (costos, notas internas). Los avisos de cancelación se agregan con el módulo 11.
+
+---
+
 ## 2026-10-13 — Entrega por transportadora o entrega local
 
 **Decisión:** cada envío es **por transportadora** o **entrega local** de la tienda (por ejemplo, con mensajero propio).

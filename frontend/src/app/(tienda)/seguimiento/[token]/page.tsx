@@ -1,4 +1,4 @@
-import { ArrowRight, Clock3, CreditCard, PackageCheck, Truck } from 'lucide-react';
+import { ArrowRight, Clock3, CreditCard, PackageCheck, ShoppingBag, Truck } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -6,23 +6,25 @@ import { Container } from '@/components/layout/container';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { fetchPublicApi } from '@/lib/api.server';
-import { formatCOP } from '@/lib/format';
+import { formatCOP, formatDateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS } from '@/types/orders-labels';
 import { SHIPPING_STATUS_LABELS } from '@/types/shipping';
 import type { PublicOrderTracking } from '@/types/tracking';
 
-export const metadata: Metadata = { title: 'Seguimiento' };
+// Enlace privado: los buscadores no lo indexan ni siguen sus enlaces.
+export const metadata: Metadata = {
+  title: 'Seguimiento',
+  robots: { index: false, follow: false },
+};
 
 type SeguimientoPageProps = {
   params: Promise<{ token: string }>;
 };
 
+/** Fecha y hora en la zona horaria de la tienda, o "Pendiente". */
 function formatDate(value: string | null) {
-  if (!value) return 'Pendiente';
-  return new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeStyle: 'short' }).format(
-    new Date(value),
-  );
+  return value ? formatDateTime(value) : 'Pendiente';
 }
 
 function stepState(currentIndex: number, index: number) {
@@ -55,14 +57,19 @@ export default async function SeguimientoPage({ params }: SeguimientoPageProps) 
 
   if (!order) return <InvalidTracking />;
 
+  const currentStep = orderStepIndex(order);
   const steps = [
     { label: 'Registrado', detail: formatDate(order.createdAt) },
     { label: 'Confirmado', detail: formatDate(order.confirmedAt) },
-    { label: 'Preparando', detail: order.status === 'PREPARING' ? 'En proceso' : 'Pendiente' },
+    {
+      // Preparar es un paso opcional sin fecha propia.
+      label: 'Preparando',
+      detail: currentStep > 2 ? 'Listo' : currentStep === 2 ? 'En proceso' : 'Pendiente',
+    },
     { label: 'Despachado', detail: formatDate(order.shipping?.dispatchedAt ?? null) },
     { label: 'Entregado', detail: formatDate(order.shipping?.deliveredAt ?? null) },
   ];
-  const currentStep = orderStepIndex(order);
+  const cancelled = order.status === 'CANCELLED';
 
   return (
     <Container className="py-11.25">
@@ -76,70 +83,72 @@ export default async function SeguimientoPage({ params }: SeguimientoPageProps) 
               Pedido {order.code}
             </h1>
             <p className="mt-3 max-w-150 text-xs leading-[1.9] text-[#786b74]">
-              Consulta el avance de tu pedido. La tienda actualiza estos estados segun la
-              confirmacion, el pago y el envio.
+              Consulta el avance de tu pedido. La tienda actualiza estos estados según la
+              confirmación, el pago y el envío.
             </p>
           </div>
           <Badge variant={badgeVariant(order.status)}>{ORDER_STATUS_LABELS[order.status]}</Badge>
         </div>
       </div>
 
-      {order.status === 'CANCELLED' && (
-        <div className="mb-5 border border-[#ead0d4] bg-[#fff7f7] p-4.5 text-[11px] leading-[1.8] text-[#8f313f]">
-          Este pedido aparece como cancelado. Si tienes dudas o ya habias pagado, ponte en contacto
-          con la tienda por WhatsApp.
+      {cancelled && (
+        <div
+          role="status"
+          className="mb-5 border border-[#ead0d4] bg-[#fff7f7] p-4.5 text-[11px] leading-[1.8] text-[#8f313f]"
+        >
+          Este pedido fue cancelado
+          {order.cancelledAt ? ` el ${formatDateTime(order.cancelledAt)}` : ''}. Si tienes dudas o
+          ya habías pagado, ponte en contacto con la tienda por WhatsApp.
         </div>
       )}
 
-      <section className="mb-5 border border-[#eee8ed] bg-white p-5">
-        <h2 className="mb-4 text-sm font-semibold text-[#493a45]">Avance del pedido</h2>
-        <div className="grid gap-3 min-[760px]:grid-cols-5">
-          {steps.map((step, index) => {
-            const state = stepState(currentStep, index);
-            return (
-              <div
-                key={step.label}
-                className={cn(
-                  'min-h-24 border p-3.5',
-                  state === 'done' && 'border-[#c7ddce] bg-[#f5fbf6]',
-                  state === 'current' && 'border-[#d8bfda] bg-[#fbf5fb]',
-                  state === 'pending' && 'border-[#eee8ed] bg-[#fbfafb]',
-                )}
-              >
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-semibold text-[#493a45]">{step.label}</span>
-                  <span
-                    className={cn(
-                      'h-2.5 w-2.5 rounded-full',
-                      state === 'done' && 'bg-success',
-                      state === 'current' && 'bg-[#a46ea4]',
-                      state === 'pending' && 'bg-[#d8d4cb]',
-                    )}
-                  />
+      {!cancelled && (
+        <section className="mb-5 border border-[#eee8ed] bg-white p-5">
+          <h2 className="mb-4 text-sm font-semibold text-[#493a45]">Avance del pedido</h2>
+          <div className="grid gap-3 min-[760px]:grid-cols-5">
+            {steps.map((step, index) => {
+              const state = stepState(currentStep, index);
+              return (
+                <div
+                  key={step.label}
+                  className={cn(
+                    'min-h-24 border p-3.5',
+                    state === 'done' && 'border-[#c7ddce] bg-[#f5fbf6]',
+                    state === 'current' && 'border-[#d8bfda] bg-[#fbf5fb]',
+                    state === 'pending' && 'border-[#eee8ed] bg-[#fbfafb]',
+                  )}
+                >
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-semibold text-[#493a45]">{step.label}</span>
+                    <span
+                      className={cn(
+                        'h-2.5 w-2.5 rounded-full',
+                        state === 'done' && 'bg-success',
+                        state === 'current' && 'bg-[#a46ea4]',
+                        state === 'pending' && 'bg-[#d8d4cb]',
+                      )}
+                    />
+                  </div>
+                  <p className="text-[10px] leading-[1.7] text-[#83747c]">{step.detail}</p>
                 </div>
-                <p className="text-[10px] leading-[1.7] text-[#83747c]">{step.detail}</p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-3">
         <StatusPanel icon={<PackageCheck size={18} />} title="Pedido">
           <Summary label="Estado" value={ORDER_STATUS_LABELS[order.status]} />
-          <Summary label="Total" value={formatCOP(order.total)} />
-          <Summary
-            label="Envio"
-            value={order.shippingCost === null ? 'Por confirmar' : formatCOP(order.shippingCost)}
-          />
+          <Summary label="Fecha" value={formatDate(order.createdAt)} />
         </StatusPanel>
 
         <StatusPanel icon={<CreditCard size={18} />} title="Pago">
-          <Summary label="Metodo" value={order.paymentMethodName} />
+          <Summary label="Método" value={order.paymentMethodName} />
           <Summary label="Estado" value={PAYMENT_STATUS_LABELS[order.paymentStatus]} />
         </StatusPanel>
 
-        <StatusPanel icon={<Truck size={18} />} title="Envio">
+        <StatusPanel icon={<Truck size={18} />} title="Envío">
           <Summary
             label="Estado"
             value={order.shipping ? SHIPPING_STATUS_LABELS[order.shipping.status] : 'Sin despachar'}
@@ -161,6 +170,51 @@ export default async function SeguimientoPage({ params }: SeguimientoPageProps) 
           )}
         </StatusPanel>
       </div>
+
+      <section className="mt-5 border border-[#eee8ed] bg-white p-4.5">
+        <div className="mb-3 flex items-center gap-2 text-[#7a5178]">
+          <ShoppingBag size={18} />
+          <h2 className="text-xs font-semibold text-[#493a45]">Productos</h2>
+        </div>
+        <ul className="divide-y divide-[#f0ecf0]">
+          {order.items.map((item, index) => (
+            <li
+              key={`${item.productName}-${item.variantName}-${index}`}
+              className="flex justify-between gap-3 py-2.5 text-[11px]"
+            >
+              <span>
+                <strong className="block font-semibold text-[#493a45]">{item.productName}</strong>
+                <span className="text-[#8b7f87]">
+                  {item.variantName} · {item.quantity} × {formatCOP(item.unitFinalPrice)}
+                </span>
+              </span>
+              <strong className="whitespace-nowrap font-semibold text-[#493a45]">
+                {formatCOP(item.lineTotal)}
+              </strong>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-2 max-w-90 border-t border-[#f0ecf0] pt-2 min-[760px]:ml-auto">
+          <Summary label="Subtotal" value={formatCOP(order.subtotal)} />
+          {order.discountTotal > 0 && (
+            <Summary label="Descuentos" value={`-${formatCOP(order.discountTotal)}`} />
+          )}
+          <Summary
+            label="Envío"
+            value={
+              order.shippingCost === null
+                ? 'Por confirmar'
+                : order.shippingCost === 0
+                  ? 'Gratis'
+                  : formatCOP(order.shippingCost)
+            }
+          />
+          <Summary
+            label={order.shippingCost === null ? 'Total sin envío' : 'Total'}
+            value={formatCOP(order.total)}
+          />
+        </div>
+      </section>
 
       <div className="mt-7 flex flex-wrap gap-3">
         <Button asChild>
@@ -186,11 +240,11 @@ function InvalidTracking() {
           No pudimos abrir este seguimiento
         </h1>
         <p className="mx-auto mb-6 max-w-110 text-xs leading-[1.9] text-[#88777e]">
-          Revisa que el enlace este completo. Por seguridad no mostramos informacion cuando el
-          enlace no es valido.
+          Revisa que el enlace esté completo. Por seguridad no mostramos información cuando el
+          enlace no es válido.
         </p>
         <Button asChild>
-          <Link href="/productos">Volver al catalogo</Link>
+          <Link href="/productos">Volver al catálogo</Link>
         </Button>
       </div>
     </Container>

@@ -119,8 +119,96 @@ describe('Seguimiento publico de pedidos (integracion)', () => {
     expect(body.shipping).not.toHaveProperty('notes');
   });
 
-  it('responde 404 generico para enlaces invalidos', async () => {
-    const res = await request(app.getHttpServer()).get(`${TRACKING}/token-invalido`).expect(404);
-    expect((res.body as ErrorResponse).message).toBe('No existe ese enlace de seguimiento.');
+  it('responde el mismo 404 genérico para cualquier enlace inválido', async () => {
+    for (const token of [
+      'token-invalido',
+      'a'.repeat(48), // formato válido pero no existe
+      'A'.repeat(47),
+      `${'b'.repeat(48)}x`,
+    ]) {
+      const res = await request(app.getHttpServer()).get(`${TRACKING}/${token}`).expect(404);
+      expect((res.body as ErrorResponse).message).toBe('No existe ese enlace de seguimiento.');
+    }
+  });
+
+  it('muestra productos y totales del pedido sin datos internos ni del cliente', async () => {
+    const brand = await prisma.brand.create({ data: { name: 'Marca Seg', slug: 'marca-seg' } });
+    const category = await prisma.category.create({
+      data: { name: 'Categoría Seg', slug: 'cat-seg' },
+    });
+    const product = await prisma.product.create({
+      data: {
+        name: 'Producto Seguimiento',
+        slug: 'producto-seguimiento',
+        description: 'Producto ficticio.',
+        brandId: brand.id,
+        categoryId: category.id,
+        basePrice: 15000,
+        status: 'ACTIVE',
+        publishedAt: new Date(),
+      },
+    });
+    const variant = await prisma.productVariant.create({
+      data: {
+        productId: product.id,
+        sku: 'SEG-1',
+        name: 'Tono seguimiento',
+        stock: 5,
+        costPrice: 6000,
+      },
+    });
+    const method = await prisma.paymentMethod.update({
+      where: { code: 'BANK_TRANSFER' },
+      data: { isActive: true, instructions: 'Instrucciones ficticias.' },
+    });
+    const created = await request(app.getHttpServer())
+      .post('/api/v1/store/orders')
+      .send({
+        items: [{ variantId: variant.id, quantity: 2 }],
+        municipalityCode: '44001',
+        customerName: 'Cliente Privado',
+        customerPhone: '3001112233',
+        addressLine: 'Dirección privada 123',
+        deliveryNotes: 'Nota privada del cliente',
+        paymentMethodId: method.id,
+        idempotencyKey: `seguimiento-${Date.now()}`,
+        termsAccepted: true,
+        dataProcessingAccepted: true,
+      })
+      .expect(201);
+    const { publicToken } = created.body as { publicToken: string };
+
+    const res = await request(app.getHttpServer()).get(`${TRACKING}/${publicToken}`).expect(200);
+    expect(res.body).toMatchObject({
+      items: [
+        {
+          productName: 'Producto Seguimiento',
+          variantName: 'Tono seguimiento',
+          quantity: 2,
+          unitFinalPrice: 15000,
+          lineTotal: 30000,
+        },
+      ],
+      subtotal: 30000,
+      discountTotal: 0,
+      shippingCost: null,
+      total: 30000,
+    });
+    const raw = JSON.stringify(res.body);
+    for (const secret of [
+      'Cliente Privado',
+      '573001112233',
+      'Dirección privada',
+      'Nota privada',
+      'unitCost',
+      '6000',
+      'customerId',
+      'paymentMethodId',
+      'idempotencyKey',
+      'publicTokenHash',
+    ]) {
+      expect(raw).not.toContain(secret);
+    }
+    expect(res.body).not.toHaveProperty('id');
   });
 });

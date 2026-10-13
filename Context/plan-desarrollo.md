@@ -337,6 +337,15 @@ La lógica más delicada del sistema: debe tener pruebas exhaustivas antes de co
 
 **Terminado cuando:** el cliente ve el avance de su pedido con el enlace privado, y un enlace inválido no revela información.
 
+**Estado:** terminado el 2026-10-13, salvo los avisos de cancelación, que llegan con el módulo 11.
+
+- Pruebas: `test/order-tracking.e2e-spec.ts` (integración) y `e2e/tracking.spec.ts` (Playwright, celular y escritorio).
+- Información mostrada según `decisiones.md` (2026-10-13). No expone datos del cliente ni internos.
+- Cualquier enlace inválido (formato incorrecto o inexistente) responde el mismo 404 genérico.
+- La página no se indexa en buscadores (`noindex, nofollow`) y el enlace de rastreo se abre sin enviar la dirección de la página (`rel="noreferrer"`).
+- Un pedido cancelado muestra el aviso con la fecha, sin los pasos de avance.
+- La vista no existe en el prototipo; usa el mismo lenguaje visual de la tienda.
+
 ---
 
 ## 11. Cancelaciones automáticas y avisos
