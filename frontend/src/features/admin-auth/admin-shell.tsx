@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowLeft, ChevronRight, LogOut, Menu, X } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
@@ -52,13 +53,15 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
           mobileOpen ? 'max-[850px]:translate-x-0' : 'max-[850px]:-translate-x-full',
         )}
       >
-        <div className="flex items-center justify-between border-b border-[#eee9ec] px-6 pb-7.5 pt-7.75">
-          <strong className="block font-serif text-[25px] font-semibold">
-            Sky Beauty
-            <small className="mt-0.5 block font-sans text-[10px] font-medium uppercase tracking-[.11em] text-[#997399]">
-              Gestión
-            </small>
-          </strong>
+        <div className="flex h-24 shrink-0 items-center justify-between border-b border-[#eee9ec] px-6">
+          <Image
+            src="/brand/vertical_logo.svg"
+            alt="Sky Beauty by Cielo Oviedo"
+            width={146}
+            height={72}
+            priority
+            className="block h-18 w-auto"
+          />
           <Button
             variant="ghost"
             size="icon"
@@ -111,7 +114,7 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
       </aside>
 
       <main className="min-w-0">
-        <header className="flex h-19 items-center justify-between gap-3.75 border-b border-[#eae6ea] bg-white px-10.5 max-[850px]:px-6.75 max-[600px]:h-15 max-[600px]:px-4.5">
+        <header className="flex h-24 items-center justify-between gap-3.75 border-b border-[#eae6ea] bg-white px-10.5 max-[850px]:h-19 max-[850px]:px-6.75 max-[600px]:h-15 max-[600px]:px-4.5">
           <Button
             variant="ghost"
             size="icon"

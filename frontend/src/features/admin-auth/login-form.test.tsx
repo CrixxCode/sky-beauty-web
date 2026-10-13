@@ -58,4 +58,16 @@ describe('LoginForm', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Correo o contraseña incorrectos.');
     expect(replace).not.toHaveBeenCalled();
   });
+
+  it('el botón de ojo alterna la visibilidad de la contraseña', async () => {
+    render(<LoginForm />);
+    const input = screen.getByLabelText('Contraseña');
+    expect(input).toHaveAttribute('type', 'password');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mostrar contraseña' }));
+    expect(input).toHaveAttribute('type', 'text');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ocultar contraseña' }));
+    expect(input).toHaveAttribute('type', 'password');
+  });
 });

@@ -1,5 +1,6 @@
 import { ArrowLeft, ShieldAlert } from 'lucide-react';
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { Eyebrow, serifClass, TextAction } from '@/components/ui/typography';
 import { LoginForm } from '@/features/admin-auth/login-form';
@@ -23,8 +24,16 @@ export default async function AdminLoginPage() {
             'mb-4.5 mt-2 text-[41px] leading-normal max-[600px]:text-[35px]',
           )}
         >
-          Panel de gestión Sky Beauty
+          Panel de gestión
         </h1>
+        <Image
+          src="/brand/vertical_logo.svg"
+          alt="Sky Beauty by Cielo Oviedo"
+          width={180}
+          height={88}
+          priority
+          className="mb-6.25 block h-auto w-45"
+        />
         <p className="mb-6.25 text-[11px] leading-loose text-[#82747e]">
           Ingresa con tu cuenta del panel.
         </p>

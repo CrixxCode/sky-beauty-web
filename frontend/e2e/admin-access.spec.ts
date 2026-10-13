@@ -5,7 +5,7 @@ import { login, logout, openNav } from './helpers';
 test('el panel exige iniciar sesión', async ({ page }) => {
   await page.goto('/admin');
   await expect(page).toHaveURL(/\/admin\/login$/);
-  await expect(page.getByRole('heading', { name: 'Panel de gestión Sky Beauty' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Panel de gestión' })).toBeVisible();
 });
 
 test('muestra un error con credenciales incorrectas', async ({ page }) => {

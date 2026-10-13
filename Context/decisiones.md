@@ -382,7 +382,7 @@ No se usan S3 ni otros almacenamientos en la nube, CDN, servicios de correo o SM
 **Decisión:** se incorporan los archivos oficiales de marca, ubicados en `frontend/public/brand/`:
 
 - `horizontal_logo.svg`: logotipo horizontal. Reemplaza el espacio reservado del encabezado de la tienda.
-- `vertical_logo.svg`: logotipo vertical. Todavía no se usa en ninguna vista.
+- `vertical_logo.svg`: logotipo vertical. Se usa en el menú lateral del panel administrativo y en la pantalla de inicio de sesión del panel.
 - `favicon.svg`: ícono del sitio.
 
 **Pendiente:** el logotipo monocromo y las fotografías autorizadas.
