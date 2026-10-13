@@ -39,11 +39,19 @@ export type PublicStoreInfo = Pick<
 /** Páginas de texto de la tienda (módulo 12). */
 export type StorePageSlug = 'terminos' | 'datos-personales' | 'cambios-y-garantias' | 'envios';
 
-export const STORE_PAGE_LINKS: Array<{ slug: StorePageSlug; label: string }> = [
-  { slug: 'terminos', label: 'Términos y condiciones' },
-  { slug: 'datos-personales', label: 'Datos personales' },
-  { slug: 'cambios-y-garantias', label: 'Cambios y garantías' },
-  { slug: 'envios', label: 'Envíos' },
+export const STORE_PAGE_LINKS: Array<{ slug: StorePageSlug; label: string; title: string }> = [
+  { slug: 'terminos', label: 'Términos y condiciones', title: 'Términos y condiciones' },
+  {
+    slug: 'datos-personales',
+    label: 'Datos personales',
+    title: 'Tratamiento de datos personales',
+  },
+  {
+    slug: 'cambios-y-garantias',
+    label: 'Cambios y garantías',
+    title: 'Cambios, devoluciones y garantías',
+  },
+  { slug: 'envios', label: 'Envíos', title: 'Política de envíos' },
 ];
 
 /** Contenido editable de la tienda (GET /admin/content). */

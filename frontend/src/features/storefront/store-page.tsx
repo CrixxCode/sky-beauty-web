@@ -1,10 +1,9 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import { Container } from '@/components/layout/container';
 import { RichText } from '@/components/content/rich-text';
 import { StorePageHeading } from '@/features/storefront/catalog-ui';
 import { fetchPublicApi } from '@/lib/api.server';
-import type { StorePageSlug } from '@/types/store';
+import { STORE_PAGE_LINKS, type StorePageSlug } from '@/types/store';
 
 interface StorePage {
   slug: StorePageSlug;
@@ -13,26 +12,36 @@ interface StorePage {
 }
 
 const fetchPage = (slug: StorePageSlug) => fetchPublicApi<StorePage>(`/store/content/${slug}`);
+const titleOf = (slug: StorePageSlug) =>
+  STORE_PAGE_LINKS.find((page) => page.slug === slug)?.title ?? '';
 
-/** Metadatos de una página de texto; sin texto publicado no se indexa. */
+/** Metadatos de una página de texto; mientras no tenga texto publicado no se indexa. */
 export async function storePageMetadata(slug: StorePageSlug): Promise<Metadata> {
   const page = await fetchPage(slug);
-  return page ? { title: page.title } : { robots: { index: false } };
+  return page
+    ? { title: page.title }
+    : { title: titleOf(slug), robots: { index: false, follow: false } };
 }
 
 /**
  * Página de texto de la tienda (términos, datos personales, cambios y garantías, envíos). El texto
- * lo escribe la propietaria en el panel; mientras no haya texto aprobado, la página no existe.
+ * lo escribe la propietaria en el panel. Mientras no haya texto aprobado, la página solo avisa que
+ * la información estará disponible pronto (los borradores no se publican).
  */
 export async function StoreTextPage({ slug }: { slug: StorePageSlug }) {
   const page = await fetchPage(slug);
-  if (!page) notFound();
 
   return (
     <Container className="min-h-[60vh] py-11.25">
-      <StorePageHeading eyebrow="Información" title={page.title} />
+      <StorePageHeading eyebrow="Información" title={page?.title ?? titleOf(slug)} />
       <article className="max-w-190">
-        <RichText source={page.text} />
+        {page ? (
+          <RichText source={page.text} />
+        ) : (
+          <p className="text-xs leading-[2] text-[#6a5e66]">
+            Esta información estará disponible pronto.
+          </p>
+        )}
       </article>
     </Container>
   );

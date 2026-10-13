@@ -43,14 +43,12 @@ export function StoreFooter({ info }: { info: PublicStoreInfo | null }) {
           <Link href="/contacto" className={linkClass}>
             Contacto
           </Link>
-          {/* Solo las páginas con texto publicado (aprobado) en el panel. */}
-          {STORE_PAGE_LINKS.filter((page) => info?.publishedPages.includes(page.slug)).map(
-            (page) => (
-              <Link key={page.slug} href={`/${page.slug}`} className={linkClass}>
-                {page.label}
-              </Link>
-            ),
-          )}
+          {/* Las páginas sin texto publicado avisan que la información estará disponible pronto. */}
+          {STORE_PAGE_LINKS.map((page) => (
+            <Link key={page.slug} href={`/${page.slug}`} className={linkClass}>
+              {page.label}
+            </Link>
+          ))}
         </div>
         {contactLines.length > 0 && (
           <div>

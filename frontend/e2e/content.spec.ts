@@ -13,7 +13,7 @@ const EMPTY_CONTENT = {
   shippingPolicyText: null,
 };
 
-test('la propietaria publica el contenido y la tienda lo muestra; sin texto no hay página', async ({
+test('la propietaria publica el contenido y la tienda lo muestra; sin texto, aviso de disponible pronto', async ({
   page,
 }, testInfo) => {
   const suffix = testInfo.project.name === 'movil' ? 'Movil' : 'Escritorio';
@@ -73,9 +73,9 @@ test('la propietaria publica el contenido y la tienda lo muestra; sin texto no h
     `Descripción ficticia ${suffix}`,
   );
 
-  // La página publicada aparece en el pie; las vacías no.
+  // El pie enlaza las cuatro páginas; la publicada muestra su texto.
   const footer = page.getByRole('contentinfo');
-  await expect(footer.getByRole('link', { name: 'Datos personales' })).toHaveCount(0);
+  await expect(footer.getByRole('link', { name: 'Datos personales' })).toBeVisible();
   await footer.getByRole('link', { name: 'Términos y condiciones' }).click();
   await expect(page).toHaveURL(/\/terminos$/);
   await expect(
@@ -85,8 +85,14 @@ test('la propietaria publica el contenido y la tienda lo muestra; sin texto no h
   await expect(page.getByText('negrita')).toHaveJSProperty('tagName', 'STRONG');
   await expect(page.getByRole('listitem')).toHaveCount(2);
 
+  // Sin texto: aviso de que estará disponible pronto, y no se indexa.
   const missing = await page.goto('/datos-personales');
-  expect(missing?.status()).toBe(404);
+  expect(missing?.status()).toBe(200);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Tratamiento de datos personales' }),
+  ).toBeVisible();
+  await expect(page.getByText('Esta información estará disponible pronto.')).toBeVisible();
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
 
   // Contacto, robots y mapa del sitio.
   await page.goto('/contacto');
