@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayNotEmpty,
   IsArray,
@@ -42,7 +42,7 @@ export class ListPromotionsQueryDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(({ value }) => value === true || value === 'true')
   isActive?: boolean;
 
   @ApiPropertyOptional({ description: 'Busqueda por nombre.' })

@@ -10,14 +10,14 @@ import { AddToCartControls } from '@/features/cart/add-to-cart-controls';
 import { formatCOP } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { PublicBrand, PublicCategory, PublicProduct, PublicVariant } from '@/types/catalog';
-import { isSoldOut, ProductPhoto, productPrice, productRegularPrice } from './catalog-ui';
+import { discountPercent, isSoldOut, ProductPhoto } from './catalog-ui';
 
 function variantPrice(product: PublicProduct, variant: PublicVariant | null): number {
-  return variant?.finalPrice ?? variant?.price ?? product.basePrice;
+  return variant?.finalPrice ?? product.finalPriceFrom;
 }
 
 function variantRegularPrice(product: PublicProduct, variant: PublicVariant | null): number {
-  return variant?.regularPrice ?? variant?.price ?? product.basePrice;
+  return variant?.regularPrice ?? product.regularPriceFrom;
 }
 
 export function ProductDetail({
@@ -39,6 +39,9 @@ export function ProductDetail({
   const [activeIndex, setActiveIndex] = useState(0);
   const activeImage = gallery[activeIndex] ?? gallery[0];
   const soldOut = isSoldOut(product);
+  const finalPrice = variantPrice(product, selectedVariant);
+  const regularPrice = variantRegularPrice(product, selectedVariant);
+  const percent = discountPercent(regularPrice, finalPrice);
   const selectedSoldOut = !selectedVariant || selectedVariant.stock <= 0;
 
   return (
@@ -64,10 +67,19 @@ export function ProductDetail({
               src={activeImage?.url ?? activeImage?.thumbnailUrl ?? null}
               alt={activeImage?.alt || product.name}
             />
-            {soldOut && (
-              <span className="absolute left-4.75 top-4.75 bg-white px-3.25 py-2.25 text-[11px] text-[#98566f]">
-                Agotado
-              </span>
+            {(percent > 0 || soldOut) && (
+              <div className="absolute left-4.75 top-4.75 flex flex-col gap-1.5">
+                {percent > 0 && (
+                  <span className="bg-white px-3.25 py-2.25 text-[11px] text-[#98566f]">
+                    −{percent}%
+                  </span>
+                )}
+                {soldOut && (
+                  <span className="bg-white px-3.25 py-2.25 text-[11px] text-[#98566f]">
+                    Agotado
+                  </span>
+                )}
+              </div>
             )}
           </div>
           {gallery.length > 1 && (
@@ -102,28 +114,17 @@ export function ProductDetail({
           </h1>
           <div className="flex items-center gap-2">
             {product.isFeatured && <Badge>Destacado</Badge>}
-            {product.hasDiscount && <Badge variant="success">Promo</Badge>}
             {soldOut && <Badge variant="danger">Agotado</Badge>}
           </div>
           <div className="my-5 flex items-baseline gap-4 border-b border-[#ebe1e5] pb-5">
-            <div>
-              {selectedVariant?.discountAmount ? (
-                <span className="block text-[12px] text-[#9d8f97] line-through">
-                  {formatCOP(variantRegularPrice(product, selectedVariant))}
+            <strong className="text-[27px] text-[#694368]">{formatCOP(finalPrice)}</strong>
+            {percent > 0 && (
+              <>
+                <del className="text-sm text-[#b3a5a9]">{formatCOP(regularPrice)}</del>
+                <span className="text-[11px] text-[#94526c]">
+                  Ahorras {formatCOP(regularPrice - finalPrice)}
                 </span>
-              ) : product.hasDiscount ? (
-                <span className="block text-[12px] text-[#9d8f97] line-through">
-                  {formatCOP(productRegularPrice(product))}
-                </span>
-              ) : null}
-              <strong className="text-[27px] text-[#694368]">
-                {formatCOP(
-                  selectedVariant ? variantPrice(product, selectedVariant) : productPrice(product),
-                )}
-              </strong>
-            </div>
-            {selectedVariant?.promotionName && (
-              <span className="text-[11px] text-[#7b6775]">{selectedVariant.promotionName}</span>
+              </>
             )}
           </div>
           <p className="py-2.5 text-xs leading-[2.15] text-[#796b75]">{product.description}</p>

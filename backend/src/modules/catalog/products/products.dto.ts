@@ -369,8 +369,10 @@ export class PublicProductDto {
   @ApiProperty({ nullable: true, type: Date }) publishedAt!: Date | null;
   @ApiProperty({ type: () => PublicVariantDto, isArray: true }) variants!: PublicVariantDto[];
   @ApiProperty({ type: () => ImageDto, isArray: true }) images!: ImageDto[];
-  @ApiProperty() regularPriceFrom!: number;
-  @ApiProperty() finalPriceFrom!: number;
+  @ApiProperty({ description: 'Precio regular de la variante con menor precio final.' })
+  regularPriceFrom!: number;
+  @ApiProperty({ description: 'Menor precio final entre las variantes activas.' })
+  finalPriceFrom!: number;
   @ApiProperty() hasDiscount!: boolean;
 }
 

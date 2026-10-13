@@ -9,19 +9,18 @@ import { cn } from '@/lib/utils';
 import type { PublicBrand, PublicCategory, PublicProduct } from '@/types/catalog';
 
 export function productPrice(product: PublicProduct): number {
-  if (product.finalPriceFrom !== undefined) return product.finalPriceFrom;
-  const prices = product.variants
-    .filter((variant) => variant.isActive)
-    .map((variant) => variant.finalPrice ?? variant.price ?? product.basePrice);
-  return prices.length ? Math.min(...prices) : product.basePrice;
+  return product.finalPriceFrom;
 }
 
+/** Precio regular de la misma variante que da el precio "desde" (lo calcula la API). */
 export function productRegularPrice(product: PublicProduct): number {
-  if (product.regularPriceFrom !== undefined) return product.regularPriceFrom;
-  const prices = product.variants
-    .filter((variant) => variant.isActive)
-    .map((variant) => variant.regularPrice ?? variant.price ?? product.basePrice);
-  return prices.length ? Math.min(...prices) : product.basePrice;
+  return product.regularPriceFrom;
+}
+
+/** Porcentaje de descuento a mostrar, redondeado; 0 si no hay descuento. */
+export function discountPercent(regularPrice: number, finalPrice: number): number {
+  if (regularPrice <= 0 || finalPrice >= regularPrice) return 0;
+  return Math.max(1, Math.round(((regularPrice - finalPrice) / regularPrice) * 100));
 }
 
 export function isSoldOut(product: PublicProduct): boolean {
@@ -99,6 +98,7 @@ export function ProductCard({
   category?: PublicCategory;
 }) {
   const soldOut = isSoldOut(product);
+  const percent = discountPercent(productRegularPrice(product), productPrice(product));
 
   return (
     <article className="min-w-0">
@@ -109,8 +109,12 @@ export function ProductCard({
       >
         <ProductPhoto src={productCover(product)} alt={product.name} />
         <div className="absolute left-3.25 top-3.25 flex flex-col gap-1.25">
+          {percent > 0 ? (
+            <Badge variant="sale">−{percent}%</Badge>
+          ) : (
+            product.hasDiscount && <Badge variant="sale">Promoción</Badge>
+          )}
           {product.isFeatured && <Badge>Destacado</Badge>}
-          {product.hasDiscount && <Badge variant="success">Promo</Badge>}
           {soldOut && <Badge variant="danger">Agotado</Badge>}
         </div>
       </Link>
@@ -128,14 +132,14 @@ export function ProductCard({
         </Link>
         <div className="mt-2.5 flex items-center justify-between gap-2">
           <div className="min-w-0">
-            {product.hasDiscount && (
-              <span className="block text-[10px] text-[#9d8f97] line-through">
-                {formatCOP(productRegularPrice(product))}
-              </span>
-            )}
             <strong className="text-xs font-semibold max-[600px]:text-[11px]">
               {formatCOP(productPrice(product))}
             </strong>
+            {percent > 0 && (
+              <del className="mt-0.75 block text-[10px] text-[#a7999d]">
+                {formatCOP(productRegularPrice(product))}
+              </del>
+            )}
           </div>
           <Link
             href={`/producto/${product.slug}`}

@@ -12,6 +12,8 @@ const badgeVariants = cva(
         danger: 'bg-out-bg text-out',
         neutral: 'bg-[#f0e0f0] text-[#7d507a]',
         warning: 'bg-amber-100 text-amber-800',
+        // .sale-badge del prototipo
+        sale: 'bg-[#fff9f8] text-[#94526c]',
       },
     },
     defaultVariants: { variant: 'default' },

@@ -203,6 +203,16 @@ La lógica más delicada del sistema: debe tener pruebas exhaustivas antes de co
 
 **Terminado cuando:** las pruebas cubren todos los casos de prioridad y de cálculo a una fecha, y la tienda muestra los precios con descuento correctamente.
 
+**Estado:** terminado el 2026-10-13.
+
+- Motor: `src/modules/promotions/pricing.service.ts`. La elección de la promoción es una función pura (`priceWithPromotions`) con pruebas unitarias de prioridad, empates, alcance, vigencia y límites del precio. Carga las promociones una sola vez por cálculo.
+- Pruebas: `pricing.service.spec.ts` (unitarias), `test/promotions.e2e-spec.ts` (integración: gestión, permisos, límite de descuento, versiones, cálculo a una fecha y precios en la tienda) y `e2e/promotions.spec.ts` (Playwright, celular y escritorio).
+- Si dos promociones empatan y se crearon en el mismo instante, decide su id para que el resultado sea estable.
+- El precio "desde" de un producto y su precio regular tachado salen de la misma variante (la de menor precio final).
+- La tienda muestra la etiqueta "−X%", el precio regular tachado y el ahorro, como el prototipo. No muestra el nombre de la promoción.
+- Las ediciones simultáneas de una promoción se rechazan con un aviso en lugar de pisarse.
+- Pendiente: qué pasa con las promociones existentes si la propietaria baja después el límite de descuento porcentual. Hoy el límite solo se valida al crear o editar.
+
 ---
 
 ## 6. Carrito y checkout

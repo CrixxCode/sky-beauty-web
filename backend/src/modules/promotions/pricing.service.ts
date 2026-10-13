@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { DiscountType, Prisma, PromotionScope } from '../../generated/prisma/client';
+import { DiscountType, PromotionScope } from '../../generated/prisma/client';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 
 export interface AppliedPromotionPrice {
@@ -17,12 +17,13 @@ export interface PriceCalculation {
   appliedPromotion: AppliedPromotionPrice | null;
 }
 
-type PromotionSnapshot = {
+/** Condiciones de una promoción en una fecha dada (su versión vigente en esa fecha). */
+export interface PromotionSnapshot {
   promotionId: string;
   createdAt: Date;
   name: string;
   discountType: DiscountType;
-  discountValue: Prisma.Decimal;
+  discountValue: number;
   scope: PromotionScope;
   startsAt: Date;
   endsAt: Date;
@@ -30,161 +31,185 @@ type PromotionSnapshot = {
   variantIds: string[];
   productIds: string[];
   categoryIds: string[];
-};
-
-function decimalToNumber(value: Prisma.Decimal | number): number {
-  return typeof value === 'number' ? value : value.toNumber();
 }
 
-function calculateDiscount(
-  regularPrice: number,
-  type: DiscountType,
-  value: Prisma.Decimal,
-): number {
-  const numericValue = value.toNumber();
-  const discount =
-    type === DiscountType.PERCENTAGE ? regularPrice * (numericValue / 100) : numericValue;
+/** Lo que se necesita saber de una variante para elegir su promoción. */
+export interface VariantPricingContext {
+  variantId: string;
+  productId: string;
+  categoryId: string;
+  /** Categoría principal cuando el producto está en una subcategoría. */
+  parentCategoryId: string | null;
+  regularPrice: number;
+}
+
+/** Descuento por unidad en COP, redondeado al peso y nunca mayor que el precio. */
+export function calculateDiscount(regularPrice: number, type: DiscountType, value: number): number {
+  const discount = type === DiscountType.PERCENTAGE ? regularPrice * (value / 100) : value;
   return Math.min(regularPrice, Math.max(0, Math.round(discount)));
 }
 
+function appliesTo(promotion: PromotionSnapshot, variant: VariantPricingContext): boolean {
+  switch (promotion.scope) {
+    case PromotionScope.VARIANT:
+      return promotion.variantIds.includes(variant.variantId);
+    case PromotionScope.PRODUCT:
+      return promotion.productIds.includes(variant.productId);
+    case PromotionScope.CATEGORY:
+      // Una promoción de categoría aplica también a los productos de sus subcategorías.
+      return promotion.categoryIds.some(
+        (id) => id === variant.categoryId || id === variant.parentCategoryId,
+      );
+  }
+}
+
+/**
+ * Elige la promoción de una variante en la fecha `at` (decisión del 2026-10-09):
+ * no se acumulan; gana la que da mayor descuento sin importar el alcance; si hay empate,
+ * gana la creada primero.
+ */
+export function priceWithPromotions(
+  variant: VariantPricingContext,
+  promotions: PromotionSnapshot[],
+  at: Date,
+): PriceCalculation {
+  const { regularPrice } = variant;
+  let winner: { promotion: PromotionSnapshot; discountAmount: number } | null = null;
+
+  for (const promotion of promotions) {
+    if (!promotion.isActive) continue;
+    if (promotion.startsAt > at || promotion.endsAt < at) continue;
+    if (!appliesTo(promotion, variant)) continue;
+
+    const discountAmount = calculateDiscount(
+      regularPrice,
+      promotion.discountType,
+      promotion.discountValue,
+    );
+    if (discountAmount <= 0) continue;
+
+    const better =
+      !winner ||
+      discountAmount > winner.discountAmount ||
+      (discountAmount === winner.discountAmount && isCreatedBefore(promotion, winner.promotion));
+    if (better) winner = { promotion, discountAmount };
+  }
+
+  if (!winner) {
+    return { regularPrice, discountAmount: 0, finalPrice: regularPrice, appliedPromotion: null };
+  }
+
+  return {
+    regularPrice,
+    discountAmount: winner.discountAmount,
+    finalPrice: regularPrice - winner.discountAmount,
+    appliedPromotion: {
+      promotionId: winner.promotion.promotionId,
+      promotionName: winner.promotion.name,
+      scope: winner.promotion.scope,
+      discountType: winner.promotion.discountType,
+      discountValue: winner.promotion.discountValue,
+    },
+  };
+}
+
+/** "Creada primero"; si coinciden al milisegundo, el id decide para que el resultado sea estable. */
+function isCreatedBefore(a: PromotionSnapshot, b: PromotionSnapshot): boolean {
+  const diff = a.createdAt.getTime() - b.createdAt.getTime();
+  return diff < 0 || (diff === 0 && a.promotionId < b.promotionId);
+}
+
+/**
+ * Motor de precios: único punto donde se calcula el precio de una variante, usado por el
+ * catálogo, el carrito, el checkout y la edición de pedidos. Calcula "a una fecha" con el
+ * historial de precios (VariantPriceHistory) y las versiones de las promociones (PromotionRevision).
+ */
 @Injectable()
 export class PricingService {
   constructor(private readonly prisma: PrismaService) {}
 
   async priceVariantAt(variantId: string, at = new Date()): Promise<PriceCalculation> {
-    const variant = await this.prisma.productVariant.findUnique({
-      where: { id: variantId },
-      include: {
-        product: { include: { category: true } },
-      },
-    });
-    if (!variant) throw new NotFoundException(`Variante con id '${variantId}' no encontrada.`);
-
-    const regularPrice = await this.getRegularPriceAt(
-      variant.id,
-      variant.price ?? variant.product.basePrice,
-      at,
-    );
-
-    return this.calculateForSnapshot({
-      variantId: variant.id,
-      productId: variant.productId,
-      categoryId: variant.product.categoryId,
-      parentCategoryId: variant.product.category.parentId,
-      regularPrice,
-      at,
-    });
+    const price = (await this.priceVariantsAt([variantId], at)).get(variantId);
+    if (!price) throw new NotFoundException(`Variante con id '${variantId}' no encontrada.`);
+    return price;
   }
 
+  /** Precios de varias variantes en la fecha `at`. Las variantes que no existen no aparecen. */
   async priceVariantsAt(
     variantIds: string[],
     at = new Date(),
   ): Promise<Map<string, PriceCalculation>> {
-    const uniqueIds = [...new Set(variantIds)];
-    const entries = await Promise.all(
-      uniqueIds.map(async (id) => [id, await this.priceVariantAt(id, at)] as const),
-    );
-    return new Map(entries);
-  }
+    const ids = [...new Set(variantIds)];
+    if (ids.length === 0) return new Map();
 
-  private async getRegularPriceAt(
-    variantId: string,
-    fallbackPrice: Prisma.Decimal,
-    at: Date,
-  ): Promise<number> {
-    const historical = await this.prisma.variantPriceHistory.findFirst({
-      where: { variantId, validFrom: { lte: at } },
-      orderBy: { validFrom: 'desc' },
-    });
-    return decimalToNumber(historical?.price ?? fallbackPrice);
-  }
+    const [variants, history, promotions] = await Promise.all([
+      this.prisma.productVariant.findMany({
+        where: { id: { in: ids } },
+        select: {
+          id: true,
+          price: true,
+          productId: true,
+          product: {
+            select: { basePrice: true, categoryId: true, category: { select: { parentId: true } } },
+          },
+        },
+      }),
+      this.prisma.variantPriceHistory.findMany({
+        where: { variantId: { in: ids }, validFrom: { lte: at } },
+        orderBy: [{ variantId: 'asc' }, { validFrom: 'desc' }],
+        distinct: ['variantId'],
+        select: { variantId: true, price: true },
+      }),
+      this.promotionSnapshotsAt(at),
+    ]);
 
-  private async calculateForSnapshot({
-    variantId,
-    productId,
-    categoryId,
-    parentCategoryId,
-    regularPrice,
-    at,
-  }: {
-    variantId: string;
-    productId: string;
-    categoryId: string;
-    parentCategoryId: string | null;
-    regularPrice: number;
-    at: Date;
-  }): Promise<PriceCalculation> {
-    const promotions = await this.getPromotionSnapshotsAt(at);
-    const categoryIds = parentCategoryId ? [categoryId, parentCategoryId] : [categoryId];
+    const priceAt = new Map(history.map((row) => [row.variantId, row.price.toNumber()]));
 
-    const candidates = promotions
-      .filter((promotion) => {
-        if (!promotion.isActive) return false;
-        if (promotion.startsAt > at || promotion.endsAt < at) return false;
-        if (promotion.scope === PromotionScope.VARIANT) {
-          return promotion.variantIds.includes(variantId);
-        }
-        if (promotion.scope === PromotionScope.PRODUCT) {
-          return promotion.productIds.includes(productId);
-        }
-        return promotion.categoryIds.some((id) => categoryIds.includes(id));
-      })
-      .map((promotion) => ({
-        promotion,
-        discountAmount: calculateDiscount(
-          regularPrice,
-          promotion.discountType,
-          promotion.discountValue,
+    return new Map(
+      variants.map((variant) => [
+        variant.id,
+        priceWithPromotions(
+          {
+            variantId: variant.id,
+            productId: variant.productId,
+            categoryId: variant.product.categoryId,
+            parentCategoryId: variant.product.category.parentId,
+            // Sin historial a esa fecha se usa el precio efectivo actual.
+            regularPrice:
+              priceAt.get(variant.id) ?? (variant.price ?? variant.product.basePrice).toNumber(),
+          },
+          promotions,
+          at,
         ),
-      }))
-      .filter((candidate) => candidate.discountAmount > 0)
-      .sort((a, b) => {
-        if (b.discountAmount !== a.discountAmount) return b.discountAmount - a.discountAmount;
-        return a.promotion.createdAt.getTime() - b.promotion.createdAt.getTime();
-      });
-
-    const winner = candidates[0];
-    if (!winner) {
-      return { regularPrice, discountAmount: 0, finalPrice: regularPrice, appliedPromotion: null };
-    }
-
-    return {
-      regularPrice,
-      discountAmount: winner.discountAmount,
-      finalPrice: Math.max(0, regularPrice - winner.discountAmount),
-      appliedPromotion: {
-        promotionId: winner.promotion.promotionId,
-        promotionName: winner.promotion.name,
-        scope: winner.promotion.scope,
-        discountType: winner.promotion.discountType,
-        discountValue: winner.promotion.discountValue.toNumber(),
-      },
-    };
+      ]),
+    );
   }
 
-  private async getPromotionSnapshotsAt(at: Date): Promise<PromotionSnapshot[]> {
+  /** Versión vigente en `at` de cada promoción creada hasta esa fecha. */
+  private async promotionSnapshotsAt(at: Date): Promise<PromotionSnapshot[]> {
     const promotions = await this.prisma.promotion.findMany({
       where: { createdAt: { lte: at } },
-      include: {
+      select: {
+        id: true,
+        createdAt: true,
         revisions: {
           where: { validFrom: { lte: at } },
           orderBy: { validFrom: 'desc' },
           take: 1,
         },
       },
-      orderBy: { createdAt: 'asc' },
     });
 
-    return promotions
-      .map((promotion) => {
-        const revision = promotion.revisions[0];
-        if (!revision) return null;
-        return {
+    return promotions.flatMap((promotion) => {
+      const revision = promotion.revisions[0];
+      if (!revision) return [];
+      return [
+        {
           promotionId: promotion.id,
           createdAt: promotion.createdAt,
           name: revision.name,
           discountType: revision.discountType,
-          discountValue: revision.discountValue,
+          discountValue: revision.discountValue.toNumber(),
           scope: revision.scope,
           startsAt: revision.startsAt,
           endsAt: revision.endsAt,
@@ -192,8 +217,8 @@ export class PricingService {
           variantIds: revision.variantIds,
           productIds: revision.productIds,
           categoryIds: revision.categoryIds,
-        };
-      })
-      .filter((promotion): promotion is PromotionSnapshot => promotion !== null);
+        },
+      ];
+    });
   }
 }

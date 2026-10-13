@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DiscountType, Prisma, PromotionScope } from '../../generated/prisma/client';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { StoreSettingsService } from '../store-settings/store-settings.service';
@@ -161,6 +166,17 @@ export class PromotionsService {
     await this.validatePayload(dto, targets);
 
     const promotion = await this.prisma.$transaction(async (tx) => {
+      // Bloqueo optimista: si otra edición guardó entretanto, esta se rechaza en lugar de
+      // pisarla o chocar con el número de versión.
+      const { count } = await tx.promotion.updateMany({
+        where: { id, updatedAt: existing.updatedAt },
+        data: { updatedAt: new Date() },
+      });
+      if (count !== 1) {
+        throw new ConflictException(
+          'La promoción cambió mientras la editabas. Vuelve a cargarla e inténtalo de nuevo.',
+        );
+      }
       await tx.promotionVariant.deleteMany({ where: { promotionId: id } });
       await tx.promotionProduct.deleteMany({ where: { promotionId: id } });
       await tx.promotionCategory.deleteMany({ where: { promotionId: id } });

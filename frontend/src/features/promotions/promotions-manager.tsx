@@ -6,13 +6,7 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
@@ -26,7 +20,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from '@/components/ui/input-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AdminPanel, AdminPanelTitle, AdminStatus } from '@/features/admin-auth/admin-ui';
 import { ApiError, apiFetch } from '@/lib/api';
@@ -104,8 +103,9 @@ function toPayload(form: FormState) {
 }
 
 function validateForm(form: FormState): string | null {
-  if (!form.name.trim()) return 'Escribe un nombre para la promocion.';
-  if (!form.discountValue || Number(form.discountValue) <= 0) return 'Indica un descuento mayor a cero.';
+  if (!form.name.trim()) return 'Escribe un nombre para la promoción.';
+  if (!form.discountValue || Number(form.discountValue) <= 0)
+    return 'Indica un descuento mayor a cero.';
   if (!form.startsAt || !form.endsAt) return 'Indica fecha de inicio y fecha de fin.';
   if (new Date(form.startsAt) >= new Date(form.endsAt)) {
     return 'La fecha de inicio debe ser anterior a la fecha de fin.';
@@ -136,6 +136,8 @@ function promotionToForm(promotion: Promotion): FormState {
 }
 
 export function PromotionsManager() {
+  // Hora de referencia para mostrar si cada promoción está vigente, programada o vencida.
+  const [now] = useState(() => Date.now());
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [scopeFilter, setScopeFilter] = useState('');
@@ -194,11 +196,11 @@ export function PromotionsManager() {
           });
     },
     onSuccess: async () => {
-      toast.success(editing ? 'Promocion actualizada.' : 'Promocion creada.');
+      toast.success(editing ? 'Promoción actualizada.' : 'Promoción creada.');
       closeForm();
       await queryClient.invalidateQueries({ queryKey: PROMOTIONS_KEY });
     },
-    onError: (error) => toast.error(errorMessage(error, 'No se pudo guardar la promocion.')),
+    onError: (error) => toast.error(errorMessage(error, 'No se pudo guardar la promoción.')),
   });
 
   const products = productsQuery.data?.items ?? [];
@@ -206,7 +208,9 @@ export function PromotionsManager() {
     const items: { id: string; name: string }[] = [];
     categoriesQuery.data?.forEach((category) => {
       items.push({ id: category.id, name: category.name });
-      category.children?.forEach((child) => items.push({ id: child.id, name: `${category.name} > ${child.name}` }));
+      category.children?.forEach((child) =>
+        items.push({ id: child.id, name: `${category.name} > ${child.name}` }),
+      );
     });
     return items;
   }, [categoriesQuery.data]);
@@ -247,7 +251,7 @@ export function PromotionsManager() {
           </div>
           <Button onClick={openCreate}>
             <BadgePercent size={16} />
-            Crear promocion
+            Crear promoción
           </Button>
         </div>
 
@@ -259,7 +263,7 @@ export function PromotionsManager() {
             <InputGroupInput
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar promocion..."
+              placeholder="Buscar promoción..."
               aria-label="Buscar promoción"
               className="min-w-0"
             />
@@ -273,7 +277,7 @@ export function PromotionsManager() {
             <option value="">Todos los destinos</option>
             <option value="VARIANT">Variantes</option>
             <option value="PRODUCT">Productos</option>
-            <option value="CATEGORY">Categorias</option>
+            <option value="CATEGORY">Categorías</option>
           </Select>
           <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
             <option value="">Todos los estados</option>
@@ -282,14 +286,18 @@ export function PromotionsManager() {
           </Select>
         </div>
 
-        {promotionsQuery.isPending && <p className="text-[11px] text-muted">Cargando promociones...</p>}
-        {promotionsQuery.isError && <p className="text-[11px] text-danger">No se pudieron cargar las promociones.</p>}
+        {promotionsQuery.isPending && (
+          <p className="text-[11px] text-muted">Cargando promociones...</p>
+        )}
+        {promotionsQuery.isError && (
+          <p className="text-[11px] text-danger">No se pudieron cargar las promociones.</p>
+        )}
 
         {promotions.length > 0 && (
           <Table className="min-w-[860px]">
             <TableHeader>
               <TableRow>
-                <TableHead>Promocion</TableHead>
+                <TableHead>Promoción</TableHead>
                 <TableHead>Descuento</TableHead>
                 <TableHead>Destino</TableHead>
                 <TableHead>Vigencia</TableHead>
@@ -303,7 +311,8 @@ export function PromotionsManager() {
                   <TableCell>
                     <strong className="block text-[11px] text-[#493a45]">{promotion.name}</strong>
                     <span className="text-[10px] text-[#8b7f87]">
-                      {promotion.revisionCount} {promotion.revisionCount === 1 ? 'version' : 'versiones'}
+                      {promotion.revisionCount}{' '}
+                      {promotion.revisionCount === 1 ? 'versión' : 'versiones'}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -314,16 +323,20 @@ export function PromotionsManager() {
                   <TableCell>{PROMOTION_SCOPE_LABELS[promotion.scope]}</TableCell>
                   <TableCell>
                     <span className="block text-[10px]">{formatDate(promotion.startsAt)}</span>
-                    <span className="block text-[10px] text-[#8b7f87]">{formatDate(promotion.endsAt)}</span>
+                    <span className="block text-[10px] text-[#8b7f87]">
+                      {formatDate(promotion.endsAt)}
+                    </span>
                   </TableCell>
                   <TableCell>
-                    <AdminStatus tone={promotion.isActive ? 'ok' : 'out'}>
-                      {promotion.isActive ? 'Activa' : 'Inactiva'}
-                    </AdminStatus>
+                    <PromotionStatus promotion={promotion} now={now} />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="outline" onClick={() => setRevisionsFor(promotion)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setRevisionsFor(promotion)}
+                      >
                         <History size={14} />
                         Historial
                       </Button>
@@ -343,8 +356,8 @@ export function PromotionsManager() {
       <Modal
         isOpen={Boolean(editing) || form !== emptyForm}
         onClose={closeForm}
-        title={editing ? 'Editar promocion' : 'Crear promocion'}
-        description="Las promociones no se acumulan: gana la que mayor descuento entregue."
+        title={editing ? 'Editar promoción' : 'Crear promoción'}
+        description="Las promociones no se acumulan: gana la que da mayor descuento y, si empatan, la creada primero."
         maxWidth="4xl"
       >
         <form
@@ -357,23 +370,27 @@ export function PromotionsManager() {
           <Card>
             <CardHeader>
               <CardTitle>Condiciones</CardTitle>
-              <CardDescription>Nombre, descuento y vigencia de la promocion.</CardDescription>
+              <CardDescription>Nombre, descuento y vigencia de la promoción.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3.5">
               <FormField id="promotion-name" label="Nombre">
                 <Input
                   id="promotion-name"
                   value={form.name}
-                  onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, name: event.target.value }))
+                  }
                   placeholder="Ej: Lanzamiento temporada"
                 />
               </FormField>
-              <FormField id="promotion-description" label="Descripcion">
+              <FormField id="promotion-description" label="Descripción">
                 <Textarea
                   id="promotion-description"
                   rows={3}
                   value={form.description}
-                  onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, description: event.target.value }))
+                  }
                   placeholder="Nota interna opcional"
                 />
               </FormField>
@@ -383,7 +400,10 @@ export function PromotionsManager() {
                     id="promotion-type"
                     value={form.discountType}
                     onChange={(event) =>
-                      setForm((current) => ({ ...current, discountType: event.target.value as DiscountType }))
+                      setForm((current) => ({
+                        ...current,
+                        discountType: event.target.value as DiscountType,
+                      }))
                     }
                   >
                     <option value="PERCENTAGE">Porcentaje</option>
@@ -397,7 +417,9 @@ export function PromotionsManager() {
                     min="0.01"
                     step="0.01"
                     value={form.discountValue}
-                    onChange={(event) => setForm((current) => ({ ...current, discountValue: event.target.value }))}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, discountValue: event.target.value }))
+                    }
                     placeholder={form.discountType === 'PERCENTAGE' ? 'Ej: 15' : 'Ej: 12000'}
                   />
                 </FormField>
@@ -408,7 +430,9 @@ export function PromotionsManager() {
                     id="promotion-start"
                     type="datetime-local"
                     value={form.startsAt}
-                    onChange={(event) => setForm((current) => ({ ...current, startsAt: event.target.value }))}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, startsAt: event.target.value }))
+                    }
                   />
                 </FormField>
                 <FormField id="promotion-end" label="Fin">
@@ -416,7 +440,9 @@ export function PromotionsManager() {
                     id="promotion-end"
                     type="datetime-local"
                     value={form.endsAt}
-                    onChange={(event) => setForm((current) => ({ ...current, endsAt: event.target.value }))}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, endsAt: event.target.value }))
+                    }
                   />
                 </FormField>
               </div>
@@ -427,7 +453,7 @@ export function PromotionsManager() {
                     setForm((current) => ({ ...current, isActive: checked === true }))
                   }
                 />
-                Promocion activa
+                Promoción activa
               </label>
             </CardContent>
           </Card>
@@ -435,7 +461,9 @@ export function PromotionsManager() {
           <Card>
             <CardHeader>
               <CardTitle>Destino</CardTitle>
-              <CardDescription>Elige si aplica a variantes, productos o categorias.</CardDescription>
+              <CardDescription>
+                Elige si aplica a variantes, productos o categorías.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3.5">
               <FormField id="promotion-scope" label="Aplicar a">
@@ -453,7 +481,7 @@ export function PromotionsManager() {
                 >
                   <option value="PRODUCT">Productos</option>
                   <option value="VARIANT">Variantes</option>
-                  <option value="CATEGORY">Categorias</option>
+                  <option value="CATEGORY">Categorías</option>
                 </Select>
               </FormField>
 
@@ -463,7 +491,11 @@ export function PromotionsManager() {
                     id="promotion-product"
                     value={form.productId}
                     onChange={(event) =>
-                      setForm((current) => ({ ...current, productId: event.target.value, selectedIds: [] }))
+                      setForm((current) => ({
+                        ...current,
+                        productId: event.target.value,
+                        selectedIds: [],
+                      }))
                     }
                   >
                     <option value="">Selecciona un producto</option>
@@ -511,11 +543,13 @@ export function PromotionsManager() {
         description={revisionsFor?.name}
         maxWidth="3xl"
       >
-        {revisionsQuery.isPending && <p className="text-[11px] text-muted">Cargando historial...</p>}
+        {revisionsQuery.isPending && (
+          <p className="text-[11px] text-muted">Cargando historial...</p>
+        )}
         {(revisionsQuery.data ?? []).map((revision) => (
           <div key={revision.id} className="mb-3 border border-[#eee5eb] p-3.5 text-[11px]">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <strong>Version {revision.revision}</strong>
+              <strong>Versión {revision.revision}</strong>
               <span className="text-[#8b7f87]">{formatDate(revision.validFrom)}</span>
             </div>
             <p className="mt-1.5 text-[#6d5f67]">
@@ -552,12 +586,17 @@ function TargetList({
       ? products.map((product) => ({ id: product.id, label: product.name }))
       : scope === 'CATEGORY'
         ? categories.map((category) => ({ id: category.id, label: category.name }))
-        : variants.map((variant) => ({ id: variant.id, label: `${variant.name} - ${variant.sku}` }));
+        : variants.map((variant) => ({
+            id: variant.id,
+            label: `${variant.name} - ${variant.sku}`,
+          }));
 
   if (items.length === 0) {
     return (
       <p className="px-3.5 py-6 text-center text-[11px] text-[#8b7f87]">
-        {scope === 'VARIANT' ? 'Selecciona un producto para ver sus variantes.' : 'No hay destinos disponibles.'}
+        {scope === 'VARIANT'
+          ? 'Selecciona un producto para ver sus variantes.'
+          : 'No hay destinos disponibles.'}
       </p>
     );
   }
@@ -578,4 +617,16 @@ function TargetList({
       ))}
     </div>
   );
+}
+
+/** Estado según la activación y las fechas: una promoción activa puede estar programada o vencida. */
+function PromotionStatus({ promotion, now }: { promotion: Promotion; now: number }) {
+  if (!promotion.isActive) return <AdminStatus tone="out">Inactiva</AdminStatus>;
+  if (new Date(promotion.startsAt).getTime() > now) {
+    return <AdminStatus tone="neutral">Programada</AdminStatus>;
+  }
+  if (new Date(promotion.endsAt).getTime() < now) {
+    return <AdminStatus tone="out">Vencida</AdminStatus>;
+  }
+  return <AdminStatus tone="ok">Vigente</AdminStatus>;
 }

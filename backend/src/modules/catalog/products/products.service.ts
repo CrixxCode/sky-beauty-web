@@ -225,12 +225,11 @@ function toProductDto(p: PrismaProduct, role: AdminRole): ProductDto {
   };
 }
 
-async function toPublicProductDto(
+function toPublicProductDto(
   p: PrismaProduct,
-  pricing: PricingService,
-): Promise<PublicProductDto> {
+  priceMap: Map<string, PriceCalculation>,
+): PublicProductDto {
   const activeVariants = p.variants.filter((v) => v.isActive);
-  const priceMap = await pricing.priceVariantsAt(activeVariants.map((variant) => variant.id));
   const pricedVariants = activeVariants.map((variant) => {
     const fallbackPrice = (variant.price ?? p.basePrice).toNumber();
     return toPublicVariantDto(
@@ -243,8 +242,12 @@ async function toPublicProductDto(
       },
     );
   });
-  const regularPrices = pricedVariants.map((variant) => variant.regularPrice);
-  const finalPrices = pricedVariants.map((variant) => variant.finalPrice);
+  // El precio "desde" y su precio regular salen de la misma variante (la de menor precio final),
+  // para no mostrar tachado un precio de otra variante.
+  const cheapest = pricedVariants.reduce<PublicVariantDto | null>(
+    (best, variant) => (!best || variant.finalPrice < best.finalPrice ? variant : best),
+    null,
+  );
   const basePrice = p.basePrice.toNumber();
 
   return {
@@ -261,8 +264,8 @@ async function toPublicProductDto(
     publishedAt: p.publishedAt,
     variants: pricedVariants,
     images: p.images.map(toImageDto),
-    regularPriceFrom: regularPrices.length ? Math.min(...regularPrices) : basePrice,
-    finalPriceFrom: finalPrices.length ? Math.min(...finalPrices) : basePrice,
+    regularPriceFrom: cheapest?.regularPrice ?? basePrice,
+    finalPriceFrom: cheapest?.finalPrice ?? basePrice,
     hasDiscount: pricedVariants.some((variant) => variant.discountAmount > 0),
   };
 }
@@ -394,10 +397,10 @@ export class ProductsService {
         normalizeSearchText(product.name).includes(needle),
       );
 
+      const page = matches.slice(skip, skip + limit);
+      const priceMap = await this.priceProducts(page);
       return {
-        items: await Promise.all(
-          matches.slice(skip, skip + limit).map((p) => toPublicProductDto(p, this.pricing)),
-        ),
+        items: page.map((p) => toPublicProductDto(p, priceMap)),
         total: matches.length,
       };
     }
@@ -413,12 +416,20 @@ export class ProductsService {
       this.prisma.product.count({ where }),
     ]);
 
+    const priceMap = await this.priceProducts(items);
     return {
-      items: await Promise.all(
-        items.map((p) => toPublicProductDto(p as PrismaProduct, this.pricing)),
-      ),
+      items: items.map((p) => toPublicProductDto(p as PrismaProduct, priceMap)),
       total,
     };
+  }
+
+  /** Precios vigentes de las variantes activas de varios productos, en una sola consulta al motor. */
+  private priceProducts(
+    products: Array<{ variants: Array<{ id: string; isActive: boolean }> }>,
+  ): Promise<Map<string, PriceCalculation>> {
+    return this.pricing.priceVariantsAt(
+      products.flatMap((p) => p.variants.filter((v) => v.isActive).map((v) => v.id)),
+    );
   }
 
   // ── Detalle público por slug ───────────────────────────────────────────────
@@ -432,7 +443,7 @@ export class ProductsService {
       },
     });
     if (!p) throw new NotFoundException(`Producto '${slug}' no encontrado.`);
-    return toPublicProductDto(p, this.pricing);
+    return toPublicProductDto(p, await this.priceProducts([p]));
   }
 
   // ── Crear producto ─────────────────────────────────────────────────────────

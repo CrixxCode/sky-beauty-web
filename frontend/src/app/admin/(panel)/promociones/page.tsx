@@ -12,7 +12,7 @@ export default async function PromocionesPage() {
     <>
       <AdminHeading
         title="Promociones"
-        description="Configura descuentos por variante, producto o categoria con historial de cambios."
+        description="Configura descuentos por variante, producto o categoría con historial de cambios."
       />
       <PromotionsManager />
     </>
