@@ -107,6 +107,32 @@ El monto mínimo se compara con el subtotal **después** de aplicar descuentos.
 
 ---
 
+## 2026-10-13 — Tarifas de envío por municipio y envío gratis nacional
+
+**Decisión:** el checkout puede calcular automáticamente el costo de envío cuando el municipio del cliente tiene una tarifa configurada en el panel. Si el municipio no tiene tarifa configurada, el envío queda como "Envío por confirmar" y la tienda lo informa por WhatsApp.
+
+La tienda está ubicada en Riohacha. Riohacha debe quedar configurada con una tarifa local de **5.000 COP** para todos los envíos dentro de ese municipio, modificable desde el panel.
+
+Además existen dos formas de envío gratis:
+
+1. **Envío gratis por monto mínimo:** regla permanente configurable desde el panel. Se compara contra el subtotal después de descuentos.
+2. **Envío gratis nacional por interruptor:** regla temporal configurable por la propietaria desde el panel, pensada para campañas como "envío gratis todo el fin de semana".
+
+Prioridad de cálculo en checkout:
+
+1. Si el envío gratis nacional está activo, el envío cuesta 0 COP para cualquier municipio.
+2. Si no está activo y el pedido alcanza el monto mínimo de envío gratis, el envío cuesta 0 COP.
+3. Si no aplica envío gratis y el municipio tiene tarifa configurada, se cobra esa tarifa.
+4. Si no aplica ninguna de las anteriores, el envío queda por confirmar.
+
+---
+
+## 2026-10-13 — Existencias iniciales una sola vez por variante
+
+**Decisión:** las existencias iniciales de una variante solo se registran antes de cualquier otro movimiento de esa variante. Después, las entradas se registran como compras y las correcciones como ajustes, con su justificación obligatoria.
+
+---
+
 ## 2026-10-13 — Disponibilidad de variantes en la tienda
 
 **Decisión:** la tienda indica si una variante está disponible o agotada, sin mostrar al cliente la cantidad de unidades en existencia.
@@ -316,7 +342,7 @@ No se usan S3 ni otros almacenamientos en la nube, CDN, servicios de correo o SM
 
 ## Cómo se reflejan estas decisiones en el código
 
-Estado al 2026-10-09. Migraciones en `backend/prisma/migrations/`:
+Estado al 2026-10-13. Migraciones en `backend/prisma/migrations/`:
 
 - `20261009215727_decisiones_negocio`
 - `20261009220515_divipola_y_cancelaciones`
@@ -326,11 +352,14 @@ Estado al 2026-10-09. Migraciones en `backend/prisma/migrations/`:
 - `20261009222634_nombres_divipola_legibles`
 - `20261009223847_catalogo_y_edicion_pedidos`
 - `20261009224247_historial_precios_y_promociones`
+- `20261013000000_tarifas_envio_municipio`
 
 ### Ya reflejado
 
 - **Envío por confirmar:** `Order.shippingCost` es `null` mientras el envío no se ha cotizado y `0` cuando es gratis. `Order.total` no incluye el envío hasta que se cotiza. Se eliminó la tarifa plana (`StoreSettings.shippingFlatRate`).
 - **Envío gratis:** `StoreSettings.freeShippingThreshold` (subtotal después de descuentos; `null` = nunca).
+- **Envío gratis nacional:** `StoreSettings.nationalFreeShipping` activa envío gratis a cualquier municipio mientras esté encendido.
+- **Tarifas de envío por municipio:** `MunicipalShippingRate` guarda tarifas configuradas por código DIVIPOLA. La migración `20261013000000_tarifas_envio_municipio` deja Riohacha (`44001`) con 5.000 COP como tarifa inicial. Si un municipio no tiene tarifa y no aplica envío gratis, `Order.shippingCost` queda `null`.
 - **Contra entrega:** `PaymentMethod.restrictToCities` + `PaymentMethodCity` (código DIVIPOLA del municipio) y `PaymentMethod.maxOrderTotal`.
 - **DIVIPOLA:** tablas `Department` (código de 2 dígitos) y `Municipality` (código de 5 dígitos). `Order.municipalityCode` guarda el municipio de entrega; `Order.department` y `Order.city` conservan los nombres del momento del pedido.
 - **Datos DIVIPOLA:** 33 departamentos y 1.122 entradas (1.103 municipios, 18 áreas no municipalizadas y 1 isla). Fuente: datos.gov.co, conjunto "DIVIPOLA- Códigos municipios" (`gdxc-w37w`) del DANE, actualizado el 2025-01-24. El DANE publica los nombres en mayúsculas; se guardan ya formateados según la decisión de formato. Para actualizarlos, se crea una nueva migración que respete ese formato.
