@@ -1,0 +1,20 @@
+import type { Metadata } from 'next';
+import { AdminHeading } from '@/features/admin-auth/admin-ui';
+import { requireAdmin } from '@/features/admin-auth/session.server';
+import { ShippingManager } from '@/features/shipping/shipping-manager';
+
+export const metadata: Metadata = { title: 'Envios' };
+
+export default async function EnviosPage() {
+  await requireAdmin();
+
+  return (
+    <>
+      <AdminHeading
+        title="Envios"
+        description="Administra transportadoras y usa el detalle del pedido para registrar guia, despacho y entrega."
+      />
+      <ShippingManager />
+    </>
+  );
+}

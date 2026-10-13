@@ -10,7 +10,10 @@ import { CatalogModule } from './modules/catalog/catalog.module';
 import { HealthModule } from './modules/health/health.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { LocationsModule } from './modules/locations/locations.module';
+import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentMethodsModule } from './modules/payment-methods/payment-methods.module';
+import { PromotionsModule } from './modules/promotions/promotions.module';
+import { ShippingModule } from './modules/shipping/shipping.module';
 import { StoreSettingsModule } from './modules/store-settings/store-settings.module';
 import { AllExceptionsFilter } from './shared/http/all-exceptions.filter';
 import { PrismaModule } from './shared/prisma/prisma.module';
@@ -49,6 +52,9 @@ import { PrismaModule } from './shared/prisma/prisma.module';
     LocationsModule,
     CatalogModule,
     InventoryModule,
+    PromotionsModule,
+    ShippingModule,
+    OrdersModule,
     HealthModule,
   ],
   providers: [

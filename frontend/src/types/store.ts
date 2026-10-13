@@ -9,6 +9,7 @@ export interface StoreSettings {
   instagramUrl: string | null;
   facebookUrl: string | null;
   tiktokUrl: string | null;
+  nationalFreeShipping: boolean;
   freeShippingThreshold: number | null;
   defaultLowStockThreshold: number | null;
   maxPercentageDiscount: number | null;
@@ -54,4 +55,12 @@ export interface PaymentMethod {
 export interface Location {
   code: string;
   name: string;
+}
+
+export interface ShippingRate {
+  id: string;
+  municipalityCode: string;
+  municipalityName: string;
+  departmentName: string;
+  amount: number;
 }

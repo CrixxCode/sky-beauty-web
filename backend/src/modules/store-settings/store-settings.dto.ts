@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
+  IsBoolean,
   IsEmail,
   IsInt,
   IsNumber,
@@ -118,6 +119,13 @@ export class UpdateStoreSettingsDto {
   @Min(0.01, { message: 'El límite debe ser mayor que 0.' })
   @Max(100, { message: 'El límite no puede superar el 100 %.' })
   maxPercentageDiscount?: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Campania temporal: envio gratis a cualquier municipio mientras este activo.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  nationalFreeShipping?: boolean;
 }
 
 export class StoreSettingsDto {
@@ -130,12 +138,33 @@ export class StoreSettingsDto {
   @ApiProperty({ nullable: true, type: String }) instagramUrl!: string | null;
   @ApiProperty({ nullable: true, type: String }) facebookUrl!: string | null;
   @ApiProperty({ nullable: true, type: String }) tiktokUrl!: string | null;
+  @ApiProperty() nationalFreeShipping!: boolean;
   @ApiProperty({ nullable: true, type: Number }) freeShippingThreshold!: number | null;
   @ApiProperty({ nullable: true, type: Number }) defaultLowStockThreshold!: number | null;
   @ApiProperty({ nullable: true, type: Number }) maxPercentageDiscount!: number | null;
 }
 
 /** Datos públicos de la tienda (sin cifras internas). */
+export class ShippingRateDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() municipalityCode!: string;
+  @ApiProperty() municipalityName!: string;
+  @ApiProperty() departmentName!: string;
+  @ApiProperty({ type: Number }) amount!: number;
+}
+
+export class UpsertShippingRateDto {
+  @ApiProperty({ example: '44001' })
+  @Matches(/^\d{5}$/, { message: 'Codigo de municipio invalido.' })
+  municipalityCode!: string;
+
+  @ApiProperty({ example: 5000 })
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Ingresa un valor en pesos.' })
+  @Min(0)
+  @Max(MAX_MONEY)
+  amount!: number;
+}
+
 export class PublicStoreInfoDto {
   @ApiProperty() storeName!: string;
   @ApiProperty({ nullable: true, type: String }) whatsappNumber!: string | null;

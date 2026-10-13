@@ -1,0 +1,837 @@
+'use client';
+
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CreditCard, Edit2, Eye, PackageCheck, Search, Truck, X } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { FormError } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { Modal } from '@/components/ui/modal';
+import { Select } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';
+import { AdminPanel, AdminPanelTitle, AdminStatus } from '@/features/admin-auth/admin-ui';
+import { ApiError, apiFetch } from '@/lib/api';
+import { formatCOP } from '@/lib/format';
+import type { AdminRole } from '@/types/admin';
+import type { PaginatedProducts, Product } from '@/types/catalog';
+import type { AdminOrder, AdminOrderItem, PaginatedAdminOrders } from '@/types/orders';
+import type { OrderStatus, PaymentStatus } from '@/types/orders-labels';
+import { ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS } from '@/types/orders-labels';
+import type { Carrier, ShippingStatus } from '@/types/shipping';
+import { SHIPPING_STATUS_LABELS } from '@/types/shipping';
+
+const ORDERS_KEY = ['admin-orders'];
+
+const errorMessage = (error: unknown, fallback: string) =>
+  error instanceof ApiError ? error.message : error instanceof Error ? error.message : fallback;
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeStyle: 'short' }).format(
+    new Date(value),
+  );
+}
+
+function toDateTimeInput(value: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function toIsoDateTime(value: string) {
+  return value ? new Date(value).toISOString() : null;
+}
+
+function statusTone(status: OrderStatus): 'ok' | 'out' | 'neutral' | 'warning' {
+  if (status === 'CANCELLED') return 'out';
+  if (status === 'PENDING_CONFIRMATION') return 'warning';
+  if (status === 'DELIVERED') return 'ok';
+  return 'neutral';
+}
+
+function paymentTone(status: PaymentStatus): 'ok' | 'out' | 'neutral' | 'warning' {
+  if (status === 'PAID') return 'ok';
+  if (status === 'REJECTED') return 'out';
+  if (status === 'AWAITING_VERIFICATION') return 'warning';
+  return 'neutral';
+}
+
+function shippingTone(status: ShippingStatus): 'ok' | 'out' | 'neutral' | 'warning' {
+  if (status === 'DELIVERED') return 'ok';
+  if (status === 'INCIDENT') return 'out';
+  if (status === 'IN_TRANSIT') return 'warning';
+  return 'neutral';
+}
+
+export function OrdersManager({
+  role,
+  initialPaymentStatus = '',
+  title = 'Bandeja de pedidos',
+}: {
+  role: AdminRole;
+  initialPaymentStatus?: PaymentStatus | '';
+  title?: string;
+}) {
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | ''>(initialPaymentStatus);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const ordersQuery = useQuery({
+    queryKey: [...ORDERS_KEY, search, status, paymentStatus],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (search.trim()) params.set('q', search.trim());
+      if (status) params.set('status', status);
+      if (paymentStatus) params.set('paymentStatus', paymentStatus);
+      const qs = params.toString();
+      return apiFetch<PaginatedAdminOrders>(`/admin/orders${qs ? `?${qs}` : ''}`);
+    },
+  });
+
+  const detailQuery = useQuery({
+    queryKey: ['admin-order', selectedId],
+    enabled: Boolean(selectedId),
+    queryFn: () => apiFetch<AdminOrder>(`/admin/orders/${selectedId}`),
+  });
+
+  const orders = ordersQuery.data?.items ?? [];
+
+  async function refreshDetail() {
+    await queryClient.invalidateQueries({ queryKey: ORDERS_KEY });
+    await queryClient.invalidateQueries({ queryKey: ['admin-order', selectedId] });
+  }
+
+  return (
+    <>
+      <AdminPanel>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <AdminPanelTitle className="mb-0">{title}</AdminPanelTitle>
+            <Badge>{ordersQuery.data?.total ?? 0} pedidos</Badge>
+          </div>
+        </div>
+
+        <div className="mb-5 grid gap-2.5 md:grid-cols-[minmax(220px,1fr)_180px_180px]">
+          <InputGroup>
+            <InputGroupAddon>
+              <Search size={15} />
+            </InputGroupAddon>
+            <InputGroupInput
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar pedido, cliente o telefono..."
+              aria-label="Buscar pedido"
+              className="min-w-0"
+            />
+            {search && (
+              <InputGroupButton onClick={() => setSearch('')} aria-label="Limpiar búsqueda">
+                <X size={14} />
+              </InputGroupButton>
+            )}
+          </InputGroup>
+          <Select value={status} onChange={(event) => setStatus(event.target.value)}>
+            <option value="">Todos los estados</option>
+            {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </Select>
+          <Select
+            value={paymentStatus}
+            onChange={(event) => setPaymentStatus(event.target.value as PaymentStatus | '')}
+          >
+            <option value="">Todos los pagos</option>
+            {Object.entries(PAYMENT_STATUS_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        {ordersQuery.isPending && <p className="text-[11px] text-muted">Cargando pedidos...</p>}
+        {ordersQuery.isError && <p className="text-[11px] text-danger">No se pudieron cargar los pedidos.</p>}
+
+        {orders.length > 0 && (
+          <Table className="min-w-[920px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Pedido</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Pago</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead className="text-right">Accion</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {orders.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell>
+                    <strong className="block text-[11px] text-[#493a45]">{order.code}</strong>
+                    <span className="text-[10px] text-[#8b7f87]">{order.itemCount} producto(s)</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="block text-[11px]">{order.customerName}</span>
+                    <span className="text-[10px] text-[#8b7f87]">{order.city}, {order.department}</span>
+                  </TableCell>
+                  <TableCell>
+                    <AdminStatus tone={statusTone(order.status)}>
+                      {ORDER_STATUS_LABELS[order.status]}
+                    </AdminStatus>
+                  </TableCell>
+                  <TableCell>
+                    <AdminStatus tone={paymentTone(order.paymentStatus)}>
+                      {PAYMENT_STATUS_LABELS[order.paymentStatus]}
+                    </AdminStatus>
+                  </TableCell>
+                  <TableCell>{formatCOP(order.total)}</TableCell>
+                  <TableCell>{formatDate(order.createdAt)}</TableCell>
+                  <TableCell className="text-right">
+                    <Button size="sm" onClick={() => setSelectedId(order.id)}>
+                      <Eye size={14} />
+                      Ver
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </AdminPanel>
+
+      <Modal
+        isOpen={Boolean(selectedId)}
+        onClose={() => setSelectedId(null)}
+        title={detailQuery.data ? `Pedido ${detailQuery.data.code}` : 'Pedido'}
+        description={detailQuery.data ? `${detailQuery.data.customerName} - ${detailQuery.data.city}` : undefined}
+        maxWidth="4xl"
+      >
+        {detailQuery.isPending && <p className="text-[11px] text-muted">Cargando detalle...</p>}
+        {detailQuery.data && (
+          <OrderDetail
+            key={`${detailQuery.data.id}-${detailQuery.data.updatedAt}`}
+            order={detailQuery.data}
+            role={role}
+            refresh={refreshDetail}
+          />
+        )}
+      </Modal>
+    </>
+  );
+}
+
+function OrderDetail({
+  order,
+  role,
+  refresh,
+}: {
+  order: AdminOrder;
+  role: AdminRole;
+  refresh: () => Promise<void>;
+}) {
+  const [shippingCost, setShippingCost] = useState(order.shippingCost?.toString() ?? '');
+  const [nextStatus, setNextStatus] = useState<OrderStatus>('PREPARING');
+  const [statusNote, setStatusNote] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentNote, setPaymentNote] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
+  const [refundAmount, setRefundAmount] = useState(order.total.toString());
+  const [refundNote, setRefundNote] = useState('');
+  const [carrierId, setCarrierId] = useState(order.shipping?.carrierId ?? '');
+  const [trackingNumber, setTrackingNumber] = useState(order.shipping?.trackingNumber ?? '');
+  const [carrierCost, setCarrierCost] = useState(order.shipping?.carrierCost?.toString() ?? '');
+  const [shippingStatus, setShippingStatus] = useState<ShippingStatus>(
+    order.shipping?.status ?? 'NOT_SHIPPED',
+  );
+  const [dispatchedAt, setDispatchedAt] = useState(toDateTimeInput(order.shipping?.dispatchedAt ?? null));
+  const [deliveredAt, setDeliveredAt] = useState(toDateTimeInput(order.shipping?.deliveredAt ?? null));
+  const [shippingNotes, setShippingNotes] = useState(order.shipping?.notes ?? '');
+  const [editOpen, setEditOpen] = useState(false);
+
+  const carriersQuery = useQuery({
+    queryKey: ['admin-carriers'],
+    queryFn: () => apiFetch<Carrier[]>('/admin/carriers'),
+  });
+
+  const action = useMutation({
+    mutationFn: async (
+      task:
+        | 'confirm'
+        | 'shipping'
+        | 'shippingRecord'
+        | 'status'
+        | 'cancel'
+        | 'paymentReceived'
+        | 'verifyPayment'
+        | 'rejectPayment'
+        | 'refundPayment',
+    ) => {
+      if (task === 'confirm') {
+        return apiFetch<AdminOrder>(`/admin/orders/${order.id}/confirm`, {
+          method: 'PATCH',
+          body: JSON.stringify({ shippingCost: Number(shippingCost) }),
+        });
+      }
+      if (task === 'shipping') {
+        return apiFetch<AdminOrder>(`/admin/orders/${order.id}/shipping-cost`, {
+          method: 'PATCH',
+          body: JSON.stringify({ shippingCost: Number(shippingCost) }),
+        });
+      }
+      if (task === 'shippingRecord') {
+        return apiFetch<AdminOrder>(`/admin/orders/${order.id}/shipping`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            carrierId: carrierId || null,
+            trackingNumber: trackingNumber || null,
+            carrierCost: carrierCost ? Number(carrierCost) : null,
+            status: shippingStatus,
+            dispatchedAt: toIsoDateTime(dispatchedAt),
+            deliveredAt: toIsoDateTime(deliveredAt),
+            notes: shippingNotes || null,
+          }),
+        });
+      }
+      if (task === 'status') {
+        return apiFetch<AdminOrder>(`/admin/orders/${order.id}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: nextStatus, note: statusNote || undefined }),
+        });
+      }
+      if (task === 'paymentReceived') {
+        return apiFetch<AdminOrder>(`/admin/orders/${order.id}/payment-received`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            reference: paymentReference || undefined,
+            note: paymentNote || undefined,
+          }),
+        });
+      }
+      if (task === 'verifyPayment') {
+        return apiFetch<AdminOrder>(`/admin/orders/${order.id}/payment/verify`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            reference: paymentReference || undefined,
+            note: paymentNote || undefined,
+          }),
+        });
+      }
+      if (task === 'rejectPayment') {
+        return apiFetch<AdminOrder>(`/admin/orders/${order.id}/payment/reject`, {
+          method: 'PATCH',
+          body: JSON.stringify({ reason: rejectReason }),
+        });
+      }
+      if (task === 'refundPayment') {
+        return apiFetch<AdminOrder>(`/admin/orders/${order.id}/payment/refund`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            amount: Number(refundAmount),
+            reference: paymentReference || undefined,
+            note: refundNote,
+          }),
+        });
+      }
+      return apiFetch<AdminOrder>(`/admin/orders/${order.id}/cancel`, {
+        method: 'PATCH',
+        body: JSON.stringify({ reason: cancelReason }),
+      });
+    },
+    onSuccess: async () => {
+      toast.success('Pedido actualizado.');
+      setStatusNote('');
+      setCancelReason('');
+      setPaymentReference('');
+      setPaymentNote('');
+      setRejectReason('');
+      setRefundNote('');
+      await refresh();
+    },
+    onError: (error) => toast.error(errorMessage(error, 'No se pudo actualizar el pedido.')),
+  });
+
+  const canEditItems = order.status === 'PENDING_CONFIRMATION';
+  const canCancel = order.status !== 'CANCELLED' && order.status !== 'SHIPPED' && order.status !== 'DELIVERED';
+  const requiresVerification = order.paymentMethodCode !== 'CASH_ON_DELIVERY';
+  const carriers = (carriersQuery.data ?? []).filter(
+    (carrier) => carrier.isActive || carrier.id === order.shipping?.carrierId,
+  );
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[1.15fr_.85fr]">
+      <div className="space-y-5">
+        <section className="border border-[#eee8ed] p-4.5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex gap-2">
+              <AdminStatus tone={statusTone(order.status)}>{ORDER_STATUS_LABELS[order.status]}</AdminStatus>
+              <AdminStatus tone={paymentTone(order.paymentStatus)}>
+                {PAYMENT_STATUS_LABELS[order.paymentStatus]}
+              </AdminStatus>
+            </div>
+            {canEditItems && (
+              <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+                <Edit2 size={14} />
+                Editar productos
+              </Button>
+            )}
+          </div>
+          <div className="space-y-2">
+            {order.items.map((item) => (
+              <OrderItemRow key={item.id} item={item} role={role} />
+            ))}
+          </div>
+        </section>
+
+        <section className="border border-[#eee8ed] p-4.5">
+          <h3 className="mb-3 text-xs font-semibold text-[#493a45]">Historial</h3>
+          <div className="space-y-2.5">
+            {order.events.map((event) => (
+              <div key={event.id} className="border-b border-[#f0ecf0] pb-2.5 text-[11px]">
+                <strong>{event.toStatus ?? event.type}</strong>
+                <span className="ml-2 text-[#8b7f87]">{formatDate(event.createdAt)}</span>
+                {event.note && <p className="mt-1 text-[#6f606a]">{event.note}</p>}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="border border-[#eee8ed] p-4.5">
+          <h3 className="mb-3 text-xs font-semibold text-[#493a45]">Pagos</h3>
+          {order.paymentRecords.length === 0 && (
+            <p className="text-[11px] text-[#8b7f87]">Todavia no hay registros de pago.</p>
+          )}
+          <div className="space-y-2.5">
+            {order.paymentRecords.map((record) => (
+              <div key={record.id} className="border-b border-[#f0ecf0] pb-2.5 text-[11px]">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <AdminStatus tone={paymentTone(record.status)}>
+                    {PAYMENT_STATUS_LABELS[record.status]}
+                  </AdminStatus>
+                  <span className="text-[#8b7f87]">{formatDate(record.createdAt)}</span>
+                </div>
+                <p className="mt-1">
+                  Monto: <strong>{formatCOP(record.amount)}</strong>
+                  {record.reference ? <span className="ml-2">Ref. {record.reference}</span> : null}
+                </p>
+                {record.note && <p className="text-[#6f606a]">{record.note}</p>}
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <div className="space-y-5">
+        <section className="border border-[#eee8ed] p-4.5 text-[11px] leading-[1.8]">
+          <h3 className="mb-3 text-xs font-semibold text-[#493a45]">Cliente y entrega</h3>
+          <p><strong>{order.customerName}</strong></p>
+          <p>{order.customerPhone}</p>
+          <p>{order.addressLine}</p>
+          <p>{order.city}, {order.department}</p>
+          {order.deliveryNotes && <p className="mt-2 text-[#7b6775]">{order.deliveryNotes}</p>}
+          <p className="mt-3">Pago: <strong>{order.paymentMethodName}</strong></p>
+        </section>
+
+        <section className="border border-[#eee8ed] p-4.5">
+          <h3 className="mb-3 text-xs font-semibold text-[#493a45]">Totales</h3>
+          <Summary label="Subtotal" value={formatCOP(order.subtotal)} />
+          <Summary label="Descuentos" value={`-${formatCOP(order.discountTotal)}`} />
+          <Summary label="Envio" value={order.shippingCost === null ? 'Por confirmar' : formatCOP(order.shippingCost)} />
+          <Summary label="Total" value={formatCOP(order.total)} strong />
+          <div className="mt-4 flex gap-2">
+            <Input
+              value={shippingCost}
+              onChange={(event) => setShippingCost(event.target.value)}
+              type="number"
+              min={0}
+              placeholder="Costo envio"
+            />
+            <Button disabled={action.isPending} onClick={() => action.mutate('shipping')}>
+              <Truck size={15} />
+              Guardar
+            </Button>
+          </div>
+        </section>
+
+        <section className="border border-[#eee8ed] p-4.5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold text-[#493a45]">Envio operativo</h3>
+            <AdminStatus tone={shippingTone(shippingStatus)}>
+              {SHIPPING_STATUS_LABELS[shippingStatus]}
+            </AdminStatus>
+          </div>
+          <div className="grid gap-2">
+            <Select value={carrierId} onChange={(event) => setCarrierId(event.target.value)}>
+              <option value="">Selecciona transportadora</option>
+              {carriers.map((carrier) => (
+                <option key={carrier.id} value={carrier.id}>
+                  {carrier.name}
+                  {!carrier.isActive ? ' (inactiva)' : ''}
+                </option>
+              ))}
+            </Select>
+            <Input
+              value={trackingNumber}
+              onChange={(event) => setTrackingNumber(event.target.value)}
+              placeholder="Numero de guia"
+            />
+            <Input
+              type="number"
+              min={0}
+              value={carrierCost}
+              onChange={(event) => setCarrierCost(event.target.value)}
+              placeholder="Costo real transportadora"
+            />
+            <Select
+              value={shippingStatus}
+              onChange={(event) => setShippingStatus(event.target.value as ShippingStatus)}
+            >
+              {Object.entries(SHIPPING_STATUS_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </Select>
+            <div className="grid gap-2 min-[501px]:grid-cols-2">
+              <Input
+                type="datetime-local"
+                value={dispatchedAt}
+                onChange={(event) => setDispatchedAt(event.target.value)}
+              />
+              <Input
+                type="datetime-local"
+                value={deliveredAt}
+                onChange={(event) => setDeliveredAt(event.target.value)}
+              />
+            </div>
+            <Textarea
+              rows={2}
+              value={shippingNotes}
+              onChange={(event) => setShippingNotes(event.target.value)}
+              placeholder="Notas internas del envio"
+            />
+            {order.shipping?.trackingUrl && (
+              <a
+                className="text-[11px] font-medium text-[#7a5178] underline-offset-4 hover:underline"
+                href={order.shipping.trackingUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Abrir enlace de seguimiento
+              </a>
+            )}
+            <Button
+              variant="outline"
+              disabled={action.isPending || carriersQuery.isPending}
+              onClick={() => action.mutate('shippingRecord')}
+            >
+              <Truck size={15} />
+              Guardar envio
+            </Button>
+          </div>
+        </section>
+
+        <section className="border border-[#eee8ed] p-4.5">
+          <h3 className="mb-3 text-xs font-semibold text-[#493a45]">Acciones</h3>
+          {order.status === 'PENDING_CONFIRMATION' && (
+            <Button className="mb-3 w-full" disabled={action.isPending} onClick={() => action.mutate('confirm')}>
+              <PackageCheck size={16} />
+              Confirmar pedido
+            </Button>
+          )}
+          <div className="grid gap-2">
+            <Select value={nextStatus} onChange={(event) => setNextStatus(event.target.value as OrderStatus)}>
+              <option value="PREPARING">Preparando</option>
+              <option value="SHIPPED">Despachado</option>
+              <option value="DELIVERED">Entregado</option>
+            </Select>
+            <Textarea
+              rows={2}
+              value={statusNote}
+              onChange={(event) => setStatusNote(event.target.value)}
+              placeholder="Nota opcional"
+            />
+            <Button variant="outline" disabled={action.isPending} onClick={() => action.mutate('status')}>
+              Cambiar estado
+            </Button>
+          </div>
+          {canCancel && (
+            <div className="mt-4 border-t border-[#f0ecf0] pt-4">
+              <Textarea
+                rows={2}
+                value={cancelReason}
+                onChange={(event) => setCancelReason(event.target.value)}
+                placeholder="Motivo de cancelacion"
+              />
+              <Button
+                className="mt-2 w-full"
+                variant="destructive"
+                disabled={action.isPending || cancelReason.trim().length < 3}
+                onClick={() => action.mutate('cancel')}
+              >
+                Cancelar y liberar stock
+              </Button>
+              {role !== 'ADMIN' && (
+                <p className="mt-2 text-[10px] text-[#8b7f87]">
+                  El personal solo puede cancelar por pago no demostrado vencido.
+                </p>
+              )}
+            </div>
+          )}
+        </section>
+
+        <section className="border border-[#eee8ed] p-4.5">
+          <h3 className="mb-3 text-xs font-semibold text-[#493a45]">Gestion de pago</h3>
+          {!requiresVerification && (
+            <p className="text-[11px] text-[#8b7f87]">
+              El contra entrega queda pagado al marcar el pedido como entregado.
+            </p>
+          )}
+          {requiresVerification && (
+            <div className="space-y-3">
+              <Input
+                value={paymentReference}
+                onChange={(event) => setPaymentReference(event.target.value)}
+                placeholder="Referencia del comprobante"
+              />
+              <Textarea
+                rows={2}
+                value={paymentNote}
+                onChange={(event) => setPaymentNote(event.target.value)}
+                placeholder="Nota del pago"
+              />
+              <Button
+                className="w-full"
+                variant="outline"
+                disabled={action.isPending || order.paymentStatus === 'PAID' || order.paymentStatus === 'REFUNDED'}
+                onClick={() => action.mutate('paymentReceived')}
+              >
+                <CreditCard size={15} />
+                Registrar comprobante recibido
+              </Button>
+              {role === 'ADMIN' && (
+                <>
+                  <div className="grid gap-2 min-[501px]:grid-cols-2">
+                    <Button
+                      disabled={action.isPending || order.paymentStatus !== 'AWAITING_VERIFICATION'}
+                      onClick={() => action.mutate('verifyPayment')}
+                    >
+                      Verificar pago
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      disabled={
+                        action.isPending ||
+                        order.paymentStatus !== 'AWAITING_VERIFICATION' ||
+                        rejectReason.trim().length < 3
+                      }
+                      onClick={() => action.mutate('rejectPayment')}
+                    >
+                      Rechazar pago
+                    </Button>
+                  </div>
+                  <Textarea
+                    rows={2}
+                    value={rejectReason}
+                    onChange={(event) => setRejectReason(event.target.value)}
+                    placeholder="Motivo si rechazas el pago"
+                  />
+                  <div className="border-t border-[#f0ecf0] pt-3">
+                    <Input
+                      type="number"
+                      min={0}
+                      value={refundAmount}
+                      onChange={(event) => setRefundAmount(event.target.value)}
+                      placeholder="Monto a devolver"
+                    />
+                    <Textarea
+                      className="mt-2"
+                      rows={2}
+                      value={refundNote}
+                      onChange={(event) => setRefundNote(event.target.value)}
+                      placeholder="Motivo o soporte de devolucion"
+                    />
+                    <Button
+                      className="mt-2 w-full"
+                      variant="outline"
+                      disabled={
+                        action.isPending ||
+                        order.paymentStatus !== 'PAID' ||
+                        Number(refundAmount) <= 0 ||
+                        refundNote.trim().length < 3
+                      }
+                      onClick={() => action.mutate('refundPayment')}
+                    >
+                      Registrar devolucion
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
+
+      <Modal
+        isOpen={editOpen}
+        onClose={() => setEditOpen(false)}
+        title="Editar productos"
+        description="Disponible solo mientras el pedido no este confirmado."
+        maxWidth="3xl"
+      >
+        <EditItemsForm order={order} onSaved={async () => { setEditOpen(false); await refresh(); }} />
+      </Modal>
+    </div>
+  );
+}
+
+function OrderItemRow({ item, role }: { item: AdminOrderItem; role: AdminRole }) {
+  return (
+    <div className="flex items-start justify-between gap-3 border-b border-[#f0ecf0] pb-3 text-[11px]">
+      <div>
+        <strong className="block text-[#493a45]">{item.productName}</strong>
+        <span className="text-[#8b7f87]">{item.variantName} - {item.sku}</span>
+        {item.promotionName && <span className="ml-2 text-[#7a5178]">{item.promotionName}</span>}
+        {role === 'ADMIN' && item.unitCost !== null && (
+          <span className="block text-[10px] text-[#9b8d95]">Costo: {formatCOP(item.unitCost)}</span>
+        )}
+      </div>
+      <div className="text-right">
+        <span className="block">x{item.quantity}</span>
+        <strong>{formatCOP(item.lineTotal)}</strong>
+      </div>
+    </div>
+  );
+}
+
+function Summary({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="my-2 flex justify-between gap-3 text-[11px]">
+      <span className="text-[#756a72]">{label}</span>
+      <span className={strong ? 'font-semibold text-[#493a45]' : 'text-[#493a45]'}>{value}</span>
+    </div>
+  );
+}
+
+function EditItemsForm({ order, onSaved }: { order: AdminOrder; onSaved: () => Promise<void> }) {
+  const [lines, setLines] = useState(
+    order.items.filter((item) => item.variantId).map((item) => ({
+      variantId: item.variantId as string,
+      label: `${item.productName} - ${item.variantName}`,
+      quantity: item.quantity,
+    })),
+  );
+  const [productId, setProductId] = useState('');
+  const [variantId, setVariantId] = useState('');
+  const [formError, setFormError] = useState('');
+
+  const productsQuery = useQuery({
+    queryKey: ['admin-products', 'orders-edit'],
+    queryFn: () => apiFetch<PaginatedProducts>('/admin/products?status=ACTIVE&limit=100'),
+  });
+  const productQuery = useQuery({
+    queryKey: ['admin-products', productId, 'orders-edit'],
+    enabled: Boolean(productId),
+    queryFn: () => apiFetch<Product>(`/admin/products/${productId}`),
+  });
+
+  const save = useMutation({
+    mutationFn: () => {
+      if (lines.length === 0) throw new Error('El pedido debe tener al menos un producto.');
+      return apiFetch<AdminOrder>(`/admin/orders/${order.id}/items`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          items: lines.map((line) => ({ variantId: line.variantId, quantity: line.quantity })),
+        }),
+      });
+    },
+    onSuccess: async () => {
+      toast.success('Productos actualizados.');
+      await onSaved();
+    },
+    onError: (error) => setFormError(errorMessage(error, 'No se pudieron actualizar los productos.')),
+  });
+
+  const variants = productQuery.data?.variants ?? [];
+  const selectedVariant = variants.find((variant) => variant.id === variantId);
+
+  function addVariant() {
+    if (!selectedVariant) return;
+    setLines((current) => {
+      if (current.some((line) => line.variantId === selectedVariant.id)) return current;
+      return [...current, { variantId: selectedVariant.id, label: `${productQuery.data?.name} - ${selectedVariant.name}`, quantity: 1 }];
+    });
+    setVariantId('');
+  }
+
+  return (
+    <div className="space-y-4">
+      {formError && <FormError>{formError}</FormError>}
+      <div className="space-y-2">
+        {lines.map((line) => (
+          <div key={line.variantId} className="grid grid-cols-[1fr_90px_auto] items-center gap-2">
+            <span className="text-[11px]">{line.label}</span>
+            <Input
+              type="number"
+              min={1}
+              value={line.quantity}
+              onChange={(event) =>
+                setLines((current) =>
+                  current.map((item) =>
+                    item.variantId === line.variantId ? { ...item, quantity: Number(event.target.value) } : item,
+                  ),
+                )
+              }
+            />
+            <Button
+              variant="outline"
+              onClick={() => setLines((current) => current.filter((item) => item.variantId !== line.variantId))}
+            >
+              Quitar
+            </Button>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-2 border-t border-[#f0ecf0] pt-4 md:grid-cols-[1fr_1fr_auto]">
+        <Select value={productId} onChange={(event) => { setProductId(event.target.value); setVariantId(''); }}>
+          <option value="">Selecciona producto</option>
+          {(productsQuery.data?.items ?? []).map((product) => (
+            <option key={product.id} value={product.id}>{product.name}</option>
+          ))}
+        </Select>
+        <Select value={variantId} onChange={(event) => setVariantId(event.target.value)} disabled={!productId}>
+          <option value="">Selecciona variante</option>
+          {variants.map((variant) => (
+            <option key={variant.id} value={variant.id}>{variant.name} - {variant.sku}</option>
+          ))}
+        </Select>
+        <Button variant="outline" onClick={addVariant} disabled={!selectedVariant}>
+          Agregar
+        </Button>
+      </div>
+
+      <div className="flex justify-end gap-2">
+        <Button disabled={save.isPending} onClick={() => save.mutate()}>
+          {save.isPending ? 'Guardando...' : 'Guardar cambios'}
+        </Button>
+      </div>
+    </div>
+  );
+}

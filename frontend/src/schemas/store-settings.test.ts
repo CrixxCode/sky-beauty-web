@@ -21,6 +21,7 @@ describe('configuración de la tienda', () => {
     expect(contactSettingsSchema.safeParse(emptyContact).success).toBe(true);
     expect(
       commercialSettingsSchema.safeParse({
+        nationalFreeShipping: false,
         freeShippingThreshold: '',
         defaultLowStockThreshold: '',
         maxPercentageDiscount: '',
@@ -46,6 +47,7 @@ describe('configuración de la tienda', () => {
   it('valida las cifras comerciales', () => {
     const parse = (values: Record<string, string>) =>
       commercialSettingsSchema.safeParse({
+        nationalFreeShipping: false,
         freeShippingThreshold: '',
         defaultLowStockThreshold: '',
         maxPercentageDiscount: '',

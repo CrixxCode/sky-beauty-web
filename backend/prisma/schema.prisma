@@ -620,8 +620,20 @@ model Municipality {
   name           String
   orders         Order[]
   paymentMethods PaymentMethodCity[]
+  shippingRate   MunicipalShippingRate?
 
   @@index([departmentCode, name])
+}
+
+model MunicipalShippingRate {
+  id               String       @id @default(uuid()) @db.Uuid
+  municipalityCode String       @unique @db.Char(5)
+  municipality     Municipality @relation(fields: [municipalityCode], references: [code], onDelete: Restrict)
+  amount           Decimal      @db.Decimal(12, 2)
+  createdAt        DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime     @updatedAt @db.Timestamptz(3)
+
+  @@index([amount])
 }
 
 // ─────────────────────────────── Configuración ─────────────────────────────────
@@ -642,6 +654,7 @@ model StoreSettings {
   tiktokUrl                String?
   currency                 String   @default("COP") @db.VarChar(3)
   timezone                 String   @default("America/Bogota")
+  nationalFreeShipping     Boolean  @default(false)
   /// Subtotal (después de descuentos) a partir del cual el envío es gratis. null = nunca.
   freeShippingThreshold    Decimal? @db.Decimal(12, 2)
   /// Umbral de stock bajo que se propone al crear una variante. null = no se propone ninguno.

@@ -15,6 +15,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { ProductStatus } from '../../../generated/prisma/client';
+import { DiscountType, PromotionScope } from '../../../generated/prisma/client';
 
 // ─────────────────────────────── Productos ───────────────────────────────────
 
@@ -344,6 +345,14 @@ export class PublicVariantDto {
   @ApiProperty() isActive!: boolean;
   @ApiProperty() position!: number;
   @ApiProperty({ type: () => ImageDto, isArray: true }) images!: ImageDto[];
+  @ApiProperty() regularPrice!: number;
+  @ApiProperty() discountAmount!: number;
+  @ApiProperty() finalPrice!: number;
+  @ApiProperty({ nullable: true, type: String }) promotionId!: string | null;
+  @ApiProperty({ nullable: true, type: String }) promotionName!: string | null;
+  @ApiProperty({ nullable: true, enum: PromotionScope }) promotionScope!: PromotionScope | null;
+  @ApiProperty({ nullable: true, enum: DiscountType }) discountType!: DiscountType | null;
+  @ApiProperty({ nullable: true, type: Number }) discountValue!: number | null;
 }
 
 export class PublicProductDto {
@@ -360,6 +369,9 @@ export class PublicProductDto {
   @ApiProperty({ nullable: true, type: Date }) publishedAt!: Date | null;
   @ApiProperty({ type: () => PublicVariantDto, isArray: true }) variants!: PublicVariantDto[];
   @ApiProperty({ type: () => ImageDto, isArray: true }) images!: ImageDto[];
+  @ApiProperty() regularPriceFrom!: number;
+  @ApiProperty() finalPriceFrom!: number;
+  @ApiProperty() hasDiscount!: boolean;
 }
 
 // ─────────────────────────────── Queries ─────────────────────────────────────

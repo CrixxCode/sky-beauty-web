@@ -133,6 +133,14 @@ export interface PublicVariant {
   isActive: boolean;
   position: number;
   images: ProductImage[];
+  regularPrice: number;
+  discountAmount: number;
+  finalPrice: number;
+  promotionId: string | null;
+  promotionName: string | null;
+  promotionScope: 'VARIANT' | 'PRODUCT' | 'CATEGORY' | null;
+  discountType: 'PERCENTAGE' | 'FIXED_AMOUNT' | null;
+  discountValue: number | null;
 }
 
 export interface PublicProduct {
@@ -149,6 +157,9 @@ export interface PublicProduct {
   publishedAt: string | null;
   variants: PublicVariant[];
   images: ProductImage[];
+  regularPriceFrom: number;
+  finalPriceFrom: number;
+  hasDiscount: boolean;
 }
 
 export interface PaginatedPublicProducts {

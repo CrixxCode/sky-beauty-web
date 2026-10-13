@@ -9,14 +9,25 @@ import { cn } from '@/lib/utils';
 import type { PublicBrand, PublicCategory, PublicProduct } from '@/types/catalog';
 
 export function productPrice(product: PublicProduct): number {
+  if (product.finalPriceFrom !== undefined) return product.finalPriceFrom;
   const prices = product.variants
     .filter((variant) => variant.isActive)
-    .map((variant) => variant.price ?? product.basePrice);
+    .map((variant) => variant.finalPrice ?? variant.price ?? product.basePrice);
+  return prices.length ? Math.min(...prices) : product.basePrice;
+}
+
+export function productRegularPrice(product: PublicProduct): number {
+  if (product.regularPriceFrom !== undefined) return product.regularPriceFrom;
+  const prices = product.variants
+    .filter((variant) => variant.isActive)
+    .map((variant) => variant.regularPrice ?? variant.price ?? product.basePrice);
   return prices.length ? Math.min(...prices) : product.basePrice;
 }
 
 export function isSoldOut(product: PublicProduct): boolean {
-  return product.variants.filter((variant) => variant.isActive).every((variant) => variant.stock <= 0);
+  return product.variants
+    .filter((variant) => variant.isActive)
+    .every((variant) => variant.stock <= 0);
 }
 
 export function productCover(product: PublicProduct): string | null {
@@ -71,7 +82,9 @@ export function StorePageHeading({
       <h1 className={cn(serifClass, 'mb-4 mt-2.5 text-[clamp(39px,5vw,64px)] leading-[1.2]')}>
         {title}
       </h1>
-      {description && <p className="max-w-165 text-xs leading-[1.95] text-[#74676c]">{description}</p>}
+      {description && (
+        <p className="max-w-165 text-xs leading-[1.95] text-[#74676c]">{description}</p>
+      )}
     </div>
   );
 }
@@ -97,12 +110,16 @@ export function ProductCard({
         <ProductPhoto src={productCover(product)} alt={product.name} />
         <div className="absolute left-3.25 top-3.25 flex flex-col gap-1.25">
           {product.isFeatured && <Badge>Destacado</Badge>}
+          {product.hasDiscount && <Badge variant="success">Promo</Badge>}
           {soldOut && <Badge variant="danger">Agotado</Badge>}
         </div>
       </Link>
       <div className="pt-3.75">
         <p className="mb-1.5 text-[9px] font-bold uppercase tracking-[.105em] text-[#8e6d89]">
-          {brand?.name ?? 'Marca'} {category ? <span className="font-normal normal-case text-[#a79aa0]">· {category.name}</span> : null}
+          {brand?.name ?? 'Marca'}{' '}
+          {category ? (
+            <span className="font-normal normal-case text-[#a79aa0]">· {category.name}</span>
+          ) : null}
         </p>
         <Link href={`/producto/${product.slug}`}>
           <h3 className="min-h-9.5 text-xs font-medium leading-[1.65] text-[#3f333c] max-[600px]:min-h-11 max-[600px]:text-[11px]">
@@ -111,6 +128,11 @@ export function ProductCard({
         </Link>
         <div className="mt-2.5 flex items-center justify-between gap-2">
           <div className="min-w-0">
+            {product.hasDiscount && (
+              <span className="block text-[10px] text-[#9d8f97] line-through">
+                {formatCOP(productRegularPrice(product))}
+              </span>
+            )}
             <strong className="text-xs font-semibold max-[600px]:text-[11px]">
               {formatCOP(productPrice(product))}
             </strong>
@@ -138,7 +160,12 @@ export function ProductGrid({
   categories: PublicCategory[];
 }) {
   const brandMap = new Map(brands.map((brand) => [brand.id, brand]));
-  const categoryMap = new Map(categories.flatMap((category) => [[category.id, category], ...category.children.map((child) => [child.id, child] as const)]));
+  const categoryMap = new Map(
+    categories.flatMap((category) => [
+      [category.id, category],
+      ...category.children.map((child) => [child.id, child] as const),
+    ]),
+  );
 
   return (
     <div className="grid grid-cols-4 gap-x-5.5 gap-y-8.75 max-[850px]:grid-cols-2 max-[600px]:gap-x-2.75 max-[600px]:gap-y-6.5">
@@ -160,7 +187,9 @@ export function EmptyCatalog() {
       <div className="grid h-16.25 w-16.25 place-items-center rounded-full bg-[#eee0ed] text-[#96679b]">
         <Search />
       </div>
-      <h2 className={cn(serifClass, 'mb-2.5 mt-4.75 text-[31px]')}>No hay productos para mostrar</h2>
+      <h2 className={cn(serifClass, 'mb-2.5 mt-4.75 text-[31px]')}>
+        No hay productos para mostrar
+      </h2>
       <p className="mb-6.5 max-w-96 text-xs leading-[1.85] text-[#88777e]">
         Prueba con otra búsqueda o explora el catálogo completo.
       </p>
@@ -228,7 +257,10 @@ export function CatalogFilters({
         </FilterLink>
         {categories.map((category) => (
           <div key={category.id}>
-            <FilterLink href={`/productos?categoria=${category.id}`} active={activeCategory === category.id}>
+            <FilterLink
+              href={`/productos?categoria=${category.id}`}
+              active={activeCategory === category.id}
+            >
               {category.name}
             </FilterLink>
             {category.children.map((child) => (
@@ -246,7 +278,11 @@ export function CatalogFilters({
       </FilterGroup>
       <FilterGroup title="Marcas">
         {brands.map((brand) => (
-          <FilterLink key={brand.id} href={`/productos?marca=${brand.id}`} active={activeBrand === brand.id}>
+          <FilterLink
+            key={brand.id}
+            href={`/productos?marca=${brand.id}`}
+            active={activeBrand === brand.id}
+          >
             {brand.name}
           </FilterLink>
         ))}
@@ -298,18 +334,23 @@ export function MobileFilterLinks({
 }) {
   return (
     <div className="mb-5 hidden gap-2 overflow-x-auto max-[600px]:flex">
-      <Link className="shrink-0 bg-[#f3e8f1] px-2.5 py-1.75 text-[10px] text-[#70416e]" href="/productos">
+      <Link
+        className="shrink-0 bg-[#f3e8f1] px-2.5 py-1.75 text-[10px] text-[#70416e]"
+        href="/productos"
+      >
         Todo
       </Link>
-      {categories.flatMap((category) => [category, ...category.children]).map((category) => (
-        <Link
-          className="shrink-0 bg-[#f3e8f1] px-2.5 py-1.75 text-[10px] text-[#70416e]"
-          key={category.id}
-          href={`/productos?categoria=${category.id}`}
-        >
-          {category.name}
-        </Link>
-      ))}
+      {categories
+        .flatMap((category) => [category, ...category.children])
+        .map((category) => (
+          <Link
+            className="shrink-0 bg-[#f3e8f1] px-2.5 py-1.75 text-[10px] text-[#70416e]"
+            key={category.id}
+            href={`/productos?categoria=${category.id}`}
+          >
+            {category.name}
+          </Link>
+        ))}
       {brands.map((brand) => (
         <Link
           className="shrink-0 bg-[#f3e8f1] px-2.5 py-1.75 text-[10px] text-[#70416e]"

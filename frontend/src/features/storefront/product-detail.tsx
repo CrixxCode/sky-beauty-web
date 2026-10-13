@@ -6,13 +6,18 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Eyebrow, serifClass } from '@/components/ui/typography';
+import { AddToCartControls } from '@/features/cart/add-to-cart-controls';
 import { formatCOP } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { PublicBrand, PublicCategory, PublicProduct, PublicVariant } from '@/types/catalog';
-import { isSoldOut, ProductPhoto, productPrice } from './catalog-ui';
+import { isSoldOut, ProductPhoto, productPrice, productRegularPrice } from './catalog-ui';
 
-function variantPrice(product: PublicProduct, variant: PublicVariant): number {
-  return variant.price ?? product.basePrice;
+function variantPrice(product: PublicProduct, variant: PublicVariant | null): number {
+  return variant?.finalPrice ?? variant?.price ?? product.basePrice;
+}
+
+function variantRegularPrice(product: PublicProduct, variant: PublicVariant | null): number {
+  return variant?.regularPrice ?? variant?.price ?? product.basePrice;
 }
 
 export function ProductDetail({
@@ -27,7 +32,8 @@ export function ProductDetail({
   const variants = product.variants.filter((variant) => variant.isActive);
   const firstAvailable = variants.find((variant) => variant.stock > 0) ?? variants[0] ?? null;
   const [selectedVariantId, setSelectedVariantId] = useState(firstAvailable?.id ?? '');
-  const selectedVariant = variants.find((variant) => variant.id === selectedVariantId) ?? firstAvailable;
+  const selectedVariant =
+    variants.find((variant) => variant.id === selectedVariantId) ?? firstAvailable;
   const variantImages = selectedVariant?.images ?? [];
   const gallery = variantImages.length > 0 ? variantImages : product.images;
   const [activeIndex, setActiveIndex] = useState(0);
@@ -54,7 +60,10 @@ export function ProductDetail({
       <div className="grid grid-cols-[51%_1fr] gap-18.75 max-[850px]:gap-10 max-[600px]:grid-cols-1 max-[600px]:gap-5">
         <div>
           <div className="relative h-147.5 bg-[#f6f1f3] max-[850px]:h-127.5 max-[600px]:h-102.5">
-            <ProductPhoto src={activeImage?.url ?? activeImage?.thumbnailUrl ?? null} alt={activeImage?.alt || product.name} />
+            <ProductPhoto
+              src={activeImage?.url ?? activeImage?.thumbnailUrl ?? null}
+              alt={activeImage?.alt || product.name}
+            />
             {soldOut && (
               <span className="absolute left-4.75 top-4.75 bg-white px-3.25 py-2.25 text-[11px] text-[#98566f]">
                 Agotado
@@ -86,24 +95,44 @@ export function ProductDetail({
           <Eyebrow>
             {[brand?.name, category?.name, product.netContent].filter(Boolean).join(' · ')}
           </Eyebrow>
-          <h1 className={cn(serifClass, 'mb-3.75 mt-2.5 text-[clamp(34px,4vw,57px)] leading-[1.23]')}>
+          <h1
+            className={cn(serifClass, 'mb-3.75 mt-2.5 text-[clamp(34px,4vw,57px)] leading-[1.23]')}
+          >
             {product.name}
           </h1>
           <div className="flex items-center gap-2">
             {product.isFeatured && <Badge>Destacado</Badge>}
+            {product.hasDiscount && <Badge variant="success">Promo</Badge>}
             {soldOut && <Badge variant="danger">Agotado</Badge>}
           </div>
           <div className="my-5 flex items-baseline gap-4 border-b border-[#ebe1e5] pb-5">
-            <strong className="text-[27px] text-[#694368]">
-              {formatCOP(selectedVariant ? variantPrice(product, selectedVariant) : productPrice(product))}
-            </strong>
+            <div>
+              {selectedVariant?.discountAmount ? (
+                <span className="block text-[12px] text-[#9d8f97] line-through">
+                  {formatCOP(variantRegularPrice(product, selectedVariant))}
+                </span>
+              ) : product.hasDiscount ? (
+                <span className="block text-[12px] text-[#9d8f97] line-through">
+                  {formatCOP(productRegularPrice(product))}
+                </span>
+              ) : null}
+              <strong className="text-[27px] text-[#694368]">
+                {formatCOP(
+                  selectedVariant ? variantPrice(product, selectedVariant) : productPrice(product),
+                )}
+              </strong>
+            </div>
+            {selectedVariant?.promotionName && (
+              <span className="text-[11px] text-[#7b6775]">{selectedVariant.promotionName}</span>
+            )}
           </div>
           <p className="py-2.5 text-xs leading-[2.15] text-[#796b75]">{product.description}</p>
 
           {variants.length > 0 && (
             <div className="pt-3.75">
               <strong className="text-[11px]">
-                Variante: <span className="font-normal text-[#957b8d]">{selectedVariant?.name}</span>
+                Variante:{' '}
+                <span className="font-normal text-[#957b8d]">{selectedVariant?.name}</span>
               </strong>
               <div className="my-4.25 flex flex-wrap gap-2.5">
                 {variants.map((variant) => (
@@ -145,6 +174,7 @@ export function ProductDetail({
             />
             {selectedSoldOut ? 'Esta variante no está disponible.' : 'Disponible.'}
           </p>
+          <AddToCartControls variant={selectedVariant} />
           <div className="mt-7 flex gap-6.75 border-y border-[#ece5e8] py-5.75 max-[600px]:flex-wrap">
             <span className="flex items-center gap-2 text-[10px] text-[#786a75]">
               <ShieldCheck size={17} className="text-[#a1769f]" />

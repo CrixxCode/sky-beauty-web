@@ -41,6 +41,7 @@ const optionalNumber = (check: (n: number) => boolean, message: string) =>
     .refine((v) => v === '' || (!Number.isNaN(Number(v)) && check(Number(v))), message);
 
 export const commercialSettingsSchema = z.object({
+  nationalFreeShipping: z.boolean(),
   freeShippingThreshold: optionalNumber(
     (n) => n >= 0 && Number.isInteger(n),
     'Ingresa un valor en pesos, sin decimales.',

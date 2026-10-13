@@ -1,9 +1,15 @@
-import { Body, Controller, Get, Patch } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiCookieAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { AdminRole } from '../../generated/prisma/client';
 import { Public, Roles } from '../auth/auth.decorators';
 import { SESSION_COOKIE } from '../auth/auth.types';
-import { PublicStoreInfoDto, StoreSettingsDto, UpdateStoreSettingsDto } from './store-settings.dto';
+import {
+  PublicStoreInfoDto,
+  ShippingRateDto,
+  StoreSettingsDto,
+  UpdateStoreSettingsDto,
+  UpsertShippingRateDto,
+} from './store-settings.dto';
 import { StoreSettingsService } from './store-settings.service';
 
 /** El personal consulta la configuración; solo la propietaria la modifica (Context/decisiones.md). */
@@ -24,6 +30,25 @@ export class StoreSettingsAdminController {
   @ApiOkResponse({ type: StoreSettingsDto })
   update(@Body() dto: UpdateStoreSettingsDto): Promise<StoreSettingsDto> {
     return this.settings.update(dto);
+  }
+
+  @Get('shipping-rates')
+  @ApiOkResponse({ type: [ShippingRateDto] })
+  listShippingRates(): Promise<ShippingRateDto[]> {
+    return this.settings.listShippingRates();
+  }
+
+  @Post('shipping-rates')
+  @Roles(AdminRole.ADMIN)
+  @ApiOkResponse({ type: ShippingRateDto })
+  upsertShippingRate(@Body() dto: UpsertShippingRateDto): Promise<ShippingRateDto> {
+    return this.settings.upsertShippingRate(dto);
+  }
+
+  @Delete('shipping-rates/:id')
+  @Roles(AdminRole.ADMIN)
+  deleteShippingRate(@Param('id') id: string): Promise<void> {
+    return this.settings.deleteShippingRate(id);
   }
 }
 

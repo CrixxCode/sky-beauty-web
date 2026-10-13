@@ -13,6 +13,7 @@ import type { Env } from '../../../config/env';
 import { Prisma } from '../../../generated/prisma/client';
 import type { AdminRole, ProductStatus } from '../../../generated/prisma/client';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
+import { PricingService, type PriceCalculation } from '../../promotions/pricing.service';
 import { StoreSettingsService } from '../../store-settings/store-settings.service';
 import type {
   ChangeProductStatusDto,
@@ -159,7 +160,7 @@ function toVariantDto(v: PrismaVariant, role: AdminRole): VariantDto {
   return dto;
 }
 
-function toPublicVariantDto(v: PrismaVariant): PublicVariantDto {
+function toPublicVariantDto(v: PrismaVariant, pricing: PriceCalculation): PublicVariantDto {
   return {
     id: v.id,
     sku: v.sku,
@@ -171,6 +172,14 @@ function toPublicVariantDto(v: PrismaVariant): PublicVariantDto {
     isActive: v.isActive,
     position: v.position,
     images: v.images.map(toImageDto),
+    regularPrice: pricing.regularPrice,
+    discountAmount: pricing.discountAmount,
+    finalPrice: pricing.finalPrice,
+    promotionId: pricing.appliedPromotion?.promotionId ?? null,
+    promotionName: pricing.appliedPromotion?.promotionName ?? null,
+    promotionScope: pricing.appliedPromotion?.scope ?? null,
+    discountType: pricing.appliedPromotion?.discountType ?? null,
+    discountValue: pricing.appliedPromotion?.discountValue ?? null,
   };
 }
 
@@ -216,7 +225,28 @@ function toProductDto(p: PrismaProduct, role: AdminRole): ProductDto {
   };
 }
 
-function toPublicProductDto(p: PrismaProduct): PublicProductDto {
+async function toPublicProductDto(
+  p: PrismaProduct,
+  pricing: PricingService,
+): Promise<PublicProductDto> {
+  const activeVariants = p.variants.filter((v) => v.isActive);
+  const priceMap = await pricing.priceVariantsAt(activeVariants.map((variant) => variant.id));
+  const pricedVariants = activeVariants.map((variant) => {
+    const fallbackPrice = (variant.price ?? p.basePrice).toNumber();
+    return toPublicVariantDto(
+      variant,
+      priceMap.get(variant.id) ?? {
+        regularPrice: fallbackPrice,
+        discountAmount: 0,
+        finalPrice: fallbackPrice,
+        appliedPromotion: null,
+      },
+    );
+  });
+  const regularPrices = pricedVariants.map((variant) => variant.regularPrice);
+  const finalPrices = pricedVariants.map((variant) => variant.finalPrice);
+  const basePrice = p.basePrice.toNumber();
+
   return {
     id: p.id,
     name: p.name,
@@ -229,8 +259,11 @@ function toPublicProductDto(p: PrismaProduct): PublicProductDto {
     basePrice: p.basePrice.toNumber(),
     isFeatured: p.isFeatured,
     publishedAt: p.publishedAt,
-    variants: p.variants.filter((v) => v.isActive).map(toPublicVariantDto),
+    variants: pricedVariants,
     images: p.images.map(toImageDto),
+    regularPriceFrom: regularPrices.length ? Math.min(...regularPrices) : basePrice,
+    finalPriceFrom: finalPrices.length ? Math.min(...finalPrices) : basePrice,
+    hasDiscount: pricedVariants.some((variant) => variant.discountAmount > 0),
   };
 }
 
@@ -260,6 +293,7 @@ export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storeSettings: StoreSettingsService,
+    private readonly pricing: PricingService,
     private readonly config: ConfigService<Env, true>,
   ) {}
 
@@ -361,7 +395,9 @@ export class ProductsService {
       );
 
       return {
-        items: matches.slice(skip, skip + limit).map(toPublicProductDto),
+        items: await Promise.all(
+          matches.slice(skip, skip + limit).map((p) => toPublicProductDto(p, this.pricing)),
+        ),
         total: matches.length,
       };
     }
@@ -378,7 +414,9 @@ export class ProductsService {
     ]);
 
     return {
-      items: items.map((p) => toPublicProductDto(p as PrismaProduct)),
+      items: await Promise.all(
+        items.map((p) => toPublicProductDto(p as PrismaProduct, this.pricing)),
+      ),
       total,
     };
   }
@@ -394,7 +432,7 @@ export class ProductsService {
       },
     });
     if (!p) throw new NotFoundException(`Producto '${slug}' no encontrado.`);
-    return toPublicProductDto(p);
+    return toPublicProductDto(p, this.pricing);
   }
 
   // ── Crear producto ─────────────────────────────────────────────────────────

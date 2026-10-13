@@ -1,0 +1,447 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+  ValidateNested,
+} from 'class-validator';
+import { OrderStatus, PaymentStatus, ShippingStatus } from '../../generated/prisma/client';
+
+export class CartItemInputDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  variantId!: string;
+
+  @ApiProperty({ minimum: 1, maximum: 999 })
+  @IsInt()
+  @Min(1)
+  @Max(999)
+  quantity!: number;
+}
+
+export class QuoteCartDto {
+  @ApiProperty({ type: () => CartItemInputDto, isArray: true })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(80)
+  @ValidateNested({ each: true })
+  @Type(() => CartItemInputDto)
+  items!: CartItemInputDto[];
+
+  @ApiPropertyOptional({
+    description: 'Codigo DIVIPOLA del municipio para filtrar metodos de pago.',
+  })
+  @IsOptional()
+  @Matches(/^\d{5}$/)
+  municipalityCode?: string;
+}
+
+export class CreateOrderDto extends QuoteCartDto {
+  @ApiProperty({ description: 'Codigo DIVIPOLA del municipio de entrega.' })
+  @Matches(/^\d{5}$/)
+  declare municipalityCode: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  customerName!: string;
+
+  @ApiProperty({ description: 'Telefono del cliente. Se normaliza como WhatsApp.' })
+  @IsString()
+  @MinLength(7)
+  @MaxLength(30)
+  customerPhone!: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(5)
+  @MaxLength(220)
+  addressLine!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  deliveryNotes?: string;
+
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  paymentMethodId!: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(12)
+  @MaxLength(120)
+  idempotencyKey!: string;
+
+  @ApiProperty()
+  @IsBoolean()
+  termsAccepted!: boolean;
+
+  @ApiProperty()
+  @IsBoolean()
+  dataProcessingAccepted!: boolean;
+}
+
+export class AvailablePaymentMethodDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() code!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({ nullable: true, type: String }) instructions!: string | null;
+  @ApiProperty() requiresVerification!: boolean;
+}
+
+export class CartQuoteItemDto {
+  @ApiProperty() variantId!: string;
+  @ApiProperty() productId!: string;
+  @ApiProperty() productName!: string;
+  @ApiProperty() productSlug!: string;
+  @ApiProperty() variantName!: string;
+  @ApiProperty() sku!: string;
+  @ApiProperty() imageUrl!: string | null;
+  @ApiProperty() quantity!: number;
+  @ApiProperty() stock!: number;
+  @ApiProperty({ nullable: true, type: Number }) maxPerOrder!: number | null;
+  @ApiProperty() unitListPrice!: number;
+  @ApiProperty() unitDiscount!: number;
+  @ApiProperty() unitFinalPrice!: number;
+  @ApiProperty() lineSubtotal!: number;
+  @ApiProperty() lineDiscount!: number;
+  @ApiProperty() lineTotal!: number;
+  @ApiProperty({ nullable: true, type: String }) promotionId!: string | null;
+  @ApiProperty({ nullable: true, type: String }) promotionName!: string | null;
+}
+
+export class CartQuoteDto {
+  @ApiProperty({ type: () => CartQuoteItemDto, isArray: true }) items!: CartQuoteItemDto[];
+  @ApiProperty() subtotal!: number;
+  @ApiProperty() discountTotal!: number;
+  @ApiProperty({ nullable: true, type: Number }) shippingCost!: number | null;
+  @ApiProperty() total!: number;
+  @ApiProperty({ nullable: true, type: Number }) freeShippingThreshold!: number | null;
+  @ApiProperty() shippingLabel!: string;
+  @ApiProperty({ type: () => AvailablePaymentMethodDto, isArray: true })
+  availablePaymentMethods!: AvailablePaymentMethodDto[];
+}
+
+export class CreatedOrderDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() code!: string;
+  @ApiProperty() publicToken!: string;
+  @ApiProperty() trackingPath!: string;
+  @ApiProperty() whatsappMessage!: string;
+  @ApiProperty({ nullable: true, type: String }) whatsappUrl!: string | null;
+  @ApiProperty({ type: () => CartQuoteDto }) quote!: CartQuoteDto;
+}
+
+export class PublicTrackingShippingDto {
+  @ApiProperty({ enum: ShippingStatus }) status!: ShippingStatus;
+  @ApiProperty({ nullable: true, type: String }) carrierName!: string | null;
+  @ApiProperty({ nullable: true, type: String }) trackingNumber!: string | null;
+  @ApiProperty({ nullable: true, type: String }) trackingUrl!: string | null;
+  @ApiProperty({ nullable: true, type: Date }) dispatchedAt!: Date | null;
+  @ApiProperty({ nullable: true, type: Date }) deliveredAt!: Date | null;
+}
+
+export class PublicOrderTrackingDto {
+  @ApiProperty() code!: string;
+  @ApiProperty({ enum: OrderStatus }) status!: OrderStatus;
+  @ApiProperty({ enum: PaymentStatus }) paymentStatus!: PaymentStatus;
+  @ApiProperty() paymentMethodName!: string;
+  @ApiProperty({ nullable: true, type: Number }) shippingCost!: number | null;
+  @ApiProperty() total!: number;
+  @ApiProperty() createdAt!: Date;
+  @ApiProperty({ nullable: true, type: Date }) confirmedAt!: Date | null;
+  @ApiProperty({ nullable: true, type: Date }) cancelledAt!: Date | null;
+  @ApiProperty({ nullable: true, type: () => PublicTrackingShippingDto })
+  shipping!: PublicTrackingShippingDto | null;
+}
+
+export class ListOrdersQueryDto {
+  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
+
+  @ApiPropertyOptional({ enum: OrderStatus })
+  @IsOptional()
+  @IsString()
+  status?: OrderStatus;
+
+  @ApiPropertyOptional({ enum: PaymentStatus })
+  @IsOptional()
+  @IsString()
+  paymentStatus?: PaymentStatus;
+
+  @ApiPropertyOptional({ description: 'Busqueda por codigo, cliente o telefono.' })
+  @IsOptional()
+  @IsString()
+  q?: string;
+}
+
+export class AdminOrderItemDto {
+  @ApiProperty() id!: string;
+  @ApiProperty({ nullable: true, type: String }) variantId!: string | null;
+  @ApiProperty() productId!: string;
+  @ApiProperty() productName!: string;
+  @ApiProperty() productSlug!: string;
+  @ApiProperty() variantName!: string;
+  @ApiProperty() sku!: string;
+  @ApiProperty() unitListPrice!: number;
+  @ApiProperty() unitDiscount!: number;
+  @ApiProperty() unitFinalPrice!: number;
+  @ApiProperty({ nullable: true, type: Number }) unitCost!: number | null;
+  @ApiProperty() quantity!: number;
+  @ApiProperty() lineTotal!: number;
+  @ApiProperty({ nullable: true, type: String }) promotionId!: string | null;
+  @ApiProperty({ nullable: true, type: String }) promotionName!: string | null;
+  @ApiProperty() createdAt!: Date;
+}
+
+export class AdminOrderEventDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() type!: string;
+  @ApiProperty({ nullable: true, type: String }) fromStatus!: string | null;
+  @ApiProperty({ nullable: true, type: String }) toStatus!: string | null;
+  @ApiProperty({ nullable: true, type: String }) note!: string | null;
+  @ApiProperty({ nullable: true, type: String }) changedById!: string | null;
+  @ApiProperty() createdAt!: Date;
+}
+
+export class AdminPaymentRecordDto {
+  @ApiProperty() id!: string;
+  @ApiProperty({ enum: PaymentStatus }) status!: PaymentStatus;
+  @ApiProperty() amount!: number;
+  @ApiProperty({ nullable: true, type: String }) reference!: string | null;
+  @ApiProperty({ nullable: true, type: String }) note!: string | null;
+  @ApiProperty({ nullable: true, type: String }) recordedById!: string | null;
+  @ApiProperty() createdAt!: Date;
+}
+
+export class AdminShippingDto {
+  @ApiProperty() id!: string;
+  @ApiProperty({ nullable: true, type: String }) carrierId!: string | null;
+  @ApiProperty({ nullable: true, type: String }) carrierName!: string | null;
+  @ApiProperty({ nullable: true, type: String }) carrierTrackingUrlTemplate!: string | null;
+  @ApiProperty({ nullable: true, type: String }) trackingNumber!: string | null;
+  @ApiProperty({ nullable: true, type: String }) trackingUrl!: string | null;
+  @ApiProperty({ nullable: true, type: Number }) carrierCost!: number | null;
+  @ApiProperty({ enum: ShippingStatus }) status!: ShippingStatus;
+  @ApiProperty({ nullable: true, type: Date }) dispatchedAt!: Date | null;
+  @ApiProperty({ nullable: true, type: Date }) deliveredAt!: Date | null;
+  @ApiProperty({ nullable: true, type: String }) notes!: string | null;
+  @ApiProperty() createdAt!: Date;
+  @ApiProperty() updatedAt!: Date;
+}
+
+export class AdminOrderListItemDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() code!: string;
+  @ApiProperty({ enum: OrderStatus }) status!: OrderStatus;
+  @ApiProperty({ enum: PaymentStatus }) paymentStatus!: PaymentStatus;
+  @ApiProperty() customerName!: string;
+  @ApiProperty() customerPhone!: string;
+  @ApiProperty() city!: string;
+  @ApiProperty() department!: string;
+  @ApiProperty() paymentMethodName!: string;
+  @ApiProperty() subtotal!: number;
+  @ApiProperty() discountTotal!: number;
+  @ApiProperty({ nullable: true, type: Number }) shippingCost!: number | null;
+  @ApiProperty() total!: number;
+  @ApiProperty() itemCount!: number;
+  @ApiProperty() createdAt!: Date;
+  @ApiProperty() updatedAt!: Date;
+}
+
+export class AdminOrderDto extends AdminOrderListItemDto {
+  @ApiProperty() municipalityCode!: string;
+  @ApiProperty() addressLine!: string;
+  @ApiProperty({ nullable: true, type: String }) deliveryNotes!: string | null;
+  @ApiProperty() paymentMethodCode!: string;
+  @ApiProperty({ nullable: true, type: Date }) confirmedAt!: Date | null;
+  @ApiProperty({ nullable: true, type: Date }) paymentRejectedAt!: Date | null;
+  @ApiProperty({ nullable: true, type: Date }) cancelledAt!: Date | null;
+  @ApiProperty({ nullable: true, type: String }) cancelReason!: string | null;
+  @ApiProperty({ type: () => AdminOrderItemDto, isArray: true }) items!: AdminOrderItemDto[];
+  @ApiProperty({ type: () => AdminOrderEventDto, isArray: true }) events!: AdminOrderEventDto[];
+  @ApiProperty({ type: () => AdminPaymentRecordDto, isArray: true })
+  paymentRecords!: AdminPaymentRecordDto[];
+  @ApiProperty({ nullable: true, type: () => AdminShippingDto })
+  shipping!: AdminShippingDto | null;
+}
+
+export class PaginatedAdminOrdersDto {
+  @ApiProperty({ type: () => AdminOrderListItemDto, isArray: true })
+  items!: AdminOrderListItemDto[];
+  @ApiProperty() total!: number;
+}
+
+export class QuoteShippingDto {
+  @ApiProperty({ minimum: 0 })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  shippingCost!: number;
+}
+
+export class ConfirmOrderDto {
+  @ApiPropertyOptional({ minimum: 0, description: 'Obligatorio si el envio seguia por confirmar.' })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  shippingCost?: number;
+}
+
+export class ChangeOrderStatusDto {
+  @ApiProperty({ enum: OrderStatus })
+  @IsString()
+  status!: OrderStatus;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  note?: string;
+}
+
+export class UpsertOrderShippingDto {
+  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  carrierId?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  trackingNumber?: string | null;
+
+  @ApiPropertyOptional({ minimum: 0, nullable: true })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  carrierCost?: number | null;
+
+  @ApiProperty({ enum: ShippingStatus })
+  @IsEnum(ShippingStatus)
+  status!: ShippingStatus;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsDateString()
+  dispatchedAt?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsDateString()
+  deliveredAt?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  notes?: string | null;
+}
+
+export class UpdateOrderItemsDto {
+  @ApiProperty({ type: () => CartItemInputDto, isArray: true })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(80)
+  @ValidateNested({ each: true })
+  @Type(() => CartItemInputDto)
+  items!: CartItemInputDto[];
+}
+
+export class CancelOrderDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(400)
+  reason!: string;
+}
+
+export class RegisterPaymentReceivedDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  reference?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+}
+
+export class VerifyPaymentDto {
+  @ApiPropertyOptional({ minimum: 0 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  amount?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  reference?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+}
+
+export class RejectPaymentDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(500)
+  reason!: string;
+}
+
+export class RefundPaymentDto {
+  @ApiProperty({ minimum: 0.01 })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  amount!: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  reference?: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(500)
+  note!: string;
+}

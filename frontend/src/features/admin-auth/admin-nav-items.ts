@@ -1,11 +1,15 @@
 import {
+  BadgePercent,
   Boxes,
   ClipboardList,
+  CreditCard,
+  FileText,
   KeyRound,
   LayoutDashboard,
   Settings,
   ShoppingBag,
   Tag,
+  Truck,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -23,8 +27,12 @@ export interface AdminNavItem {
 // Vive fuera de admin-shell.tsx ('use client') para poder usarse también en componentes de servidor.
 export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin', label: 'Resumen', icon: LayoutDashboard },
+  { href: '/admin/pedidos', label: 'Pedidos', icon: FileText },
+  { href: '/admin/pagos', label: 'Pagos', icon: CreditCard },
+  { href: '/admin/envios', label: 'Envios', icon: Truck },
   { href: '/admin/productos', label: 'Productos', icon: ShoppingBag },
   { href: '/admin/inventario', label: 'Inventario', icon: ClipboardList },
+  { href: '/admin/promociones', label: 'Promociones', icon: BadgePercent, roles: ['ADMIN'] },
   { href: '/admin/categorias', label: 'Categorías', icon: Boxes },
   { href: '/admin/marcas', label: 'Marcas', icon: Tag },
   { href: '/admin/cuentas', label: 'Cuentas', icon: Users, roles: ['ADMIN'] },
