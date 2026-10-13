@@ -1,5 +1,13 @@
 export type ShippingStatus = 'NOT_SHIPPED' | 'IN_TRANSIT' | 'DELIVERED' | 'INCIDENT';
 
+/** Por transportadora (con guía) o entrega local de la tienda (decisión del 2026-10-13). */
+export type ShippingMethod = 'CARRIER' | 'LOCAL';
+
+export const SHIPPING_METHOD_LABELS: Record<ShippingMethod, string> = {
+  CARRIER: 'Por transportadora',
+  LOCAL: 'Entrega local',
+};
+
 export const SHIPPING_STATUS_LABELS: Record<ShippingStatus, string> = {
   NOT_SHIPPED: 'Sin despachar',
   IN_TRANSIT: 'En tránsito',
@@ -27,6 +35,7 @@ export interface Carrier {
 
 export interface AdminShipping {
   id: string;
+  method: ShippingMethod;
   carrierId: string | null;
   carrierName: string | null;
   carrierTrackingUrlTemplate: string | null;

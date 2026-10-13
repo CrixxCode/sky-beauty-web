@@ -575,6 +575,14 @@ model Carrier {
   shippings Shipping[]
 }
 
+/// Cómo se entrega el pedido (decisión del 2026-10-13).
+enum ShippingMethod {
+  /// Por transportadora: para despachar se registran transportadora y número de guía.
+  CARRIER
+  /// Entrega local de la tienda (por ejemplo, con mensajero propio): sin transportadora ni guía.
+  LOCAL
+}
+
 enum ShippingStatus {
   NOT_SHIPPED
   IN_TRANSIT
@@ -586,6 +594,7 @@ model Shipping {
   id             String         @id @default(uuid()) @db.Uuid
   orderId        String         @unique @db.Uuid
   order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  method         ShippingMethod @default(CARRIER)
   carrierId      String?        @db.Uuid
   carrier        Carrier?       @relation(fields: [carrierId], references: [id], onDelete: Restrict)
   trackingNumber String?
@@ -614,9 +623,9 @@ model Department {
 /// Municipios de Colombia según la DIVIPOLA del DANE.
 model Municipality {
   /// Código DIVIPOLA de 5 dígitos; los 2 primeros son el departamento, p. ej. "05001" (Medellín).
-  code           String              @id @db.Char(5)
-  departmentCode String              @db.Char(2)
-  department     Department          @relation(fields: [departmentCode], references: [code], onDelete: Restrict)
+  code           String                 @id @db.Char(5)
+  departmentCode String                 @db.Char(2)
+  department     Department             @relation(fields: [departmentCode], references: [code], onDelete: Restrict)
   name           String
   orders         Order[]
   paymentMethods PaymentMethodCity[]

@@ -320,7 +320,7 @@ La lógica más delicada del sistema: debe tener pruebas exhaustivas antes de co
 
 - Pruebas: `test/shipping.e2e-spec.ts` (integración) y `e2e/shipping.spec.ts` (Playwright, celular y escritorio).
 - Panel: `/admin/envios` (transportadoras, para la propietaria y el personal) y sección de envío en el detalle del pedido.
-- Despachar desde la sección de envío exige transportadora y guía. Marcar el pedido como despachado o entregado desde "cambiar estado" (por ejemplo, una entrega local sin transportadora) también actualiza el envío. Pendiente de confirmar si la guía debe ser obligatoria siempre.
+- Cada envío es por transportadora (exige transportadora y guía para despachar) o entrega local (sin transportadora ni guía). Despachar y entregar se registran solo desde el envío; "cambiar estado" solo marca en preparación (ver `decisiones.md`, 2026-10-13). Migración `20261013205358_envio_entrega_local`.
 - Avance del envío: sin despachar → en tránsito → (con novedad →) entregado. Un envío entregado no retrocede, pero sus datos se pueden corregir. El pedido solo avanza.
 - Una transportadora desactivada no se elige de nuevo, pero los envíos que ya la usan se pueden corregir.
 - Registrar el envío usa bloqueo optimista: despachar y cancelar a la vez quedan coherentes.

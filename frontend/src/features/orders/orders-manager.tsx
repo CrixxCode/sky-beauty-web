@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { FormError, FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select } from '@/components/ui/select';
 import {
   Table,
@@ -40,7 +41,12 @@ import {
   PAYMENT_STATUS_LABELS,
 } from '@/types/orders-labels';
 import type { Carrier, ShippingStatus } from '@/types/shipping';
-import { NEXT_SHIPPING_STATUSES, SHIPPING_STATUS_LABELS } from '@/types/shipping';
+import type { ShippingMethod } from '@/types/shipping';
+import {
+  NEXT_SHIPPING_STATUSES,
+  SHIPPING_METHOD_LABELS,
+  SHIPPING_STATUS_LABELS,
+} from '@/types/shipping';
 
 const ORDERS_KEY = ['admin-orders'];
 
@@ -279,6 +285,9 @@ function OrderDetail({
   const [trackingNumber, setTrackingNumber] = useState(order.shipping?.trackingNumber ?? '');
   const [carrierCost, setCarrierCost] = useState(order.shipping?.carrierCost?.toString() ?? '');
   const savedShippingStatus: ShippingStatus = order.shipping?.status ?? 'NOT_SHIPPED';
+  const [shippingMethod, setShippingMethod] = useState<ShippingMethod>(
+    order.shipping?.method ?? 'CARRIER',
+  );
   const [shippingStatus, setShippingStatus] = useState<ShippingStatus>(savedShippingStatus);
   const [dispatchedAt, setDispatchedAt] = useState(
     toDateTimeInput(order.shipping?.dispatchedAt ?? null),
@@ -326,6 +335,7 @@ function OrderDetail({
         return apiFetch<AdminOrder>(`/admin/orders/${order.id}/shipping`, {
           method: 'PATCH',
           body: JSON.stringify({
+            method: shippingMethod,
             carrierId: carrierId || null,
             trackingNumber: trackingNumber || null,
             carrierCost: carrierCost ? Number(carrierCost) : null,
@@ -558,29 +568,61 @@ function OrderDetail({
             <p className="text-[11px] text-[#8b7f87]">El pedido está cancelado.</p>
           ) : (
             <div className="grid gap-x-2">
-              <FormField id="shipping-carrier" label="Transportadora">
-                <Select
-                  id="shipping-carrier"
-                  value={carrierId}
-                  onChange={(event) => setCarrierId(event.target.value)}
+              <fieldset className="mb-3.5">
+                <legend className="mb-1.5 text-[11px] font-medium text-field-label">
+                  Tipo de entrega
+                </legend>
+                <RadioGroup
+                  value={shippingMethod}
+                  onValueChange={(value) => setShippingMethod(value as ShippingMethod)}
+                  className="grid-cols-2 gap-2"
+                  aria-label="Tipo de entrega"
                 >
-                  <option value="">Sin transportadora</option>
-                  {carriers.map((carrier) => (
-                    <option key={carrier.id} value={carrier.id}>
-                      {carrier.name}
-                      {!carrier.isActive ? ' (inactiva)' : ''}
-                    </option>
+                  {(['CARRIER', 'LOCAL'] as const).map((value) => (
+                    <label
+                      key={value}
+                      className="flex cursor-pointer items-center gap-2 border border-[#e7dde4] p-2.5 text-[11px] has-[[data-state=checked]]:border-[#ad81aa] has-[[data-state=checked]]:bg-[#faf5fa]"
+                    >
+                      <RadioGroupItem value={value} />
+                      {SHIPPING_METHOD_LABELS[value]}
+                    </label>
                   ))}
-                </Select>
-              </FormField>
-              <FormField id="shipping-tracking" label="Número de guía">
-                <Input
-                  id="shipping-tracking"
-                  value={trackingNumber}
-                  onChange={(event) => setTrackingNumber(event.target.value)}
-                />
-              </FormField>
-              <FormField id="shipping-carrier-cost" label="Costo real de la transportadora (COP)">
+                </RadioGroup>
+              </fieldset>
+              {shippingMethod === 'CARRIER' && (
+                <>
+                  <FormField id="shipping-carrier" label="Transportadora">
+                    <Select
+                      id="shipping-carrier"
+                      value={carrierId}
+                      onChange={(event) => setCarrierId(event.target.value)}
+                    >
+                      <option value="">Sin transportadora</option>
+                      {carriers.map((carrier) => (
+                        <option key={carrier.id} value={carrier.id}>
+                          {carrier.name}
+                          {!carrier.isActive ? ' (inactiva)' : ''}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
+                  <FormField id="shipping-tracking" label="Número de guía">
+                    <Input
+                      id="shipping-tracking"
+                      value={trackingNumber}
+                      onChange={(event) => setTrackingNumber(event.target.value)}
+                    />
+                  </FormField>
+                </>
+              )}
+              <FormField
+                id="shipping-carrier-cost"
+                label={
+                  shippingMethod === 'CARRIER'
+                    ? 'Costo real de la transportadora (COP)'
+                    : 'Costo real de la entrega (COP)'
+                }
+              >
                 <Input
                   id="shipping-carrier-cost"
                   type="number"
@@ -629,8 +671,10 @@ function OrderDetail({
                 />
               </FormField>
               <p className="mb-3 text-[10px] text-[#8b7f87]">
-                Para despachar registra transportadora y guía. Si dejas las fechas vacías, se usa la
-                hora en que guardas.
+                {shippingMethod === 'CARRIER'
+                  ? 'Para despachar registra transportadora y guía. '
+                  : 'La entrega local no lleva transportadora ni guía. '}
+                Si dejas las fechas vacías, se usa la hora en que guardas.
               </p>
               <Button
                 variant="outline"
@@ -662,6 +706,11 @@ function OrderDetail({
                 </p>
               )}
             </div>
+          )}
+          {(order.status === 'CONFIRMED' || order.status === 'PREPARING') && (
+            <p className="mb-3 text-[10px] text-[#8b7f87]">
+              El despacho y la entrega se registran en la sección de envío.
+            </p>
           )}
           {nextStatuses.length > 0 && (
             <div className="grid gap-2">

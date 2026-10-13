@@ -127,6 +127,17 @@ Prioridad de cálculo en checkout:
 
 ---
 
+## 2026-10-13 — Entrega por transportadora o entrega local
+
+**Decisión:** cada envío es **por transportadora** o **entrega local** de la tienda (por ejemplo, con mensajero propio).
+
+- Por transportadora: para despachar se registran transportadora y número de guía.
+- Entrega local: no lleva transportadora ni guía. El seguimiento del cliente la muestra como "Entrega local de la tienda".
+- La entrega local no se limita a ningún municipio en el sistema; la elige el personal.
+- El despacho y la entrega se registran solo desde el envío del pedido. "Cambiar estado" solo marca el pedido en preparación.
+
+---
+
 ## 2026-10-13 — Confirmar un pedido exige el costo del envío
 
 **Decisión:** un pedido solo se puede confirmar cuando tiene registrado el costo del envío (calculado en el checkout o cotizado por la tienda). Así el cliente conoce el total que debe pagar antes de que empiece el plazo de 24 horas para enviar el comprobante.

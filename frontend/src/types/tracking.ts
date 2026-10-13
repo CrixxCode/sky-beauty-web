@@ -1,7 +1,8 @@
 import type { OrderStatus, PaymentStatus } from './orders-labels';
-import type { ShippingStatus } from './shipping';
+import type { ShippingMethod, ShippingStatus } from './shipping';
 
 export interface PublicTrackingShipping {
+  method: ShippingMethod;
   status: ShippingStatus;
   carrierName: string | null;
   trackingNumber: string | null;

@@ -205,21 +205,26 @@ describe('Gestión de pedidos (integración)', () => {
   });
 
   describe('cambios de estado', () => {
-    it('solo avanza y deja historial de cada cambio', async () => {
+    it('solo marca en preparación; despachar y entregar se registran en el envío', async () => {
       const id = await createOrder();
-      await staff.patch(`${ORDERS}/${id}/status`).send({ status: 'SHIPPED' }).expect(400);
+      await staff.patch(`${ORDERS}/${id}/status`).send({ status: 'PREPARING' }).expect(400);
       await staff.patch(`${ORDERS}/${id}/confirm`).send({ shippingCost: 5000 }).expect(200);
       await staff.patch(`${ORDERS}/${id}/status`).send({ status: 'CONFIRMED' }).expect(400);
+      await staff.patch(`${ORDERS}/${id}/status`).send({ status: 'SHIPPED' }).expect(400);
       await staff.patch(`${ORDERS}/${id}/status`).send({ status: 'DELIVERED' }).expect(400);
-      await staff.patch(`${ORDERS}/${id}/status`).send({ status: 'PREPARING' }).expect(200);
-      await staff.patch(`${ORDERS}/${id}/status`).send({ status: 'SHIPPED' }).expect(200);
-      await staff.patch(`${ORDERS}/${id}/status`).send({ status: 'PREPARING' }).expect(400);
       await staff
         .patch(`${ORDERS}/${id}/status`)
-        .send({ status: 'DELIVERED', note: 'Entregado en portería' })
+        .send({ status: 'PREPARING', note: 'Empacando' })
         .expect(200);
-      await staff.patch(`${ORDERS}/${id}/status`).send({ status: 'SHIPPED' }).expect(400);
+      await staff.patch(`${ORDERS}/${id}/status`).send({ status: 'PREPARING' }).expect(400);
       await staff.patch(`${ORDERS}/${id}/status`).send({ status: 'INVENTADO' }).expect(400);
+
+      // Despacho y entrega desde el envío (entrega local).
+      await staff
+        .patch(`${ORDERS}/${id}/shipping`)
+        .send({ method: 'LOCAL', status: 'IN_TRANSIT' })
+        .expect(200);
+      await staff.patch(`${ORDERS}/${id}/shipping`).send({ status: 'DELIVERED' }).expect(200);
 
       const history = await prisma.orderStatusHistory.findMany({
         where: { orderId: id, type: 'ORDER_STATUS' },
@@ -232,15 +237,18 @@ describe('Gestión de pedidos (integración)', () => {
         'SHIPPED',
         'DELIVERED',
       ]);
-      expect(history[4].note).toBe('Entregado en portería');
+      expect(history[2].note).toBe('Empacando');
     });
 
-    it('un pedido contra entrega queda pagado al marcarse como entregado', async () => {
+    it('un pedido contra entrega queda pagado al entregarse', async () => {
       const id = await createOrder({ paymentMethodId: codId });
       await staff.patch(`${ORDERS}/${id}/confirm`).send({ shippingCost: 5000 }).expect(200);
-      await staff.patch(`${ORDERS}/${id}/status`).send({ status: 'SHIPPED' }).expect(200);
+      await staff
+        .patch(`${ORDERS}/${id}/shipping`)
+        .send({ method: 'LOCAL', status: 'IN_TRANSIT' })
+        .expect(200);
       const delivered = (
-        await staff.patch(`${ORDERS}/${id}/status`).send({ status: 'DELIVERED' }).expect(200)
+        await staff.patch(`${ORDERS}/${id}/shipping`).send({ status: 'DELIVERED' }).expect(200)
       ).body as AdminOrder;
       expect(delivered.paymentStatus).toBe('PAID');
       const record = await prisma.paymentRecord.findFirstOrThrow({ where: { orderId: id } });
@@ -452,7 +460,10 @@ describe('Gestión de pedidos (integración)', () => {
     it('no cancela pedidos despachados ni entregados', async () => {
       const id = await createOrder();
       await owner.patch(`${ORDERS}/${id}/confirm`).send({ shippingCost: 5000 }).expect(200);
-      await owner.patch(`${ORDERS}/${id}/status`).send({ status: 'SHIPPED' }).expect(200);
+      await owner
+        .patch(`${ORDERS}/${id}/shipping`)
+        .send({ method: 'LOCAL', status: 'IN_TRANSIT' })
+        .expect(200);
       await owner.patch(`${ORDERS}/${id}/cancel`).send({ reason: 'Tarde' }).expect(400);
     });
 

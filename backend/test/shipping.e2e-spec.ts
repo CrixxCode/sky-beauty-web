@@ -269,14 +269,59 @@ describe('Envíos (integración)', () => {
     });
   });
 
-  describe('coherencia con el estado del pedido', () => {
-    it('marcar despachado o entregado desde el estado del pedido actualiza el envío', async () => {
+  describe('entrega local', () => {
+    it('se despacha y entrega sin transportadora ni guía, y el cliente lo ve como entrega local', async () => {
       const { id, token } = await confirmedOrder();
-      await staff.patch(`${ORDERS}/${id}/status`).send({ status: 'SHIPPED' }).expect(200);
-      expect((await track(token)).shipping?.status).toBe('IN_TRANSIT');
-      await staff.patch(`${ORDERS}/${id}/status`).send({ status: 'DELIVERED' }).expect(200);
-      const tracking = await track(token);
-      expect(tracking).toMatchObject({ status: 'DELIVERED', shipping: { status: 'DELIVERED' } });
+      const shipped = (await ship(id, { method: 'LOCAL', status: 'IN_TRANSIT' }).expect(200))
+        .body as AdminOrder & { shipping: { method: string } };
+      expect(shipped).toMatchObject({
+        status: 'SHIPPED',
+        shipping: { method: 'LOCAL', status: 'IN_TRANSIT' },
+      });
+
+      const tracking = (await track(token)) as Tracking & { shipping: { method: string } };
+      expect(tracking.shipping).toMatchObject({
+        method: 'LOCAL',
+        status: 'IN_TRANSIT',
+        trackingNumber: null,
+        trackingUrl: null,
+      });
+
+      await ship(id, { status: 'DELIVERED' }).expect(200);
+      const history = await prisma.orderStatusHistory.findMany({
+        where: { orderId: id, type: 'SHIPPING' },
+        orderBy: { createdAt: 'asc' },
+      });
+      expect(history[0].note).toBe('Pedido en camino (entrega local).');
+    });
+
+    it('la entrega local descarta transportadora y guía', async () => {
+      const { id } = await confirmedOrder();
+      await ship(id, { status: 'NOT_SHIPPED', carrierId, trackingNumber: 'G-L' }).expect(200);
+      const local = (await ship(id, { method: 'LOCAL', status: 'IN_TRANSIT' }).expect(200))
+        .body as AdminOrder;
+      expect(local.shipping).toMatchObject({ trackingNumber: null });
+      const row = await prisma.shipping.findUniqueOrThrow({ where: { orderId: id } });
+      expect(row).toMatchObject({ method: 'LOCAL', carrierId: null, trackingNumber: null });
+    });
+
+    it('por transportadora sigue exigiendo transportadora y guía', async () => {
+      const { id } = await confirmedOrder();
+      await ship(id, { method: 'CARRIER', status: 'IN_TRANSIT' }).expect(400);
+      await ship(id, {
+        method: 'CARRIER',
+        status: 'IN_TRANSIT',
+        carrierId,
+        trackingNumber: 'G-C',
+      }).expect(200);
+    });
+  });
+
+  describe('coherencia con el estado del pedido', () => {
+    it('desde el estado del pedido no se despacha ni se entrega', async () => {
+      const { id } = await confirmedOrder();
+      await staff.patch(`${ORDERS}/${id}/status`).send({ status: 'SHIPPED' }).expect(400);
+      await staff.patch(`${ORDERS}/${id}/status`).send({ status: 'DELIVERED' }).expect(400);
     });
 
     it('despachar y cancelar a la vez deja un estado coherente', async () => {

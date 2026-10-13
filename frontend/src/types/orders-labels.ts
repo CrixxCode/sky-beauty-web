@@ -26,14 +26,15 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
 };
 
 /**
- * Estados a los que se puede pasar desde "cambiar estado" (igual que el backend). Confirmar y
- * cancelar tienen sus propias acciones.
+ * Estados a los que se puede pasar desde "cambiar estado" (igual que el backend): solo marcar en
+ * preparación. Confirmar y cancelar tienen sus propias acciones; despachar y entregar se registran
+ * en el envío.
  */
 export const NEXT_ORDER_STATUSES: Record<OrderStatus, OrderStatus[]> = {
   PENDING_CONFIRMATION: [],
-  CONFIRMED: ['PREPARING', 'SHIPPED'],
-  PREPARING: ['SHIPPED'],
-  SHIPPED: ['DELIVERED'],
+  CONFIRMED: ['PREPARING'],
+  PREPARING: [],
+  SHIPPED: [],
   DELIVERED: [],
   CANCELLED: [],
 };

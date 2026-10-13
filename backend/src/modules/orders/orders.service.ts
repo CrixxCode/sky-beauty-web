@@ -15,6 +15,7 @@ import {
   OrderStatus,
   PaymentStatus,
   Prisma,
+  ShippingMethod,
   ShippingStatus,
 } from '../../generated/prisma/client';
 import { normalizeWhatsappNumber, WHATSAPP_NUMBER_PATTERN } from '../../shared/phone';
@@ -60,14 +61,15 @@ const ORDER_DETAIL_INCLUDE = {
 type OrderDetail = Prisma.OrderGetPayload<{ include: typeof ORDER_DETAIL_INCLUDE }>;
 
 /**
- * Cambios de estado permitidos desde "cambiar estado". Solo hacia adelante; preparar es opcional.
- * Confirmar y cancelar tienen sus propias acciones (costo de envío, motivo y existencias).
+ * Cambios de estado permitidos desde "cambiar estado": solo marcar en preparación (opcional).
+ * Confirmar y cancelar tienen sus propias acciones, y despachar y entregar se registran en el
+ * envío (por transportadora o entrega local; decisión del 2026-10-13).
  */
 const NEXT_STATUSES: Record<OrderStatus, OrderStatus[]> = {
   PENDING_CONFIRMATION: [],
-  CONFIRMED: [OrderStatus.PREPARING, OrderStatus.SHIPPED],
-  PREPARING: [OrderStatus.SHIPPED],
-  SHIPPED: [OrderStatus.DELIVERED],
+  CONFIRMED: [OrderStatus.PREPARING],
+  PREPARING: [],
+  SHIPPED: [],
   DELIVERED: [],
   CANCELLED: [],
 };
@@ -503,6 +505,7 @@ export class OrdersService {
       cancelledAt: order.cancelledAt,
       shipping: order.shipping
         ? {
+            method: order.shipping.method,
             status: order.shipping.status,
             carrierName: order.shipping.carrier?.name ?? null,
             trackingNumber,
@@ -647,18 +650,16 @@ export class OrdersService {
     if (dto.status === OrderStatus.CONFIRMED) {
       throw new BadRequestException('Usa la acción de confirmar pedido.');
     }
+    if (dto.status === OrderStatus.SHIPPED || dto.status === OrderStatus.DELIVERED) {
+      throw new BadRequestException(
+        'El despacho y la entrega se registran en la sección de envío del pedido.',
+      );
+    }
     if (!NEXT_STATUSES[order.status].includes(dto.status)) {
       throw new BadRequestException(
         `No se puede pasar de "${ORDER_STATUS_NAMES[order.status]}" a "${ORDER_STATUS_NAMES[dto.status]}".`,
       );
     }
-
-    // Contra entrega: queda pagado al entregarse (decisión del 2026-10-09), una sola vez.
-    const codPaidNow =
-      dto.status === OrderStatus.DELIVERED &&
-      order.paymentMethodCode === 'CASH_ON_DELIVERY' &&
-      order.paymentStatus !== PaymentStatus.PAID &&
-      order.paymentStatus !== PaymentStatus.REFUNDED;
 
     await this.prisma.$transaction(async (tx) => {
       await this.claimOrder(tx, order);
@@ -666,7 +667,6 @@ export class OrdersService {
         where: { id },
         data: {
           status: dto.status,
-          paymentStatus: codPaidNow ? PaymentStatus.PAID : order.paymentStatus,
         },
       });
       await tx.orderStatusHistory.create({
@@ -679,18 +679,6 @@ export class OrdersService {
           changedById: adminId,
         },
       });
-      await this.syncShippingWithOrder(tx, id, dto.status);
-      if (codPaidNow) {
-        await tx.paymentRecord.create({
-          data: {
-            orderId: id,
-            status: PaymentStatus.PAID,
-            amount: order.total,
-            note: 'Pago contra entrega registrado al marcar como entregado.',
-            recordedById: adminId,
-          },
-        });
-      }
     });
 
     return this.findAdmin(id, role);
@@ -723,10 +711,17 @@ export class OrdersService {
       throw new BadRequestException('Primero confirma el pedido antes de despacharlo.');
     }
 
-    const carrierId =
-      dto.carrierId === undefined ? (order.shipping?.carrierId ?? null) : dto.carrierId;
-    const trackingNumber =
-      dto.trackingNumber === undefined
+    const method = dto.method ?? order.shipping?.method ?? ShippingMethod.CARRIER;
+    const isLocal = method === ShippingMethod.LOCAL;
+    // La entrega local no lleva transportadora ni guía.
+    const carrierId = isLocal
+      ? null
+      : dto.carrierId === undefined
+        ? (order.shipping?.carrierId ?? null)
+        : dto.carrierId;
+    const trackingNumber = isLocal
+      ? null
+      : dto.trackingNumber === undefined
         ? (order.shipping?.trackingNumber ?? null)
         : dto.trackingNumber?.trim() || null;
     const carrierCost =
@@ -753,6 +748,7 @@ export class OrdersService {
           : null;
 
     if (
+      !isLocal &&
       (dto.status === ShippingStatus.IN_TRANSIT || dto.status === ShippingStatus.DELIVERED) &&
       (!carrierId || !trackingNumber)
     ) {
@@ -795,6 +791,7 @@ export class OrdersService {
         where: { orderId: id },
         create: {
           orderId: id,
+          method,
           carrierId,
           trackingNumber,
           carrierCost,
@@ -804,6 +801,7 @@ export class OrdersService {
           notes,
         },
         update: {
+          method,
           carrierId,
           trackingNumber,
           carrierCost,
@@ -826,7 +824,7 @@ export class OrdersService {
           type: OrderEventType.SHIPPING,
           fromStatus: order.shipping?.status ?? null,
           toStatus: dto.status,
-          note: this.shippingEventNote(dto.status, carrierName, trackingNumber),
+          note: this.shippingEventNote(dto.status, carrierName, trackingNumber, isLocal),
           changedById: adminId,
         },
       });
@@ -1395,6 +1393,7 @@ export class OrdersService {
       shipping: order.shipping
         ? {
             id: order.shipping.id,
+            method: order.shipping.method,
             carrierId: order.shipping.carrierId,
             carrierName: order.shipping.carrier?.name ?? null,
             carrierTrackingUrlTemplate: trackingTemplate,
@@ -1415,48 +1414,13 @@ export class OrdersService {
     };
   }
 
-  /**
-   * Al marcar el pedido como despachado o entregado desde "cambiar estado" (por ejemplo, una
-   * entrega local sin transportadora), el envío refleja el mismo avance para el seguimiento.
-   */
-  private async syncShippingWithOrder(
-    tx: Prisma.TransactionClient,
-    orderId: string,
-    status: OrderStatus,
-  ): Promise<void> {
-    if (status !== OrderStatus.SHIPPED && status !== OrderStatus.DELIVERED) return;
-    const now = new Date();
-    const current = await tx.shipping.findUnique({ where: { orderId } });
-    const nextStatus =
-      status === OrderStatus.DELIVERED
-        ? ShippingStatus.DELIVERED
-        : current?.status === ShippingStatus.INCIDENT
-          ? ShippingStatus.INCIDENT
-          : ShippingStatus.IN_TRANSIT;
-    await tx.shipping.upsert({
-      where: { orderId },
-      create: {
-        orderId,
-        status: nextStatus,
-        dispatchedAt: now,
-        deliveredAt: nextStatus === ShippingStatus.DELIVERED ? now : null,
-      },
-      update: {
-        status: nextStatus,
-        dispatchedAt: current?.dispatchedAt ?? now,
-        deliveredAt:
-          nextStatus === ShippingStatus.DELIVERED
-            ? (current?.deliveredAt ?? now)
-            : current?.deliveredAt,
-      },
-    });
-  }
-
   private shippingEventNote(
     status: ShippingStatus,
     carrierName: string | null,
     trackingNumber: string | null,
+    isLocal: boolean,
   ): string {
+    if (isLocal && status === ShippingStatus.IN_TRANSIT) return 'Pedido en camino (entrega local).';
     if (status === ShippingStatus.NOT_SHIPPED) return 'Envío registrado como sin despachar.';
     if (status === ShippingStatus.IN_TRANSIT) {
       return `Pedido despachado${carrierName ? ` con ${carrierName}` : ''}${

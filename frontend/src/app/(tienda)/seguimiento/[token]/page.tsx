@@ -144,8 +144,14 @@ export default async function SeguimientoPage({ params }: SeguimientoPageProps) 
             label="Estado"
             value={order.shipping ? SHIPPING_STATUS_LABELS[order.shipping.status] : 'Sin despachar'}
           />
-          <Summary label="Transportadora" value={order.shipping?.carrierName ?? 'Pendiente'} />
-          <Summary label="Guia" value={order.shipping?.trackingNumber ?? 'Pendiente'} />
+          {order.shipping?.method === 'LOCAL' ? (
+            <Summary label="Entrega" value="Entrega local de la tienda" />
+          ) : (
+            <>
+              <Summary label="Transportadora" value={order.shipping?.carrierName ?? 'Pendiente'} />
+              <Summary label="Guía" value={order.shipping?.trackingNumber ?? 'Pendiente'} />
+            </>
+          )}
           {order.shipping?.trackingUrl && (
             <Button asChild variant="outline" className="mt-3 w-full">
               <a href={order.shipping.trackingUrl} target="_blank" rel="noreferrer">

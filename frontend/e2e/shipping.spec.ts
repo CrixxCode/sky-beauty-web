@@ -66,6 +66,18 @@ test('el personal crea una transportadora, despacha con guía y entrega; el clie
     dataProcessingAccepted: true,
   });
   await api('patch', `/admin/orders/${order.id}/confirm`, { shippingCost: 8000 });
+  const localOrder = await api('post', '/store/orders', {
+    items: [{ variantId: variant.id, quantity: 1 }],
+    municipalityCode: '44001',
+    customerName: `Cliente Local ${suffix}`,
+    customerPhone: '3001112233',
+    addressLine: 'Dirección ficticia 456',
+    paymentMethodId: transfer.id,
+    idempotencyKey: `e2e-envio-local-${suffix}-${Date.now()}`,
+    termsAccepted: true,
+    dataProcessingAccepted: true,
+  });
+  await api('patch', `/admin/orders/${localOrder.id}/confirm`, { shippingCost: 5000 });
   await logout(page);
 
   // El personal crea la transportadora.
@@ -114,7 +126,25 @@ test('el personal crea una transportadora, despacha con guía y entrega; el clie
   await expect(dialog.getByText('El pedido fue entregado.')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  // Entrega local: sin transportadora ni guía.
+  await page.getByRole('textbox', { name: /Buscar pedido/ }).fill(localOrder.code);
+  await page
+    .getByRole('row', { name: new RegExp(localOrder.code) })
+    .getByRole('button', { name: 'Ver' })
+    .click();
+  const local = page.getByRole('dialog', { name: `Pedido ${localOrder.code}` });
+  await local.getByRole('radio', { name: 'Entrega local' }).click();
+  await expect(local.getByLabel('Número de guía')).toHaveCount(0);
+  await pick(page, 'Estado del envío', 'En tránsito', local);
+  await local.getByRole('button', { name: 'Guardar envío' }).click();
+  await expect(local.getByText('Despachado').first()).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await logout(page);
+
+  await page.goto(`/seguimiento/${localOrder.publicToken}`);
+  await expect(page.getByText('Entrega local de la tienda')).toBeVisible();
 
   // El cliente ve la guía y el rastreo en su enlace privado.
   await page.goto(`/seguimiento/${order.publicToken}`);

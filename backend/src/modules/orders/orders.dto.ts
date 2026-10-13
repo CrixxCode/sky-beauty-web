@@ -19,7 +19,12 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
-import { OrderStatus, PaymentStatus, ShippingStatus } from '../../generated/prisma/client';
+import {
+  OrderStatus,
+  PaymentStatus,
+  ShippingMethod,
+  ShippingStatus,
+} from '../../generated/prisma/client';
 
 export class CartItemInputDto {
   @ApiProperty({ format: 'uuid' })
@@ -186,6 +191,7 @@ export class CreatedOrderDto {
 }
 
 export class PublicTrackingShippingDto {
+  @ApiProperty({ enum: ShippingMethod }) method!: ShippingMethod;
   @ApiProperty({ enum: ShippingStatus }) status!: ShippingStatus;
   @ApiProperty({ nullable: true, type: String }) carrierName!: string | null;
   @ApiProperty({ nullable: true, type: String }) trackingNumber!: string | null;
@@ -281,6 +287,7 @@ export class AdminPaymentRecordDto {
 
 export class AdminShippingDto {
   @ApiProperty() id!: string;
+  @ApiProperty({ enum: ShippingMethod }) method!: ShippingMethod;
   @ApiProperty({ nullable: true, type: String }) carrierId!: string | null;
   @ApiProperty({ nullable: true, type: String }) carrierName!: string | null;
   @ApiProperty({ nullable: true, type: String }) carrierTrackingUrlTemplate!: string | null;
@@ -375,6 +382,14 @@ export class ChangeOrderStatusDto {
 }
 
 export class UpsertOrderShippingDto {
+  @ApiPropertyOptional({
+    enum: ShippingMethod,
+    description: 'Por transportadora o entrega local. Si se omite, se conserva el registrado.',
+  })
+  @IsOptional()
+  @IsEnum(ShippingMethod)
+  method?: ShippingMethod;
+
   @ApiPropertyOptional({ format: 'uuid', nullable: true })
   @IsOptional()
   @IsUUID()
