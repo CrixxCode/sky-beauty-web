@@ -211,4 +211,78 @@ describe('Seguimiento publico de pedidos (integracion)', () => {
     }
     expect(res.body).not.toHaveProperty('id');
   });
+
+  describe('rastreador por código y teléfono', () => {
+    const LOOKUP = '/api/v1/store/orders/lookup';
+    let code: string;
+    let publicToken: string;
+
+    beforeEach(async () => {
+      const brand = await prisma.brand.create({
+        data: { name: 'Marca Rastreo', slug: 'marca-rastreo' },
+      });
+      const category = await prisma.category.create({
+        data: { name: 'Categoría Rastreo', slug: 'cat-rastreo' },
+      });
+      const product = await prisma.product.create({
+        data: {
+          name: 'Producto Rastreo',
+          slug: 'producto-rastreo',
+          description: 'Producto ficticio.',
+          brandId: brand.id,
+          categoryId: category.id,
+          basePrice: 10000,
+          status: 'ACTIVE',
+          publishedAt: new Date(),
+        },
+      });
+      const variant = await prisma.productVariant.create({
+        data: { productId: product.id, sku: 'RAS-1', name: 'Tono rastreo', stock: 5 },
+      });
+      const method = await prisma.paymentMethod.update({
+        where: { code: 'BANK_TRANSFER' },
+        data: { isActive: true, instructions: 'Instrucciones ficticias.' },
+      });
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/store/orders')
+        .send({
+          items: [{ variantId: variant.id, quantity: 1 }],
+          municipalityCode: '44001',
+          customerName: 'Cliente Rastreo',
+          customerPhone: '300 111 2233',
+          addressLine: 'Dirección ficticia 123',
+          paymentMethodId: method.id,
+          idempotencyKey: `rastreo-${Date.now()}`,
+          termsAccepted: true,
+          dataProcessingAccepted: true,
+        })
+        .expect(201);
+      ({ code, publicToken } = created.body as { code: string; publicToken: string });
+    });
+
+    it('con código y teléfono correctos lleva al seguimiento privado', async () => {
+      for (const phone of ['3001112233', '+57 300 111 2233', '573001112233']) {
+        const res = await request(app.getHttpServer())
+          .post(LOOKUP)
+          .send({ code: ` ${code.toLowerCase()} `, phone })
+          .expect(200);
+        expect(res.body).toEqual({ trackingPath: `/seguimiento/${publicToken}` });
+      }
+      await request(app.getHttpServer()).get(`${TRACKING}/${publicToken}`).expect(200);
+    });
+
+    it('si algún dato no coincide responde siempre el mismo error genérico', async () => {
+      for (const body of [
+        { code, phone: '3009999999' },
+        { code: 'SB-000000-000000', phone: '3001112233' },
+        { code, phone: 'teléfono raro' },
+      ]) {
+        const res = await request(app.getHttpServer()).post(LOOKUP).send(body).expect(404);
+        expect((res.body as ErrorResponse).message).toBe(
+          'No encontramos un pedido con esos datos.',
+        );
+      }
+      await request(app.getHttpServer()).post(LOOKUP).send({ code }).expect(400);
+    });
+  });
 });

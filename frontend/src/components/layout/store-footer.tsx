@@ -1,4 +1,5 @@
 import { ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 import { Container } from '@/components/layout/container';
 import { serifClass } from '@/components/ui/typography';
 import { whatsappUrl } from '@/lib/format';
@@ -33,6 +34,12 @@ export function StoreFooter({ info }: { info: PublicStoreInfo | null }) {
           <h2 className={cn(serifClass, 'mb-4.75 mt-0.75 text-[39px] text-white')}>
             {info?.storeName ?? 'Sky Beauty'}
           </h2>
+        </div>
+        <div>
+          <h3 className={heading}>Tu pedido</h3>
+          <Link href="/rastrear" className={linkClass}>
+            Rastrear pedido
+          </Link>
         </div>
         {contactLines.length > 0 && (
           <div>

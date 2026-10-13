@@ -127,6 +127,17 @@ Prioridad de cálculo en checkout:
 
 ---
 
+## 2026-10-13 — Rastreador por código y teléfono
+
+**Decisión:** además del enlace privado, el cliente puede consultar su pedido en la página "Rastrear pedido" (`/rastrear`, enlazada desde el pie de la tienda) escribiendo el **código del pedido** y el **teléfono con el que compró**.
+
+- Si los dos coinciden, se abre el mismo seguimiento privado. El teléfono se acepta escrito de cualquier forma, como en el checkout.
+- Si no coinciden, se responde siempre el mismo mensaje genérico, sin decir cuál dato falló.
+- El código solo no basta, porque no es secreto (aparece en WhatsApp y en capturas).
+- Máximo 5 intentos por minuto desde la misma conexión.
+
+---
+
 ## 2026-10-13 — Información de la página de seguimiento
 
 **Decisión:** completa el pendiente de "Seguimiento del pedido con enlace privado". La página de seguimiento muestra:

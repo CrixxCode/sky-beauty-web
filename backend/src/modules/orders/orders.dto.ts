@@ -203,6 +203,25 @@ export class PublicTrackingShippingDto {
 }
 
 /** Producto del pedido tal como quedó registrado (sin costos internos). */
+export class LookupOrderDto {
+  @ApiProperty({ description: 'Código del pedido, por ejemplo SB-261013-A1B2C3.' })
+  @IsString()
+  @MinLength(4)
+  @MaxLength(40)
+  code!: string;
+
+  @ApiProperty({ description: 'Teléfono usado en la compra. Se normaliza como en el checkout.' })
+  @IsString()
+  @MinLength(7)
+  @MaxLength(30)
+  phone!: string;
+}
+
+export class LookupOrderResultDto {
+  @ApiProperty({ description: 'Ruta del seguimiento privado del pedido.' })
+  trackingPath!: string;
+}
+
 export class PublicTrackingItemDto {
   @ApiProperty() productName!: string;
   @ApiProperty() variantName!: string;

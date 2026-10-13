@@ -32,6 +32,8 @@ import type {
   CreateOrderDto,
   CreatedOrderDto,
   ListOrdersQueryDto,
+  LookupOrderDto,
+  LookupOrderResultDto,
   PaginatedAdminOrdersDto,
   PublicOrderTrackingDto,
   QuoteCartDto,
@@ -480,6 +482,24 @@ export class OrdersService {
     }
 
     return this.createdOrderDto(orderId, publicToken);
+  }
+
+  /**
+   * Busca un pedido por código y teléfono de la compra y devuelve su seguimiento privado. Si no
+   * coinciden los dos, responde siempre el mismo error, sin decir cuál dato falló.
+   */
+  async lookupOrder(dto: LookupOrderDto): Promise<LookupOrderResultDto> {
+    const notFound = new NotFoundException('No encontramos un pedido con esos datos.');
+    const code = dto.code.trim().toUpperCase();
+    const phone = normalizeWhatsappNumber(dto.phone);
+    if (!WHATSAPP_NUMBER_PATTERN.test(phone)) throw notFound;
+
+    const order = await this.prisma.order.findUnique({
+      where: { code },
+      select: { customerPhone: true, idempotencyKey: true },
+    });
+    if (!order || order.customerPhone !== phone) throw notFound;
+    return { trackingPath: `/seguimiento/${this.publicTokenFor(order.idempotencyKey)}` };
   }
 
   async trackPublic(token: string): Promise<PublicOrderTrackingDto> {

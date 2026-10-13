@@ -345,6 +345,7 @@ La lógica más delicada del sistema: debe tener pruebas exhaustivas antes de co
 - La página no se indexa en buscadores (`noindex, nofollow`) y el enlace de rastreo se abre sin enviar la dirección de la página (`rel="noreferrer"`).
 - Un pedido cancelado muestra el aviso con la fecha, sin los pasos de avance.
 - El enlace de seguimiento va en el mensaje de WhatsApp del cliente y en el detalle del pedido del panel (con botón para copiarlo), para reenviarlo si el cliente lo pierde. Lo arma el backend con `PUBLIC_SITE_URL`, que en producción debe ser el dominio de la tienda.
+- Rastreador `/rastrear` por código y teléfono (ver `decisiones.md`, 2026-10-13), con límite de 5 intentos por minuto (`test/lookup-throttle.e2e-spec.ts`).
 - La vista no existe en el prototipo; usa el mismo lenguaje visual de la tienda.
 
 ---
@@ -402,6 +403,7 @@ La lógica más delicada del sistema: debe tener pruebas exhaustivas antes de co
 ## 14. Despliegue
 
 - Despliegue en **Railway**: backend, frontend y PostgreSQL. Volumen persistente para las imágenes (`UPLOADS_DIR`), variables de producción (incluida `PUBLIC_SITE_URL` con el dominio de la tienda), dominio y HTTPS.
+- **`TRUST_PROXY_HOPS`:** el navegador llega al backend a través del proxy de Railway y de Next.js. Hay que configurar los saltos para que el backend vea la IP real del cliente; si no, los límites de intentos (inicio de sesión, rastreador) se comparten entre todos los clientes.
 - Sin servicios de pago adicionales (ver `decisiones.md`, "Infraestructura sin servicios de pago").
 
 **Bloqueos de negocio:** compra del dominio; estrategia de copias de seguridad de la base de datos y de las imágenes.

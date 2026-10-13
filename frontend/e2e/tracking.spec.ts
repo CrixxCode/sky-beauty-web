@@ -106,4 +106,19 @@ test('el cliente sigue su pedido con el enlace privado y un enlace inválido no 
     page.getByRole('heading', { name: 'No pudimos abrir este seguimiento' }),
   ).toBeVisible();
   await expect(page.getByText(order.code)).toHaveCount(0);
+
+  // Rastreador desde el pie de la tienda: código + teléfono, sin enlace.
+  await page.goto('/');
+  await page.getByRole('contentinfo').getByRole('link', { name: 'Rastrear pedido' }).click();
+  await expect(page).toHaveURL(/\/rastrear$/);
+  await page.getByLabel('Código del pedido').fill(order.code.toLowerCase());
+  await page.getByLabel('Teléfono de la compra').fill('3009999999');
+  await page.getByRole('button', { name: 'Ver mi pedido' }).click();
+  await expect(
+    page.getByText('No encontramos un pedido con esos datos. Revisa el código y el teléfono.'),
+  ).toBeVisible();
+  await page.getByLabel('Teléfono de la compra').fill('+57 300 111 2233');
+  await page.getByRole('button', { name: 'Ver mi pedido' }).click();
+  await expect(page).toHaveURL(new RegExp(`/seguimiento/${order.publicToken}$`));
+  await expect(page.getByRole('heading', { name: `Pedido ${order.code}` })).toBeVisible();
 });
