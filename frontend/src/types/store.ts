@@ -26,7 +26,10 @@ export type PublicStoreInfo = Pick<
   | 'instagramUrl'
   | 'facebookUrl'
   | 'tiktokUrl'
->;
+> & {
+  heroTitle: string | null;
+  heroSubtitle: string | null;
+};
 
 export interface PaymentMethodCity {
   municipalityCode: string;

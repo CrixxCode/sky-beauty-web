@@ -80,11 +80,7 @@ export class BrandsService {
   async update(id: string, dto: UpdateBrandDto): Promise<BrandDto> {
     await this.findOrThrow(id);
     const slug =
-      dto.slug !== undefined
-        ? dto.slug
-        : dto.name !== undefined
-          ? slugify(dto.name)
-          : undefined;
+      dto.slug !== undefined ? dto.slug : dto.name !== undefined ? slugify(dto.name) : undefined;
     try {
       const brand = await this.prisma.brand.update({
         where: { id },

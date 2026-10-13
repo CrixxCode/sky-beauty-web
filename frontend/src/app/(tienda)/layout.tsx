@@ -3,14 +3,19 @@ import type { ReactNode } from 'react';
 import { BrandLogo } from '@/components/layout/brand-logo';
 import { Container } from '@/components/layout/container';
 import { StoreFooter } from '@/components/layout/store-footer';
+import { StoreSearch } from '@/features/storefront/catalog-ui';
 import { fetchPublicApi } from '@/lib/api.server';
+import type { PublicCategory } from '@/types/catalog';
 import type { PublicStoreInfo } from '@/types/store';
 
-// Estructura de la tienda (replica .site-header y .site-footer del prototipo). La búsqueda, el
-// carrito, la navegación por categorías y la barra de anuncios se agregan en sus módulos
-// (ver Context/plan-desarrollo.md); no se copian los textos de demostración del prototipo.
 export default async function TiendaLayout({ children }: { children: ReactNode }) {
-  const info = await fetchPublicApi<PublicStoreInfo>('/store/info');
+  const [info, categories] = await Promise.all([
+    fetchPublicApi<PublicStoreInfo>('/store/info'),
+    fetchPublicApi<PublicCategory[]>('/store/categories'),
+  ]);
+  const navCategories = (categories ?? [])
+    .flatMap((category) => [category, ...category.children])
+    .slice(0, 6);
 
   return (
     <>
@@ -19,8 +24,37 @@ export default async function TiendaLayout({ children }: { children: ReactNode }
           <Link href="/" aria-label="Inicio de Sky Beauty">
             <BrandLogo />
           </Link>
+          <div className="flex flex-1 justify-center max-[600px]:hidden">
+            <StoreSearch />
+          </div>
+          <Link
+            href="/productos"
+            className="text-[11px] font-semibold text-[#794b79] max-[600px]:text-[10px]"
+          >
+            Catálogo
+          </Link>
+        </Container>
+        <Container className="flex h-11.5 items-center justify-center gap-6.75 overflow-x-auto max-[600px]:hidden">
+          <Link
+            href="/productos"
+            className="shrink-0 text-[10px] text-[#534850] hover:text-[#9c649a]"
+          >
+            Ver todo
+          </Link>
+          {navCategories.map((category) => (
+            <Link
+              key={category.id}
+              href={`/productos?categoria=${category.id}`}
+              className="shrink-0 text-[10px] text-[#534850] hover:text-[#9c649a]"
+            >
+              {category.name}
+            </Link>
+          ))}
         </Container>
       </header>
+      <Container className="mb-3 hidden h-10.75 items-center bg-[#f8f4f5] max-[600px]:flex">
+        <StoreSearch compact />
+      </Container>
       <main className="flex-1">{children}</main>
       <StoreFooter info={info} />
     </>

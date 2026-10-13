@@ -108,3 +108,50 @@ export interface PaginatedProducts {
   total: number;
 }
 
+export interface PublicBrand {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface PublicCategory {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+  children: PublicCategory[];
+}
+
+export interface PublicVariant {
+  id: string;
+  sku: string;
+  name: string;
+  colorHex: string | null;
+  price: number | null;
+  maxPerOrder: number | null;
+  stock: number;
+  isActive: boolean;
+  position: number;
+  images: ProductImage[];
+}
+
+export interface PublicProduct {
+  id: string;
+  name: string;
+  slug: string;
+  shortDescription: string | null;
+  description: string;
+  brandId: string;
+  netContent: string | null;
+  categoryId: string;
+  basePrice: number;
+  isFeatured: boolean;
+  publishedAt: string | null;
+  variants: PublicVariant[];
+  images: ProductImage[];
+}
+
+export interface PaginatedPublicProducts {
+  items: PublicProduct[];
+  total: number;
+}

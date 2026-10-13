@@ -147,6 +147,14 @@ El módulo más grande. Se recomienda dividirlo en dos PRs: primero el panel, de
 
 **Terminado cuando:** la propietaria crea un producto con variantes y fotos, lo publica, y un cliente lo encuentra por categoría, marca y búsqueda desde el celular.
 
+**Estado:** terminado el 2026-10-13.
+
+- Pruebas: `test/catalog.e2e-spec.ts` (backend) y `e2e/catalog.spec.ts` (Playwright, celular y escritorio).
+- Las fotos se sirven desde `UPLOADS_DIR` en `/uploads`; la tienda usa `<img>` en lugar de `next/image`, así que no fue necesario configurarlo.
+- Los textos del inicio salen de `StoreSettings.heroTitle` y `heroSubtitle`; sin ellos se muestra solo el nombre de la tienda. Su edición en el panel queda para el módulo 12.
+- La tienda indica si una variante está disponible o agotada, sin mostrar la cantidad (indicación de la persona usuaria, 2026-10-13).
+- Precios con descuento (módulo 5) y botón de agregar al carrito (módulo 6) se agregan en sus módulos.
+
 **Bloqueos de negocio:** catálogo real, categorías comerciales y fotos (se puede construir con datos de prueba evidentemente ficticios).
 
 ---

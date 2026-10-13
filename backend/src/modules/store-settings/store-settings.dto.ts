@@ -146,4 +146,6 @@ export class PublicStoreInfoDto {
   @ApiProperty({ nullable: true, type: String }) instagramUrl!: string | null;
   @ApiProperty({ nullable: true, type: String }) facebookUrl!: string | null;
   @ApiProperty({ nullable: true, type: String }) tiktokUrl!: string | null;
+  @ApiProperty({ nullable: true, type: String }) heroTitle!: string | null;
+  @ApiProperty({ nullable: true, type: String }) heroSubtitle!: string | null;
 }

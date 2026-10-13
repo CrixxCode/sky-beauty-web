@@ -4,18 +4,26 @@ import {
   Delete,
   Get,
   HttpCode,
+  MaxFileSizeValidator,
   Param,
+  ParseFilePipe,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiCookieAuth,
+  ApiConsumes,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import type { Env } from '../../../config/env';
 import { CurrentAdmin, Public } from '../../auth/auth.decorators';
 import { SESSION_COOKIE } from '../../auth/auth.types';
 import type { AuthenticatedAdmin } from '../../auth/auth.types';
@@ -26,10 +34,12 @@ import {
   PaginatedProductsDto,
   PaginatedPublicProductsDto,
   ProductDto,
+  ImageDto,
   ListProductsQueryDto,
   PublicListProductsQueryDto,
   PublicProductDto,
   UpdateProductDto,
+  UploadProductImageDto,
   UpdateVariantDto,
   VariantDto,
 } from './products.dto';
@@ -39,15 +49,15 @@ import { ProductsService } from './products.service';
 @ApiCookieAuth(SESSION_COOKIE)
 @Controller('admin/products')
 export class AdminProductsController {
-  constructor(private readonly products: ProductsService) {}
+  constructor(
+    private readonly products: ProductsService,
+    private readonly config: ConfigService<Env, true>,
+  ) {}
 
   @Get()
   @ApiOkResponse({ type: PaginatedProductsDto })
-  list(
-    @Query() query: ListProductsQueryDto,
-    @CurrentAdmin() admin: AuthenticatedAdmin,
-  ): Promise<PaginatedProductsDto> {
-    return this.products.list(query, admin.role);
+  list(@Query() query: ListProductsQueryDto): Promise<PaginatedProductsDto> {
+    return this.products.list(query);
   }
 
   @Get(':id')
@@ -91,10 +101,45 @@ export class AdminProductsController {
   @Delete(':id')
   @HttpCode(204)
   @ApiNoContentResponse()
-  remove(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<void> {
+  remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.products.remove(id);
+  }
+
+  @Post(':productId/images')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOkResponse({ type: ImageDto })
+  uploadImage(
+    @Param('productId', ParseUUIDPipe) productId: string,
+    @Body() dto: UploadProductImageDto,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({
+            maxSize: 1024 * 1024 * 10,
+            message: 'La imagen supera el tamaño máximo permitido.',
+          }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+  ): Promise<ImageDto> {
+    return this.products.uploadImage(
+      productId,
+      dto,
+      file,
+      this.config.get('MAX_IMAGE_SIZE_MB', { infer: true }),
+    );
+  }
+
+  @Delete(':productId/images/:imageId')
+  @HttpCode(204)
+  @ApiNoContentResponse()
+  removeImage(
+    @Param('productId', ParseUUIDPipe) productId: string,
+    @Param('imageId', ParseUUIDPipe) imageId: string,
+  ): Promise<void> {
+    return this.products.removeImage(productId, imageId);
   }
 
   @Post(':productId/variants')

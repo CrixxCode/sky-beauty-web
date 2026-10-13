@@ -7,6 +7,7 @@ import {
   Archive,
   CheckCircle2,
   Edit2,
+  ImageIcon,
   Layers,
   Package,
   Plus,
@@ -14,16 +15,27 @@ import {
   Settings2,
   Tag,
   Trash2,
+  Upload,
   X,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FormField, fieldA11y } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { AdminPanel, AdminPanelTitle, AdminStatus } from '@/features/admin-auth/admin-ui';
 import { ApiError, apiFetch } from '@/lib/api';
@@ -45,6 +57,7 @@ import type {
   Category,
   PaginatedProducts,
   Product,
+  ProductImage,
   ProductStatus,
   ProductVariant,
 } from '@/types/catalog';
@@ -54,9 +67,6 @@ export const PRODUCTS_KEY = ['admin-products'];
 
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof ApiError ? error.message : fallback;
-
-const th = 'bg-[#f8f5f7] p-3 text-left text-[10px] font-semibold text-[#766a73]';
-const td = 'border-b border-[#f0ecf0] px-3 py-3 text-[10px] text-[#625760] align-middle';
 
 export function ProductsManager({ role }: { role: AdminRole }) {
   const [search, setSearch] = useState('');
@@ -128,15 +138,15 @@ export function ProductsManager({ role }: { role: AdminRole }) {
           <div className="flex items-center gap-2.5">
             <AdminPanelTitle className="mb-0">Productos del catálogo</AdminPanelTitle>
             {productsData && (
-              <span className="rounded-full bg-[#f4eff3] px-2.5 py-0.5 text-[10px] font-semibold text-[#764b77]">
+              <Badge>
                 {productsData.total} {productsData.total === 1 ? 'producto' : 'productos'}
-              </span>
+              </Badge>
             )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 max-[600px]:w-full">
             {/* Buscador */}
-            <div className="relative flex items-center border border-[#e8dfe6] bg-white text-[#917987] transition-colors focus-within:border-[#936591] max-[600px]:w-full">
+            <div className="relative flex min-h-11.25 items-center border border-[#e8dfe6] bg-white text-[#917987] transition-colors focus-within:border-[#936591] max-[600px]:w-full">
               <span className="pl-3 text-[#917987]">
                 <Search size={15} />
               </span>
@@ -145,14 +155,14 @@ export function ProductsManager({ role }: { role: AdminRole }) {
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar por nombre..."
                 aria-label="Buscar producto"
-                className="w-44 px-2.5 py-2 text-[11px] outline-none placeholder:text-[#a0929b] max-[600px]:w-full"
+                className="min-h-11.25 w-44 px-2.5 py-0 text-[11px] outline-none placeholder:text-[#a0929b] max-[600px]:w-full"
               />
               {search && (
                 <button
                   type="button"
                   onClick={() => setSearch('')}
                   aria-label="Limpiar búsqueda"
-                  className="pr-2.5 text-[#a0929b] hover:text-[#493a45] cursor-pointer"
+                  className="flex min-h-11.25 items-center px-2.5 text-[#a0929b] hover:text-[#493a45] cursor-pointer"
                 >
                   <X size={14} />
                 </button>
@@ -160,11 +170,11 @@ export function ProductsManager({ role }: { role: AdminRole }) {
             </div>
 
             {/* Filtro de Categoría */}
-            <select
+            <Select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
               aria-label="Filtrar por categoría"
-              className="border border-[#e8dfe6] bg-white px-3 py-2 text-[11px] text-[#493a45] outline-none focus:border-[#936591] max-[600px]:w-full"
+              className="min-h-11.25 w-auto min-w-44 border border-[#e8dfe6] bg-white px-3 py-0 text-[11px] text-[#493a45] outline-none focus:border-[#936591] max-[600px]:w-full"
             >
               <option value="">Todas las categorías</option>
               {categories?.map((cat) => (
@@ -172,21 +182,21 @@ export function ProductsManager({ role }: { role: AdminRole }) {
                   {cat.name}
                 </option>
               ))}
-            </select>
+            </Select>
 
             {/* Filtro de Estado */}
-            <select
+            <Select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               aria-label="Filtrar por estado"
-              className="border border-[#e8dfe6] bg-white px-3 py-2 text-[11px] text-[#493a45] outline-none focus:border-[#936591] max-[600px]:w-full"
+              className="min-h-11.25 w-auto min-w-44 border border-[#e8dfe6] bg-white px-3 py-0 text-[11px] text-[#493a45] outline-none focus:border-[#936591] max-[600px]:w-full"
             >
               <option value="">Todos los estados</option>
               <option value="DRAFT">Borrador</option>
               <option value="ACTIVE">Activo</option>
               <option value="INACTIVE">Inactivo</option>
               <option value="ARCHIVED">Archivado</option>
-            </select>
+            </Select>
 
             <Button onClick={() => setIsCreateOpen(true)} className="max-[600px]:w-full">
               <Plus size={15} className="mr-1.5" /> Crear producto
@@ -214,74 +224,73 @@ export function ProductsManager({ role }: { role: AdminRole }) {
         )}
 
         {productsData && productsData.items.length > 0 && (
-          <div className="overflow-x-auto border border-[#eee8ed]">
-            <table className="w-full min-w-160 border-collapse bg-white">
-              <thead>
-                <tr>
-                  <th className={th}>Producto</th>
-                  <th className={th}>Marca</th>
-                  <th className={th}>Precio base</th>
-                  <th className={th}>Variantes y Stock</th>
-                  <th className={th}>Estado</th>
-                  <th className={`${th} text-right`}>Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                {productsData.items.map((product) => (
-                  <tr key={product.id} className="hover:bg-[#faf8f9] transition-colors">
-                    <td className={td}>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded bg-[#f4eff3] text-[#936591]">
-                          <Tag size={18} />
-                        </div>
-                        <div>
-                          <span className="block font-medium text-[#493a45] leading-tight">
-                            {product.name}
-                          </span>
-                          <span className="mt-0.5 block text-[9px] text-[#a4979e]">
-                            {categoryMap.get(product.categoryId) ?? 'Sin categoría'}
-                          </span>
-                        </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Producto</TableHead>
+                <TableHead>Marca</TableHead>
+                <TableHead>Precio base</TableHead>
+                <TableHead>Variantes y stock</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Acción</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {productsData.items.map((product) => (
+                <TableRow key={product.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded bg-[#f4eff3] text-[#936591]">
+                        <Tag size={18} />
                       </div>
-                    </td>
-                    <td className={td}>
-                      <span className="font-medium text-[#493a45]">
-                        {brandMap.get(product.brandId) ?? '—'}
-                      </span>
-                    </td>
-                    <td className={td}>
-                      <span className="font-semibold text-[#493a45]">
-                        {formatCOP(product.basePrice)}
-                      </span>
-                    </td>
-                    <td className={td}>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-medium text-[#493a45]">
-                          {product.variantCount} {product.variantCount === 1 ? 'variante' : 'variantes'}
+                      <div>
+                        <span className="block font-medium text-[#493a45] leading-tight">
+                          {product.name}
                         </span>
-                        {product.variantCount === 0 && (
-                          <span className="text-[9px] text-amber-700">Sin variantes</span>
-                        )}
+                        <span className="mt-0.5 block text-[9px] text-[#a4979e]">
+                          {categoryMap.get(product.categoryId) ?? 'Sin categoría'}
+                        </span>
                       </div>
-                    </td>
-                    <td className={td}>
-                      <ProductStatusBadge status={product.status} />
-                    </td>
-                    <td className={`${td} text-right`}>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedProductId(product.id)}
-                      >
-                        <Settings2 size={13} className="mr-1.5" />
-                        Gestionar
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-medium text-[#493a45]">
+                      {brandMap.get(product.brandId) ?? '—'}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-semibold text-[#493a45]">
+                      {formatCOP(product.basePrice)}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-medium text-[#493a45]">
+                        {product.variantCount}{' '}
+                        {product.variantCount === 1 ? 'variante' : 'variantes'}
+                      </span>
+                      {product.variantCount === 0 && (
+                        <span className="text-[9px] text-amber-700">Sin variantes</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <ProductStatusBadge status={product.status} />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedProductId(product.id)}
+                    >
+                      <Settings2 size={13} className="mr-1.5" />
+                      Gestionar
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </AdminPanel>
 
@@ -515,7 +524,9 @@ function ProductDetailModalContent({
   validCategories: { id: string; name: string }[];
   onClose: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<'variants' | 'info' | 'status'>('variants');
+  const [activeTab, setActiveTab] = useState<'variants' | 'images' | 'info' | 'status'>(
+    'variants',
+  );
 
   const {
     data: product,
@@ -531,7 +542,9 @@ function ProductDetailModalContent({
   }
 
   if (isError || !product) {
-    return <p className="py-8 text-center text-[11px] text-danger">No se pudo cargar el producto.</p>;
+    return (
+      <p className="py-8 text-center text-[11px] text-danger">No se pudo cargar el producto.</p>
+    );
   }
 
   return (
@@ -544,11 +557,16 @@ function ProductDetailModalContent({
             <ProductStatusBadge status={product.status} />
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-[#8b7f87]">
-            <span>Precio base: <strong className="text-[#493a45]">{formatCOP(product.basePrice)}</strong></span>
+            <span>
+              Precio base:{' '}
+              <strong className="text-[#493a45]">{formatCOP(product.basePrice)}</strong>
+            </span>
             <span>·</span>
             <span className="font-mono text-[#a0929b]">/{product.slug}</span>
             <span>·</span>
-            <span>{product.variants.length} {product.variants.length === 1 ? 'variante' : 'variantes'}</span>
+            <span>
+              {product.variants.length} {product.variants.length === 1 ? 'variante' : 'variantes'}
+            </span>
           </div>
         </div>
 
@@ -565,6 +583,20 @@ function ProductDetailModalContent({
           >
             <Layers size={13} />
             Variantes ({product.variants.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('images')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors cursor-pointer ${
+              activeTab === 'images'
+                ? 'bg-[#764b77] text-white font-semibold'
+                : 'text-[#625760] hover:text-[#493a45]'
+            }`}
+          >
+            <ImageIcon size={13} />
+            Fotos (
+            {product.images.length + product.variants.reduce((acc, v) => acc + v.images.length, 0)}
+            )
           </button>
           <button
             type="button"
@@ -594,24 +626,167 @@ function ProductDetailModalContent({
       </div>
 
       {/* Contenido según pestaña activa */}
-      {activeTab === 'variants' && (
-        <VariantsTab product={product} role={role} />
-      )}
+      {activeTab === 'variants' && <VariantsTab product={product} role={role} />}
+
+      {activeTab === 'images' && <ProductImagesTab product={product} />}
 
       {activeTab === 'info' && (
-        <ProductInfoTab
-          product={product}
-          brands={brands}
-          validCategories={validCategories}
-        />
+        <ProductInfoTab product={product} brands={brands} validCategories={validCategories} />
       )}
 
-      {activeTab === 'status' && (
-        <ProductStatusTab
-          product={product}
-          onDeleted={onClose}
-        />
+      {activeTab === 'status' && <ProductStatusTab product={product} onDeleted={onClose} />}
+    </div>
+  );
+}
+
+function ProductImagesTab({ product }: { product: Product }) {
+  const queryClient = useQueryClient();
+  const [file, setFile] = useState<File | null>(null);
+  const [variantId, setVariantId] = useState('');
+  const [alt, setAlt] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<ProductImage | null>(null);
+
+  const uploadImage = useMutation({
+    mutationFn: async () => {
+      if (!file) throw new Error('Selecciona una imagen antes de subirla.');
+      const formData = new FormData();
+      formData.set('file', file);
+      if (variantId) formData.set('variantId', variantId);
+      if (alt.trim()) formData.set('alt', alt.trim());
+      return apiFetch<ProductImage>(`/admin/products/${product.id}/images`, {
+        method: 'POST',
+        body: formData,
+      });
+    },
+    onSuccess: async () => {
+      toast.success('Foto agregada al producto.');
+      setFile(null);
+      setVariantId('');
+      setAlt('');
+      await queryClient.invalidateQueries({ queryKey: ['admin-product', product.id] });
+    },
+    onError: (error) => toast.error(errorMessage(error, 'No se pudo subir la foto.')),
+  });
+
+  const deleteImage = useMutation({
+    mutationFn: (imageId: string) =>
+      apiFetch<void>(`/admin/products/${product.id}/images/${imageId}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: async () => {
+      toast.success('Foto eliminada.');
+      setDeleteTarget(null);
+      await queryClient.invalidateQueries({ queryKey: ['admin-product', product.id] });
+    },
+    onError: (error) => toast.error(errorMessage(error, 'No se pudo eliminar la foto.')),
+  });
+
+  const variantName = (id: string | null) =>
+    id ? product.variants.find((variant) => variant.id === id)?.name : null;
+  const variantImages = product.variants.flatMap((variant) => variant.images);
+  const allImages = [...product.images, ...variantImages].sort((a, b) => a.position - b.position);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 border border-[#eee8ed] bg-[#fcfbfa] p-4 min-[760px]:grid-cols-[1.2fr_1fr]">
+        <div>
+          <h4 className="text-xs font-semibold text-[#493a45]">Agregar foto</h4>
+          <p className="mt-1 text-[10px] leading-relaxed text-[#756873]">
+            Usa fotos generales para el producto y fotos propias para cada variante. La tienda
+            mostrará las fotos de la variante elegida cuando existan.
+          </p>
+        </div>
+
+        <form
+          className="grid gap-2.5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            uploadImage.mutate();
+          }}
+        >
+          <Input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+          />
+          <Select value={variantId} onChange={(event) => setVariantId(event.target.value)}>
+            <option value="">Foto general del producto</option>
+            {product.variants.map((variant) => (
+              <option key={variant.id} value={variant.id}>
+                Variante: {variant.name}
+              </option>
+            ))}
+          </Select>
+          <Input
+            value={alt}
+            onChange={(event) => setAlt(event.target.value)}
+            placeholder="Texto alternativo opcional"
+          />
+          <Button type="submit" disabled={!file || uploadImage.isPending}>
+            <Upload size={14} className="mr-1.5" />
+            {uploadImage.isPending ? 'Subiendo...' : 'Subir foto'}
+          </Button>
+        </form>
+      </div>
+
+      {allImages.length === 0 ? (
+        <div className="border border-[#eee8ed] bg-[#fbf9fa] p-8 text-center text-[11px] text-[#948692]">
+          <ImageIcon size={30} className="mx-auto mb-2 text-[#c4b7c1]" />
+          <p className="font-medium text-[#493a45]">Este producto todavía no tiene fotos</p>
+          <p className="mt-1 text-[10px]">Agrega al menos una foto antes de publicarlo.</p>
+        </div>
+      ) : (
+        <div className="grid gap-3 min-[560px]:grid-cols-2 min-[920px]:grid-cols-3">
+          {allImages.map((image) => {
+            const assignedVariantName = variantName(image.variantId);
+            return (
+              <div key={image.id} className="border border-[#eee8ed] bg-white">
+                <div className="aspect-square bg-[#f6f1f4]">
+                  <img
+                    src={image.thumbnailUrl}
+                    alt={image.alt || product.name}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="space-y-2 p-3">
+                  <div>
+                    <Badge variant={assignedVariantName ? 'neutral' : 'default'}>
+                      {assignedVariantName ? `Variante: ${assignedVariantName}` : 'Foto general'}
+                    </Badge>
+                    {image.alt && (
+                      <p className="mt-1.5 line-clamp-2 text-[10px] text-[#625760]">
+                        {image.alt}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDeleteTarget(image)}
+                    disabled={deleteImage.isPending}
+                    className="w-full text-danger hover:border-danger hover:bg-danger-bg"
+                  >
+                    <Trash2 size={12} className="mr-1.5" />
+                    Eliminar foto
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Eliminar foto"
+        description="Esta foto dejará de mostrarse en el producto y en la variante asociada."
+        confirmLabel={deleteImage.isPending ? 'Eliminando...' : 'Eliminar foto'}
+        destructive
+        onConfirm={() => {
+          if (deleteTarget) deleteImage.mutate(deleteTarget.id);
+        }}
+      />
     </div>
   );
 }
@@ -621,6 +796,7 @@ function VariantsTab({ product, role }: { product: Product; role: AdminRole }) {
   const queryClient = useQueryClient();
   const [editingVariant, setEditingVariant] = useState<ProductVariant | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ProductVariant | null>(null);
 
   const toggleVariant = useMutation({
     mutationFn: ({ variantId, isActive }: { variantId: string; isActive: boolean }) =>
@@ -643,6 +819,7 @@ function VariantsTab({ product, role }: { product: Product; role: AdminRole }) {
       }),
     onSuccess: async () => {
       toast.success('Variante eliminada.');
+      setDeleteTarget(null);
       await queryClient.invalidateQueries({ queryKey: ['admin-product', product.id] });
       await queryClient.invalidateQueries({ queryKey: PRODUCTS_KEY });
     },
@@ -657,8 +834,7 @@ function VariantsTab({ product, role }: { product: Product; role: AdminRole }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <p className="text-[11px] text-[#625760]">
-            Stock total acumulado:{' '}
-            <strong className="text-[#493a45]">{totalStock} unidades</strong>
+            Stock total acumulado: <strong className="text-[#493a45]">{totalStock} unidades</strong>
           </p>
         </div>
 
@@ -734,7 +910,8 @@ function VariantsTab({ product, role }: { product: Product; role: AdminRole }) {
           <Package size={28} className="mx-auto mb-2 text-[#c4b7c1]" />
           <p className="font-medium text-[#493a45]">Este producto aún no tiene variantes</p>
           <p className="mt-1 text-[10px]">
-            Un producto requiere al menos una variante con existencias para poder venderse en la tienda.
+            Un producto requiere al menos una variante con existencias para poder venderse en la
+            tienda.
           </p>
           {!isAdding && (
             <Button size="sm" onClick={() => setIsAdding(true)} className="mt-3">
@@ -743,141 +920,149 @@ function VariantsTab({ product, role }: { product: Product; role: AdminRole }) {
           )}
         </div>
       ) : (
-        <div className="overflow-x-auto border border-[#eee8ed]">
-          <table className="w-full border-collapse bg-white">
-            <thead>
-              <tr>
-                <th className={th}>Tono / Presentación</th>
-                <th className={th}>SKU</th>
-                <th className={th}>Precio venta</th>
-                {role === 'ADMIN' && <th className={th}>Costo (Admin)</th>}
-                <th className={th}>Existencias</th>
-                <th className={th}>Estado</th>
-                <th className={`${th} text-right`}>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {product.variants.map((v) => {
-                const isLowStock =
-                  v.lowStockThreshold !== null && v.stock <= v.lowStockThreshold;
+        <Table className="min-w-[760px]">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Tono / Presentación</TableHead>
+              <TableHead>SKU</TableHead>
+              <TableHead>Precio venta</TableHead>
+              {role === 'ADMIN' && <TableHead>Costo (Admin)</TableHead>}
+              <TableHead>Existencias</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {product.variants.map((v) => {
+              const isLowStock = v.lowStockThreshold !== null && v.stock <= v.lowStockThreshold;
 
-                return (
-                  <tr key={v.id} className="hover:bg-[#faf8f9] transition-colors">
-                    <td className={td}>
-                      <div className="flex items-center gap-2.5">
-                        {v.colorHex ? (
-                          <span
-                            className="h-4 w-4 shrink-0 rounded-full border border-black/20 shadow-xs"
-                            style={{ backgroundColor: v.colorHex }}
-                            title={`Tono: ${v.colorHex}`}
-                          />
-                        ) : (
-                          <span className="h-4 w-4 shrink-0 rounded-full border border-dashed border-[#c5bcc3]" />
-                        )}
-                        <span className="font-medium text-[#493a45]">{v.name}</span>
-                      </div>
-                    </td>
-                    <td className={td}>
-                      <span className="font-mono text-[10px] font-semibold text-[#625760]">
-                        {v.sku}
-                      </span>
-                    </td>
-                    <td className={td}>
-                      {v.price !== null ? (
-                        <div>
-                          <strong className="text-[#493a45]">{formatCOP(v.price)}</strong>
-                          <span className="block text-[8px] text-[#a0929b]">Precio propio</span>
-                        </div>
-                      ) : (
-                        <div>
-                          <span>{formatCOP(product.basePrice)}</span>
-                          <span className="block text-[8px] text-[#a0929b]">Hereda precio base</span>
-                        </div>
-                      )}
-                    </td>
-                    {role === 'ADMIN' && (
-                      <td className={td}>
-                        {v.costPrice !== null && v.costPrice !== undefined ? (
-                          formatCOP(v.costPrice)
-                        ) : (
-                          <span className="text-[#a0929b]">—</span>
-                        )}
-                      </td>
-                    )}
-                    <td className={td}>
-                      <div className="flex items-center gap-1.5">
+              return (
+                <TableRow key={v.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-2.5">
+                      {v.colorHex ? (
                         <span
-                          className={`font-semibold ${
-                            v.stock === 0
-                              ? 'text-danger'
-                              : isLowStock
-                                ? 'text-amber-700'
-                                : 'text-[#493a45]'
-                          }`}
+                          className="h-4 w-4 shrink-0 rounded-full border border-black/20 shadow-xs"
+                          style={{ backgroundColor: v.colorHex }}
+                          title={`Tono: ${v.colorHex}`}
+                        />
+                      ) : (
+                        <span className="h-4 w-4 shrink-0 rounded-full border border-dashed border-[#c5bcc3]" />
+                      )}
+                      <span className="font-medium text-[#493a45]">{v.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-mono text-[10px] font-semibold text-[#625760]">
+                      {v.sku}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {v.price !== null ? (
+                      <div>
+                        <strong className="text-[#493a45]">{formatCOP(v.price)}</strong>
+                        <span className="block text-[8px] text-[#a0929b]">Precio propio</span>
+                      </div>
+                    ) : (
+                      <div>
+                        <span>{formatCOP(product.basePrice)}</span>
+                        <span className="block text-[8px] text-[#a0929b]">Hereda precio base</span>
+                      </div>
+                    )}
+                  </TableCell>
+                  {role === 'ADMIN' && (
+                    <TableCell>
+                      {v.costPrice !== null && v.costPrice !== undefined ? (
+                        formatCOP(v.costPrice)
+                      ) : (
+                        <span className="text-[#a0929b]">—</span>
+                      )}
+                    </TableCell>
+                  )}
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`font-semibold ${
+                          v.stock === 0
+                            ? 'text-danger'
+                            : isLowStock
+                              ? 'text-amber-700'
+                              : 'text-[#493a45]'
+                        }`}
+                      >
+                        {v.stock} un.
+                      </span>
+                      {isLowStock && (
+                        <span
+                          title={`Stock bajo (umbral: ${v.lowStockThreshold})`}
+                          className="text-amber-600"
                         >
-                          {v.stock} un.
+                          <AlertCircle size={13} />
                         </span>
-                        {isLowStock && (
-                          <span
-                            title={`Stock bajo (umbral: ${v.lowStockThreshold})`}
-                            className="text-amber-600"
-                          >
-                            <AlertCircle size={13} />
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className={td}>
-                      <AdminStatus tone={v.isActive ? 'ok' : 'out'}>
-                        {v.isActive ? 'Activa' : 'Inactiva'}
-                      </AdminStatus>
-                    </td>
-                    <td className={`${td} text-right`}>
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setIsAdding(false);
-                            setEditingVariant(v);
-                          }}
-                          aria-label={`Editar variante ${v.name}`}
-                        >
-                          <Edit2 size={12} className="mr-1" /> Editar
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            toggleVariant.mutate({ variantId: v.id, isActive: !v.isActive })
-                          }
-                          disabled={toggleVariant.isPending}
-                        >
-                          {v.isActive ? 'Desactivar' : 'Activar'}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            if (confirm(`¿Eliminar variante "${v.name}" (${v.sku}) definitivamente?`)) {
-                              deleteVariant.mutate(v.id);
-                            }
-                          }}
-                          disabled={deleteVariant.isPending}
-                          className="text-danger hover:border-danger hover:bg-danger-bg cursor-pointer"
-                          aria-label={`Eliminar variante ${v.name}`}
-                        >
-                          <Trash2 size={12} className="mr-1" /> Eliminar
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <AdminStatus tone={v.isActive ? 'ok' : 'out'}>
+                      {v.isActive ? 'Activa' : 'Inactiva'}
+                    </AdminStatus>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setIsAdding(false);
+                          setEditingVariant(v);
+                        }}
+                        aria-label={`Editar variante ${v.name}`}
+                      >
+                        <Edit2 size={12} className="mr-1" /> Editar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          toggleVariant.mutate({ variantId: v.id, isActive: !v.isActive })
+                        }
+                        disabled={toggleVariant.isPending}
+                      >
+                        {v.isActive ? 'Desactivar' : 'Activar'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDeleteTarget(v)}
+                        disabled={deleteVariant.isPending}
+                        className="text-danger hover:border-danger hover:bg-danger-bg cursor-pointer"
+                        aria-label={`Eliminar variante ${v.name}`}
+                      >
+                        <Trash2 size={12} className="mr-1" /> Eliminar
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       )}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Eliminar variante"
+        description={
+          deleteTarget
+            ? `Esta accion eliminara la variante "${deleteTarget.name}" (${deleteTarget.sku}) definitivamente.`
+            : ''
+        }
+        confirmLabel={deleteVariant.isPending ? 'Eliminando...' : 'Eliminar variante'}
+        destructive
+        onConfirm={() => {
+          if (deleteTarget) deleteVariant.mutate(deleteTarget.id);
+        }}
+      />
     </div>
   );
 }
@@ -1006,7 +1191,11 @@ function VariantFormInline({
           <div className="flex items-center gap-2">
             <input
               type="color"
-              value={currentColorHex && /^#[0-9A-Fa-f]{6}$/.test(currentColorHex) ? currentColorHex : '#d885a3'}
+              value={
+                currentColorHex && /^#[0-9A-Fa-f]{6}$/.test(currentColorHex)
+                  ? currentColorHex
+                  : '#d885a3'
+              }
               onChange={(e) => setValue('colorHex', e.target.value.toUpperCase())}
               aria-label="Selector interactivo de color"
               className="h-8.5 w-10 cursor-pointer border border-[#e8dfe6] bg-white p-0.5"
@@ -1086,7 +1275,13 @@ function VariantFormInline({
       </div>
 
       <div className="flex justify-end gap-2.5 pt-3 border-t border-[#f0ecf0]">
-        <Button variant="outline" size="sm" type="button" onClick={onCancel} disabled={isSubmitting}>
+        <Button
+          variant="outline"
+          size="sm"
+          type="button"
+          onClick={onCancel}
+          disabled={isSubmitting}
+        >
           Cancelar
         </Button>
         <Button size="sm" type="submit" disabled={isSubmitting}>
@@ -1197,8 +1392,15 @@ function ProductInfoTab({
           <Input {...fieldA11y('ep-slug', errors.slug?.message)} {...register('slug')} />
         </FormField>
 
-        <FormField id="ep-netContent" label="Contenido neto (opcional)" error={errors.netContent?.message}>
-          <Input {...fieldA11y('ep-netContent', errors.netContent?.message)} {...register('netContent')} />
+        <FormField
+          id="ep-netContent"
+          label="Contenido neto (opcional)"
+          error={errors.netContent?.message}
+        >
+          <Input
+            {...fieldA11y('ep-netContent', errors.netContent?.message)}
+            {...register('netContent')}
+          />
         </FormField>
 
         <FormField
@@ -1230,11 +1432,7 @@ function ProductInfoTab({
 
       <div className="flex items-center justify-between border-t border-[#f0ecf0] pt-3">
         <label className="flex items-center gap-2 text-[11px] text-[#493a45] cursor-pointer">
-          <input
-            type="checkbox"
-            className="rounded border-[#c5bcc3]"
-            {...register('isFeatured')}
-          />
+          <input type="checkbox" className="rounded border-[#c5bcc3]" {...register('isFeatured')} />
           <span>Destacar este producto en la página principal</span>
         </label>
 
@@ -1247,14 +1445,9 @@ function ProductInfoTab({
 }
 
 /** Pestaña 3: Publicación, cambio de estado y eliminación */
-function ProductStatusTab({
-  product,
-  onDeleted,
-}: {
-  product: Product;
-  onDeleted: () => void;
-}) {
+function ProductStatusTab({ product, onDeleted }: { product: Product; onDeleted: () => void }) {
   const queryClient = useQueryClient();
+  const [confirmAction, setConfirmAction] = useState<'archive' | 'delete' | null>(null);
 
   const changeStatus = useMutation({
     mutationFn: (newStatus: ProductStatus) =>
@@ -1332,15 +1525,7 @@ function ProductStatusTab({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                if (
-                  confirm(
-                    '¿Deseas archivar este producto? Conservará todo su historial de pedidos pero dejará de estar disponible.',
-                  )
-                ) {
-                  changeStatus.mutate('ARCHIVED');
-                }
-              }}
+              onClick={() => setConfirmAction('archive')}
               disabled={changeStatus.isPending}
             >
               <Archive size={13} className="mr-1.5" />
@@ -1354,24 +1539,20 @@ function ProductStatusTab({
       <div className="border border-red-200 bg-red-50/50 p-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h4 className="text-xs font-semibold text-red-900">Zona de peligro: Eliminación física</h4>
+            <h4 className="text-xs font-semibold text-red-900">
+              Zona de peligro: Eliminación física
+            </h4>
             <p className="mt-1 text-[11px] text-red-700">
-              Solo es posible eliminar un producto si nunca ha tenido pedidos registrados. Si ya tiene pedidos asociados, el sistema requerirá que sea archivado en lugar de eliminado para salvaguardar la contabilidad.
+              Solo es posible eliminar un producto si nunca ha tenido pedidos registrados. Si ya
+              tiene pedidos asociados, el sistema requerirá que sea archivado en lugar de eliminado
+              para salvaguardar la contabilidad.
             </p>
           </div>
 
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              if (
-                confirm(
-                  `¿Estás completamente seguro de eliminar "${product.name}"? Esta acción no se puede deshacer.`,
-                )
-              ) {
-                deleteProduct.mutate();
-              }
-            }}
+            onClick={() => setConfirmAction('delete')}
             disabled={deleteProduct.isPending}
             className="border-red-300 text-danger hover:border-danger hover:bg-danger-bg shrink-0"
           >
@@ -1380,6 +1561,23 @@ function ProductStatusTab({
           </Button>
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmAction === 'archive'}
+        onOpenChange={(open) => !open && setConfirmAction(null)}
+        title="Archivar producto"
+        description="El producto conservara su historial de pedidos, pero dejara de estar disponible para nuevas compras."
+        confirmLabel={changeStatus.isPending ? 'Archivando...' : 'Archivar producto'}
+        onConfirm={() => changeStatus.mutate('ARCHIVED')}
+      />
+      <ConfirmDialog
+        open={confirmAction === 'delete'}
+        onOpenChange={(open) => !open && setConfirmAction(null)}
+        title="Eliminar producto definitivamente"
+        description={`Esta accion eliminara "${product.name}" y no se puede deshacer. Si tiene pedidos asociados, el backend la rechazara.`}
+        confirmLabel={deleteProduct.isPending ? 'Eliminando...' : 'Eliminar definitivamente'}
+        destructive
+        onConfirm={() => deleteProduct.mutate()}
+      />
     </div>
   );
 }

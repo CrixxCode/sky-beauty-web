@@ -43,7 +43,8 @@ type CategoryWithChildren = {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
-  children: CategoryWithChildren[];
+  /** El último nivel incluido en la consulta llega sin `children`. */
+  children?: CategoryWithChildren[];
 };
 
 function toCategoryDto(cat: CategoryWithChildren): CategoryDto {
@@ -56,7 +57,7 @@ function toCategoryDto(cat: CategoryWithChildren): CategoryDto {
     imageUrl: cat.imageUrl,
     position: cat.position,
     isActive: cat.isActive,
-    children: cat.children.map(toCategoryDto),
+    children: (cat.children ?? []).map(toCategoryDto),
     createdAt: cat.createdAt,
     updatedAt: cat.updatedAt,
   };
@@ -169,7 +170,7 @@ export class CategoriesService {
         },
         include: categoryInclude,
       });
-      return toCategoryDto(cat as CategoryWithChildren);
+      return toCategoryDto(cat);
     } catch (err: unknown) {
       if (isPrismaUniqueError(err)) {
         throw new ConflictException('Ya existe una categoría con ese slug.');
@@ -181,11 +182,7 @@ export class CategoriesService {
   async update(id: string, dto: UpdateCategoryDto): Promise<CategoryDto> {
     await this.findOrThrow(id);
     const slug =
-      dto.slug !== undefined
-        ? dto.slug
-        : dto.name !== undefined
-          ? slugify(dto.name)
-          : undefined;
+      dto.slug !== undefined ? dto.slug : dto.name !== undefined ? slugify(dto.name) : undefined;
     try {
       const cat = await this.prisma.category.update({
         where: { id },
@@ -198,7 +195,7 @@ export class CategoriesService {
         },
         include: categoryInclude,
       });
-      return toCategoryDto(cat as CategoryWithChildren);
+      return toCategoryDto(cat);
     } catch (err: unknown) {
       if (isPrismaUniqueError(err)) {
         throw new ConflictException('Ya existe una categoría con ese slug.');
@@ -211,9 +208,7 @@ export class CategoriesService {
     await this.findOrThrow(id);
     const childCount = await this.prisma.category.count({ where: { parentId: id } });
     if (childCount > 0) {
-      throw new ConflictException(
-        'No se puede eliminar la categoría porque tiene subcategorías.',
-      );
+      throw new ConflictException('No se puede eliminar la categoría porque tiene subcategorías.');
     }
     const productCount = await this.prisma.product.count({ where: { categoryId: id } });
     if (productCount > 0) {

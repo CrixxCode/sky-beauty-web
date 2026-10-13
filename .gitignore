@@ -14,6 +14,7 @@ next-env.d.ts
 # Backend: cliente Prisma generado y archivos subidos en desarrollo (adaptador local)
 backend/src/generated/
 backend/uploads/
+backend/uploads-e2e/
 
 # Entorno y secretos
 .env

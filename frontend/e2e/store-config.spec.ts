@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { E2E_OWNER } from './env';
-import { login, logout } from './helpers';
+import { login, logout, pick } from './helpers';
 
 test('la propietaria configura contacto y pagos, y la tienda muestra el WhatsApp', async ({
   page,
@@ -29,8 +29,8 @@ test('la propietaria configura contacto y pagos, y la tienda muestra el WhatsApp
   ).toBeVisible();
 
   // Contra entrega: agrega un municipio de la lista oficial.
-  await page.getByLabel('Departamento').selectOption({ label: 'Antioquia' });
-  await page.getByLabel('Municipio', { exact: true }).selectOption({ label: municipality });
+  await pick(page, 'Departamento', 'Antioquia');
+  await pick(page, 'Municipio', municipality);
   await page.getByRole('button', { name: 'Agregar municipio' }).click();
   await page.getByRole('button', { name: 'Guardar municipios' }).click();
   await expect(page.getByText('Municipios guardados.')).toBeVisible();

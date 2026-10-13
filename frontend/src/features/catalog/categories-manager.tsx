@@ -2,19 +2,12 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Boxes,
-  CornerDownRight,
-  Edit2,
-  FolderTree,
-  Plus,
-  Search,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { Boxes, CornerDownRight, Edit2, FolderTree, Plus, Search, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FormField, fieldA11y } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
@@ -67,7 +60,8 @@ export function CategoriesManager() {
     return matchesParent || matchesChild;
   });
 
-  const totalCategoriesCount = (categories?.length ?? 0) +
+  const totalCategoriesCount =
+    (categories?.length ?? 0) +
     (categories?.reduce((acc, c) => acc + (c.children?.length ?? 0), 0) ?? 0);
 
   return (
@@ -76,18 +70,12 @@ export function CategoriesManager() {
         {/* Barra superior con título y controles */}
         <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <AdminPanelTitle className="mb-0">
-              Estructura de categorías
-            </AdminPanelTitle>
-            {categories && (
-              <span className="rounded-full bg-[#f4eff3] px-2.5 py-0.5 text-[10px] font-semibold text-[#764b77]">
-                {totalCategoriesCount} categorías en catálogo
-              </span>
-            )}
+            <AdminPanelTitle className="mb-0">Estructura de categorías</AdminPanelTitle>
+            {categories && <Badge>{totalCategoriesCount} categorías en catálogo</Badge>}
           </div>
 
           <div className="flex flex-wrap items-center gap-3 max-[600px]:w-full">
-            <div className="relative flex items-center border border-[#e8dfe6] bg-white text-[#917987] transition-colors focus-within:border-[#936591] max-[600px]:w-full">
+            <div className="relative flex min-h-11.25 items-center border border-[#e8dfe6] bg-white text-[#917987] transition-colors focus-within:border-[#936591] max-[600px]:w-full">
               <span className="pl-3 text-[#917987]">
                 <Search size={15} />
               </span>
@@ -96,32 +84,38 @@ export function CategoriesManager() {
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar categoría..."
                 aria-label="Buscar categoría"
-                className="w-48 px-2.5 py-2 text-[11px] outline-none placeholder:text-[#a0929b] max-[600px]:w-full"
+                className="min-h-11.25 w-48 px-2.5 py-0 text-[11px] outline-none placeholder:text-[#a0929b] max-[600px]:w-full"
               />
               {search && (
                 <button
                   type="button"
                   onClick={() => setSearch('')}
                   aria-label="Limpiar búsqueda"
-                  className="pr-2.5 text-[#a0929b] hover:text-[#493a45] cursor-pointer"
+                  className="flex min-h-11.25 items-center px-2.5 text-[#a0929b] hover:text-[#493a45] cursor-pointer"
                 >
                   <X size={14} />
                 </button>
               )}
             </div>
 
-            <Button onClick={() => handleOpenCreateWithParent(undefined)} className="max-[600px]:w-full">
+            <Button
+              onClick={() => handleOpenCreateWithParent(undefined)}
+              className="max-[600px]:w-full"
+            >
               <Plus size={15} className="mr-1.5" /> Crear categoría
             </Button>
           </div>
         </div>
 
         <p className="mb-4 text-[11px] text-[#8b7f87]">
-          Organización de hasta 2 niveles (Categoría principal → Subcategoría). Los productos solo pueden asignarse a subcategorías o a categorías principales que no tengan hijos.
+          Organización de hasta 2 niveles (Categoría principal → Subcategoría). Los productos solo
+          pueden asignarse a subcategorías o a categorías principales que no tengan hijos.
         </p>
 
         {isPending && <p className="text-[11px] text-muted">Cargando categorías…</p>}
-        {isError && <p className="text-[11px] text-danger">No se pudieron cargar las categorías.</p>}
+        {isError && (
+          <p className="text-[11px] text-danger">No se pudieron cargar las categorías.</p>
+        )}
 
         {filteredCategories && filteredCategories.length === 0 && (
           <div className="flex flex-col items-center justify-center gap-2.5 bg-[#fbf9fa] border border-[#eee8ed] px-5 py-12 text-center text-[11px] text-[#948692]">
@@ -366,21 +360,19 @@ function EditCategoryForm({
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4">
       <FormField id="edit-cat-name" label="Nombre de la categoría *" error={errors.name?.message}>
-        <Input
-          {...fieldA11y('edit-cat-name', errors.name?.message)}
-          {...register('name')}
-        />
+        <Input {...fieldA11y('edit-cat-name', errors.name?.message)} {...register('name')} />
       </FormField>
 
       <div className="grid gap-x-4 min-[601px]:grid-cols-2">
         <FormField id="edit-cat-slug" label="Slug URL" error={errors.slug?.message}>
-          <Input
-            {...fieldA11y('edit-cat-slug', errors.slug?.message)}
-            {...register('slug')}
-          />
+          <Input {...fieldA11y('edit-cat-slug', errors.slug?.message)} {...register('slug')} />
         </FormField>
 
-        <FormField id="edit-cat-position" label="Orden de visualización" error={errors.position?.message}>
+        <FormField
+          id="edit-cat-position"
+          label="Orden de visualización"
+          error={errors.position?.message}
+        >
           <Input
             type="number"
             min={0}
@@ -390,7 +382,11 @@ function EditCategoryForm({
         </FormField>
       </div>
 
-      <FormField id="edit-cat-desc" label="Descripción (opcional)" error={errors.description?.message}>
+      <FormField
+        id="edit-cat-desc"
+        label="Descripción (opcional)"
+        error={errors.description?.message}
+      >
         <Textarea
           rows={3}
           {...fieldA11y('edit-cat-desc', errors.description?.message)}
@@ -420,6 +416,7 @@ function CategoryTreeItem({
   onAddSubcategory: (parentId: string) => void;
 }) {
   const queryClient = useQueryClient();
+  const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
 
   const toggleActive = useMutation({
     mutationFn: (cat: Category) =>
@@ -501,11 +498,7 @@ function CategoryTreeItem({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                if (confirm(`¿Estás seguro de eliminar la categoría "${category.name}"?`)) {
-                  deleteCategory.mutate(category.id);
-                }
-              }}
+              onClick={() => setDeleteTarget(category)}
               disabled={deleteCategory.isPending}
               className="text-danger hover:border-danger hover:bg-danger-bg cursor-pointer"
               aria-label={`Eliminar categoría ${category.name}`}
@@ -565,11 +558,7 @@ function CategoryTreeItem({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    if (confirm(`¿Estás seguro de eliminar la subcategoría "${sub.name}"?`)) {
-                      deleteCategory.mutate(sub.id);
-                    }
-                  }}
+                  onClick={() => setDeleteTarget(sub)}
                   disabled={deleteCategory.isPending}
                   className="text-danger hover:border-danger hover:bg-danger-bg cursor-pointer"
                   aria-label={`Eliminar subcategoría ${sub.name}`}
@@ -592,6 +581,21 @@ function CategoryTreeItem({
           </button>
         </div>
       )}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Eliminar categoria"
+        description={
+          deleteTarget
+            ? `Esta accion eliminara "${deleteTarget.name}". Solo se permite cuando no tiene relaciones que lo impidan.`
+            : ''
+        }
+        confirmLabel={deleteCategory.isPending ? 'Eliminando...' : 'Eliminar'}
+        destructive
+        onConfirm={() => {
+          if (deleteTarget) deleteCategory.mutate(deleteTarget.id);
+        }}
+      />
     </div>
   );
 }

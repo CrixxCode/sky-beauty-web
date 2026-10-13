@@ -3,6 +3,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
+import { resolve } from 'node:path';
 import { Logger } from 'nestjs-pino';
 import type { Env } from './config/env';
 import { SESSION_COOKIE } from './modules/auth/auth.types';
@@ -19,9 +20,12 @@ export function configureApp(app: NestExpressApplication): void {
 
   app.useLogger(app.get(Logger));
   app.set('trust proxy', config.get('TRUST_PROXY_HOPS', { infer: true }));
-  app.use(helmet());
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(cookieParser());
   app.enableCors({ origin: config.get('CORS_ORIGINS', { infer: true }), credentials: true });
+  app.useStaticAssets(resolve(config.get('UPLOADS_DIR', { infer: true })), {
+    prefix: '/uploads',
+  });
   app.setGlobalPrefix(API_PREFIX);
   app.enableShutdownHooks();
 

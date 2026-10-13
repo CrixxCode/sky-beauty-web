@@ -129,6 +129,29 @@ export class ChangeProductStatusDto {
   status!: ProductStatus;
 }
 
+export class UploadProductImageDto {
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: 'Variante propietaria de la foto. Vacío = foto general.',
+  })
+  @IsOptional()
+  @IsUUID()
+  variantId?: string;
+
+  @ApiPropertyOptional({ maxLength: 160 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  alt?: string;
+
+  @ApiPropertyOptional({ minimum: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  position?: number;
+}
+
 // ─────────────────────────────── Variantes ───────────────────────────────────
 
 export class CreateVariantDto {
@@ -170,7 +193,10 @@ export class CreateVariantDto {
   @Min(0)
   costPrice?: number | null;
 
-  @ApiPropertyOptional({ minimum: 1, description: 'Máximo de unidades por pedido. null = sin límite.' })
+  @ApiPropertyOptional({
+    minimum: 1,
+    description: 'Máximo de unidades por pedido. null = sin límite.',
+  })
   @IsOptional()
   @IsInt()
   @Min(1)

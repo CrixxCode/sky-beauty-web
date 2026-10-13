@@ -6,7 +6,10 @@ import { Edit2, Plus, Search, Tag, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { FormField, fieldA11y } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
@@ -39,9 +42,7 @@ export function BrandsManager() {
     queryFn: () => apiFetch<Brand[]>('/admin/brands'),
   });
 
-  const visible = brands?.filter((b) =>
-    b.name.toLowerCase().includes(search.trim().toLowerCase()),
-  );
+  const visible = brands?.filter((b) => b.name.toLowerCase().includes(search.trim().toLowerCase()));
 
   return (
     <div className="space-y-5">
@@ -51,14 +52,14 @@ export function BrandsManager() {
           <div className="flex items-center gap-2.5">
             <AdminPanelTitle className="mb-0">Marcas registradas</AdminPanelTitle>
             {brands && (
-              <span className="rounded-full bg-[#f4eff3] px-2.5 py-0.5 text-[10px] font-semibold text-[#764b77]">
+              <Badge>
                 {brands.length} {brands.length === 1 ? 'marca' : 'marcas'}
-              </span>
+              </Badge>
             )}
           </div>
 
           <div className="flex flex-wrap items-center gap-3 max-[600px]:w-full">
-            <div className="relative flex items-center border border-[#e8dfe6] bg-white text-[#917987] transition-colors focus-within:border-[#936591] max-[600px]:w-full">
+            <div className="relative flex min-h-11.25 items-center border border-[#e8dfe6] bg-white text-[#917987] transition-colors focus-within:border-[#936591] max-[600px]:w-full">
               <span className="pl-3 text-[#917987]">
                 <Search size={15} />
               </span>
@@ -67,14 +68,14 @@ export function BrandsManager() {
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar por nombre..."
                 aria-label="Buscar marcas"
-                className="w-48 px-2.5 py-2 text-[11px] outline-none placeholder:text-[#a0929b] max-[600px]:w-full"
+                className="min-h-11.25 w-48 px-2.5 py-0 text-[11px] outline-none placeholder:text-[#a0929b] max-[600px]:w-full"
               />
               {search && (
                 <button
                   type="button"
                   onClick={() => setSearch('')}
                   aria-label="Limpiar búsqueda"
-                  className="pr-2.5 text-[#a0929b] hover:text-[#493a45] cursor-pointer"
+                  className="flex min-h-11.25 items-center px-2.5 text-[#a0929b] hover:text-[#493a45] cursor-pointer"
                 >
                   <X size={14} />
                 </button>
@@ -107,11 +108,7 @@ export function BrandsManager() {
         {visible && visible.length > 0 && (
           <div className="grid grid-cols-2 gap-3.5 max-[768px]:grid-cols-1">
             {visible.map((brand) => (
-              <BrandCard
-                key={brand.id}
-                brand={brand}
-                onEdit={() => setEditingBrand(brand)}
-              />
+              <BrandCard key={brand.id} brand={brand} onEdit={() => setEditingBrand(brand)} />
             ))}
           </div>
         )}
@@ -149,13 +146,7 @@ export function BrandsManager() {
   );
 }
 
-function CreateBrandForm({
-  onSuccess,
-  onCancel,
-}: {
-  onSuccess: () => void;
-  onCancel: () => void;
-}) {
+function CreateBrandForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () => void }) {
   const queryClient = useQueryClient();
   const {
     register,
@@ -259,10 +250,7 @@ function EditBrandForm({
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4">
       <FormField id="edit-brand-name" label="Nombre de la marca *" error={errors.name?.message}>
-        <Input
-          {...fieldA11y('edit-brand-name', errors.name?.message)}
-          {...register('name')}
-        />
+        <Input {...fieldA11y('edit-brand-name', errors.name?.message)} {...register('name')} />
       </FormField>
 
       <FormField
@@ -271,10 +259,7 @@ function EditBrandForm({
         description="Identificador único en la URL."
         error={errors.slug?.message}
       >
-        <Input
-          {...fieldA11y('edit-brand-slug', errors.slug?.message)}
-          {...register('slug')}
-        />
+        <Input {...fieldA11y('edit-brand-slug', errors.slug?.message)} {...register('slug')} />
       </FormField>
 
       <div className="flex justify-end gap-2.5 pt-3 border-t border-[#f0ecf0]">
@@ -289,14 +274,9 @@ function EditBrandForm({
   );
 }
 
-function BrandCard({
-  brand,
-  onEdit,
-}: {
-  brand: Brand;
-  onEdit: () => void;
-}) {
+function BrandCard({ brand, onEdit }: { brand: Brand; onEdit: () => void }) {
   const queryClient = useQueryClient();
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const toggleActive = useMutation({
     mutationFn: () =>
@@ -324,8 +304,8 @@ function BrandCard({
   });
 
   return (
-    <div className="flex flex-col justify-between border border-[#eee8ed] bg-white p-4.5 transition-shadow hover:shadow-xs">
-      <div>
+    <Card className="flex flex-col justify-between transition-shadow hover:shadow-xs">
+      <CardHeader>
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-[#f4eff3] text-[#936591]">
@@ -340,16 +320,17 @@ function BrandCard({
             {brand.isActive ? 'Activa' : 'Inactiva'}
           </AdminStatus>
         </div>
-
+      </CardHeader>
+      <CardContent>
         <div className="mt-3 flex items-center gap-2 text-[10px] text-[#766a73]">
           <span className="inline-flex items-center gap-1">
             <span className="font-semibold text-[#493a45]">{brand.productCount}</span>
             {brand.productCount === 1 ? 'producto asociado' : 'productos asociados'}
           </span>
         </div>
-      </div>
+      </CardContent>
 
-      <div className="mt-4 flex items-center justify-end gap-2 border-t border-[#f0ecf0] pt-3">
+      <CardFooter className="mt-auto justify-end gap-2">
         <Button variant="outline" size="sm" onClick={onEdit}>
           <Edit2 size={12} className="mr-1" /> Editar
         </Button>
@@ -367,11 +348,7 @@ function BrandCard({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              if (confirm(`¿Estás seguro de eliminar la marca "${brand.name}"?`)) {
-                deleteBrand.mutate();
-              }
-            }}
+            onClick={() => setDeleteOpen(true)}
             disabled={deleteBrand.isPending}
             className="text-danger hover:border-danger hover:bg-danger-bg cursor-pointer"
             aria-label={`Eliminar marca ${brand.name}`}
@@ -386,7 +363,16 @@ function BrandCard({
             <Trash2 size={13} />
           </span>
         )}
-      </div>
-    </div>
+      </CardFooter>
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Eliminar marca"
+        description={`Esta accion eliminara la marca "${brand.name}". Solo esta disponible porque no tiene productos asociados.`}
+        confirmLabel={deleteBrand.isPending ? 'Eliminando...' : 'Eliminar marca'}
+        destructive
+        onConfirm={() => deleteBrand.mutate()}
+      />
+    </Card>
   );
 }

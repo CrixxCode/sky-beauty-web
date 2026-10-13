@@ -38,6 +38,8 @@ export class StoreSettingsService {
       instagramUrl: s.instagramUrl,
       facebookUrl: s.facebookUrl,
       tiktokUrl: s.tiktokUrl,
+      heroTitle: s.heroTitle,
+      heroSubtitle: s.heroSubtitle,
     };
   }
 

@@ -9,12 +9,7 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import {
-  ApiCookieAuth,
-  ApiNoContentResponse,
-  ApiOkResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiCookieAuth, ApiNoContentResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from '../../auth/auth.decorators';
 import { SESSION_COOKIE } from '../../auth/auth.types';
 import { BrandDto, CreateBrandDto, PublicBrandDto, UpdateBrandDto } from './brands.dto';
@@ -40,10 +35,7 @@ export class AdminBrandsController {
 
   @Patch(':id')
   @ApiOkResponse({ type: BrandDto })
-  update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateBrandDto,
-  ): Promise<BrandDto> {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateBrandDto): Promise<BrandDto> {
     return this.brands.update(id, dto);
   }
 

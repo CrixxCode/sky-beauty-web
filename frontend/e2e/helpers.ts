@@ -18,3 +18,9 @@ export async function logout(page: Page) {
   await page.getByRole('button', { name: 'Cerrar sesión' }).click();
   await expect(page).toHaveURL(/\/admin\/login$/);
 }
+
+/** Elige una opción de un Select (Radix) a partir de su etiqueta. */
+export async function pick(page: Page, label: string, option: string) {
+  await page.getByLabel(label, { exact: true }).click();
+  await page.getByRole('option', { name: option, exact: true }).click();
+}

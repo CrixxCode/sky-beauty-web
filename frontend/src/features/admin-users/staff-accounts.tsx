@@ -6,10 +6,19 @@ import { KeyRound, Plus, Search, Users, X } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FormField, fieldA11y } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { AdminPanel, AdminPanelTitle, AdminStatus } from '@/features/admin-auth/admin-ui';
 import { ApiError, apiFetch } from '@/lib/api';
 import {
@@ -33,9 +42,6 @@ const formatDate = (iso: string | null) =>
         timeZone: 'America/Bogota',
       }).format(new Date(iso))
     : 'Nunca';
-
-const th = 'bg-[#f8f5f7] p-3 text-left text-[10px] font-semibold text-[#766a73]';
-const td = 'border-b border-[#f0ecf0] px-3 py-3 text-[10px] text-[#625760] align-middle';
 
 export function StaffAccounts() {
   const [search, setSearch] = useState('');
@@ -63,14 +69,14 @@ export function StaffAccounts() {
           <div className="flex items-center gap-2.5">
             <AdminPanelTitle className="mb-0">Cuentas del panel</AdminPanelTitle>
             {users && (
-              <span className="rounded-full bg-[#f4eff3] px-2.5 py-0.5 text-[10px] font-semibold text-[#764b77]">
+              <Badge>
                 {users.length} {users.length === 1 ? 'cuenta' : 'cuentas'}
-              </span>
+              </Badge>
             )}
           </div>
 
           <div className="flex flex-wrap items-center gap-3 max-[600px]:w-full">
-            <div className="relative flex items-center border border-[#e8dfe6] bg-white text-[#917987] transition-colors focus-within:border-[#936591] max-[600px]:w-full">
+            <div className="relative flex min-h-11.25 items-center border border-[#e8dfe6] bg-white text-[#917987] transition-colors focus-within:border-[#936591] max-[600px]:w-full">
               <span className="pl-3 text-[#917987]">
                 <Search size={15} />
               </span>
@@ -79,14 +85,14 @@ export function StaffAccounts() {
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar por nombre o correo..."
                 aria-label="Buscar cuentas"
-                className="w-52 px-2.5 py-2 text-[11px] outline-none placeholder:text-[#a0929b] max-[600px]:w-full"
+                className="min-h-11.25 w-52 px-2.5 py-0 text-[11px] outline-none placeholder:text-[#a0929b] max-[600px]:w-full"
               />
               {search && (
                 <button
                   type="button"
                   onClick={() => setSearch('')}
                   aria-label="Limpiar búsqueda"
-                  className="pr-2.5 text-[#a0929b] hover:text-[#493a45] cursor-pointer"
+                  className="flex min-h-11.25 items-center px-2.5 text-[#a0929b] hover:text-[#493a45] cursor-pointer"
                 >
                   <X size={14} />
                 </button>
@@ -117,28 +123,26 @@ export function StaffAccounts() {
         )}
 
         {visible && visible.length > 0 && (
-          <div className="overflow-x-auto border border-[#eee8ed]">
-            <table className="w-full min-w-160 border-collapse bg-white">
-              <thead>
-                <tr>
-                  <th className={th}>Cuenta</th>
-                  <th className={th}>Rol</th>
-                  <th className={th}>Último ingreso</th>
-                  <th className={th}>Estado</th>
-                  <th className={`${th} text-right`}>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((user) => (
-                  <AccountRow
-                    key={user.id}
-                    user={user}
-                    onResetPassword={() => setResettingUser(user)}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Cuenta</TableHead>
+                <TableHead>Rol</TableHead>
+                <TableHead>Último ingreso</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visible.map((user) => (
+                <AccountRow
+                  key={user.id}
+                  user={user}
+                  onResetPassword={() => setResettingUser(user)}
+                />
+              ))}
+            </TableBody>
+          </Table>
         )}
       </AdminPanel>
 
@@ -163,23 +167,14 @@ export function StaffAccounts() {
         description="Ingresa una nueva contraseña. Por seguridad se cerrarán todas sus sesiones activas."
       >
         {resettingUser && (
-          <ResetPasswordForm
-            user={resettingUser}
-            onDone={() => setResettingUser(null)}
-          />
+          <ResetPasswordForm user={resettingUser} onDone={() => setResettingUser(null)} />
         )}
       </Modal>
     </div>
   );
 }
 
-function CreateStaffForm({
-  onSuccess,
-  onCancel,
-}: {
-  onSuccess: () => void;
-  onCancel: () => void;
-}) {
+function CreateStaffForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () => void }) {
   const queryClient = useQueryClient();
   const {
     register,
@@ -247,13 +242,7 @@ function CreateStaffForm({
   );
 }
 
-function AccountRow({
-  user,
-  onResetPassword,
-}: {
-  user: AdminUser;
-  onResetPassword: () => void;
-}) {
+function AccountRow({ user, onResetPassword }: { user: AdminUser; onResetPassword: () => void }) {
   const queryClient = useQueryClient();
   const isStaff = user.role === 'STAFF';
   const locked = user.lockedUntil !== null && new Date(user.lockedUntil) > new Date();
@@ -272,18 +261,18 @@ function AccountRow({
   });
 
   return (
-    <tr className="hover:bg-[#faf8f9] transition-colors">
-      <td className={td}>
+    <TableRow>
+      <TableCell>
         <span className="block min-w-37.5 font-medium text-[#493a45]">
           {user.name}
           <small className="mt-0.5 block text-[9px] text-[#a4979e]">{user.email}</small>
         </span>
-      </td>
-      <td className={td}>
+      </TableCell>
+      <TableCell>
         <span className="font-semibold text-[#493a45]">{ROLE_LABELS[user.role]}</span>
-      </td>
-      <td className={td}>{formatDate(user.lastLoginAt)}</td>
-      <td className={td}>
+      </TableCell>
+      <TableCell>{formatDate(user.lastLoginAt)}</TableCell>
+      <TableCell>
         {!user.isActive ? (
           <AdminStatus tone="out">Desactivada</AdminStatus>
         ) : locked ? (
@@ -291,8 +280,8 @@ function AccountRow({
         ) : (
           <AdminStatus tone="ok">Activa</AdminStatus>
         )}
-      </td>
-      <td className={`${td} text-right`}>
+      </TableCell>
+      <TableCell className="text-right">
         {isStaff && (
           <div className="flex items-center justify-end gap-2 whitespace-nowrap">
             <Button variant="outline" size="sm" onClick={onResetPassword}>
@@ -309,8 +298,8 @@ function AccountRow({
             </Button>
           </div>
         )}
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
 

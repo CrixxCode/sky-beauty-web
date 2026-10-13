@@ -9,12 +9,7 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import {
-  ApiCookieAuth,
-  ApiNoContentResponse,
-  ApiOkResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiCookieAuth, ApiNoContentResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from '../../auth/auth.decorators';
 import { SESSION_COOKIE } from '../../auth/auth.types';
 import {

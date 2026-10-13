@@ -36,11 +36,14 @@ test('la propietaria crea una cuenta del personal, que solo ve lo permitido', as
     .getByRole('link', { name: 'Cuentas' })
     .click();
   await expect(page.getByRole('heading', { name: 'Cuentas', level: 1 })).toBeVisible();
-  await page.getByLabel('Nombre').fill(staff.name);
-  await page.getByLabel('Correo').fill(staff.email);
-  await page.getByLabel('Contraseña inicial').fill(staff.password);
   await page.getByRole('button', { name: 'Crear cuenta' }).click();
-  await expect(page.getByText('Cuenta del personal creada.')).toBeVisible();
+  const dialog = page.getByRole('dialog', { name: 'Nueva cuenta del personal' });
+  await dialog.getByLabel('Nombre completo *').fill(staff.name);
+  await dialog.getByLabel('Correo electrónico *').fill(staff.email);
+  await dialog.getByLabel('Contraseña inicial *').fill(staff.password);
+  await dialog.getByRole('button', { name: 'Crear cuenta' }).click();
+  await expect(page.getByText('Cuenta del personal creada exitosamente.')).toBeVisible();
+  await expect(dialog).toBeHidden();
   await expect(page.getByText(staff.email)).toBeVisible();
   await logout(page);
 

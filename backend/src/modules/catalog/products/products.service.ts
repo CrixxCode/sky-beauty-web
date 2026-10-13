@@ -4,6 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'node:crypto';
+import { mkdir, rm } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import sharp from 'sharp';
+import type { Env } from '../../../config/env';
 import { Prisma } from '../../../generated/prisma/client';
 import type { AdminRole, ProductStatus } from '../../../generated/prisma/client';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
@@ -22,6 +28,7 @@ import type {
   PublicProductDto,
   PublicVariantDto,
   UpdateProductDto,
+  UploadProductImageDto,
   UpdateVariantDto,
   VariantDto,
 } from './products.dto';
@@ -37,6 +44,14 @@ function slugify(text: string): string {
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
+}
+
+function normalizeSearchText(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
 }
 
 function isPrismaUniqueError(err: unknown): boolean {
@@ -219,9 +234,7 @@ function toPublicProductDto(p: PrismaProduct): PublicProductDto {
   };
 }
 
-function toListItemDto(
-  p: PrismaProduct & { _count: { variants: number } },
-): ProductListItemDto {
+function toListItemDto(p: PrismaProduct & { _count: { variants: number } }): ProductListItemDto {
   return {
     id: p.id,
     name: p.name,
@@ -247,11 +260,12 @@ export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storeSettings: StoreSettingsService,
+    private readonly config: ConfigService<Env, true>,
   ) {}
 
   // ── Listado admin ──────────────────────────────────────────────────────────
 
-  async list(query: ListProductsQueryDto, role: AdminRole): Promise<PaginatedProductsDto> {
+  async list(query: ListProductsQueryDto): Promise<PaginatedProductsDto> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const skip = (page - 1) * limit;
@@ -286,9 +300,7 @@ export class ProductsService {
     ]);
 
     return {
-      items: items.map((p) =>
-        toListItemDto(p as PrismaProduct & { _count: { variants: number } }),
-      ),
+      items: items.map((p) => toListItemDto(p as PrismaProduct & { _count: { variants: number } })),
       total,
     };
   }
@@ -301,7 +313,7 @@ export class ProductsService {
       include: productInclude,
     });
     if (!p) throw new NotFoundException(`Producto con id '${id}' no encontrado.`);
-    return toProductDto(p as PrismaProduct, role);
+    return toProductDto(p, role);
   }
 
   // ── Listado público ────────────────────────────────────────────────────────
@@ -314,7 +326,6 @@ export class ProductsService {
     const where: Prisma.ProductWhereInput = { status: 'ACTIVE' };
 
     if (query.brandId) where.brandId = query.brandId;
-    if (query.q) where.name = { contains: query.q, mode: 'insensitive' };
 
     // El filtro por categoría incluye subcategorías
     if (query.categoryId) {
@@ -330,16 +341,35 @@ export class ProductsService {
       }
     }
 
+    const include = {
+      variants: {
+        include: variantInclude,
+        orderBy: { position: 'asc' as const },
+      },
+      images: { where: { variantId: null }, orderBy: { position: 'asc' as const } },
+    };
+
+    if (query.q) {
+      const needle = normalizeSearchText(query.q);
+      const candidates = await this.prisma.product.findMany({
+        where,
+        include,
+        orderBy: { publishedAt: 'desc' },
+      });
+      const matches = candidates.filter((product) =>
+        normalizeSearchText(product.name).includes(needle),
+      );
+
+      return {
+        items: matches.slice(skip, skip + limit).map(toPublicProductDto),
+        total: matches.length,
+      };
+    }
+
     const [items, total] = await this.prisma.$transaction([
       this.prisma.product.findMany({
         where,
-        include: {
-          variants: {
-            include: variantInclude,
-            orderBy: { position: 'asc' },
-          },
-          images: { where: { variantId: null }, orderBy: { position: 'asc' } },
-        },
+        include,
         orderBy: { publishedAt: 'desc' },
         skip,
         take: limit,
@@ -364,7 +394,7 @@ export class ProductsService {
       },
     });
     if (!p) throw new NotFoundException(`Producto '${slug}' no encontrado.`);
-    return toPublicProductDto(p as PrismaProduct);
+    return toPublicProductDto(p);
   }
 
   // ── Crear producto ─────────────────────────────────────────────────────────
@@ -389,7 +419,7 @@ export class ProductsService {
         },
         include: productInclude,
       });
-      return toProductDto(p as PrismaProduct, role);
+      return toProductDto(p, role);
     } catch (err: unknown) {
       if (isPrismaUniqueError(err)) {
         throw new ConflictException('Ya existe un producto con ese slug.');
@@ -400,7 +430,12 @@ export class ProductsService {
 
   // ── Actualizar producto ────────────────────────────────────────────────────
 
-  async update(id: string, dto: UpdateProductDto, adminId: string, role: AdminRole): Promise<ProductDto> {
+  async update(
+    id: string,
+    dto: UpdateProductDto,
+    adminId: string,
+    role: AdminRole,
+  ): Promise<ProductDto> {
     const existing = await this.findProductOrThrow(id);
 
     if (dto.categoryId && dto.categoryId !== existing.categoryId) {
@@ -408,11 +443,7 @@ export class ProductsService {
     }
 
     const slug =
-      dto.slug !== undefined
-        ? dto.slug
-        : dto.name !== undefined
-          ? slugify(dto.name)
-          : undefined;
+      dto.slug !== undefined ? dto.slug : dto.name !== undefined ? slugify(dto.name) : undefined;
 
     try {
       const p = await this.prisma.$transaction(async (tx) => {
@@ -443,7 +474,7 @@ export class ProductsService {
         return updated;
       });
 
-      return toProductDto(p as PrismaProduct, role);
+      return toProductDto(p, role);
     } catch (err: unknown) {
       if (isPrismaUniqueError(err)) {
         throw new ConflictException('Ya existe un producto con ese slug.');
@@ -454,7 +485,12 @@ export class ProductsService {
 
   // ── Cambiar estado ─────────────────────────────────────────────────────────
 
-  async changeStatus(id: string, dto: ChangeProductStatusDto, adminId: string, role: AdminRole): Promise<ProductDto> {
+  async changeStatus(
+    id: string,
+    dto: ChangeProductStatusDto,
+    adminId: string,
+    role: AdminRole,
+  ): Promise<ProductDto> {
     const existing = await this.findProductOrThrow(id);
 
     const now = new Date();
@@ -473,7 +509,7 @@ export class ProductsService {
       include: productInclude,
     });
 
-    return toProductDto(p as PrismaProduct, role);
+    return toProductDto(p, role);
   }
 
   // ── Eliminar producto ──────────────────────────────────────────────────────
@@ -541,7 +577,7 @@ export class ProductsService {
         return created;
       });
 
-      return toVariantDto(variant as PrismaVariant, role);
+      return toVariantDto(variant, role);
     } catch (err: unknown) {
       if (isPrismaUniqueError(err)) {
         throw new ConflictException('Ya existe una variante con ese SKU.');
@@ -602,7 +638,7 @@ export class ProductsService {
       return updated;
     });
 
-    return toVariantDto(variant2 as PrismaVariant, role);
+    return toVariantDto(variant2, role);
   }
 
   // ── Eliminar variante ──────────────────────────────────────────────────────
@@ -616,6 +652,99 @@ export class ProductsService {
     }
 
     await this.prisma.productVariant.delete({ where: { id: variantId } });
+  }
+
+  // ── Imágenes ───────────────────────────────────────────────────────────────
+
+  async uploadImage(
+    productId: string,
+    dto: UploadProductImageDto,
+    file: Express.Multer.File,
+    maxImageSizeMb: number,
+  ): Promise<ImageDto> {
+    await this.findProductOrThrow(productId);
+
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Debes adjuntar una imagen.');
+    }
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
+      throw new BadRequestException('Solo se aceptan imágenes JPG, PNG o WebP.');
+    }
+
+    if (file.size > maxImageSizeMb * 1024 * 1024) {
+      throw new BadRequestException(`La imagen no puede superar ${maxImageSizeMb} MB.`);
+    }
+
+    if (dto.variantId) {
+      await this.findVariantOrThrow(productId, dto.variantId);
+    }
+
+    const uploadsDir = resolve(this.config.get('UPLOADS_DIR', { infer: true }));
+    const baseUrl = this.config.get('PUBLIC_UPLOADS_BASE_URL', { infer: true }).replace(/\/$/, '');
+    const productDir = join('products', productId);
+    const absoluteProductDir = join(uploadsDir, productDir);
+    const absoluteThumbDir = join(absoluteProductDir, 'thumbs');
+    await mkdir(absoluteProductDir, { recursive: true });
+    await mkdir(absoluteThumbDir, { recursive: true });
+
+    const id = randomUUID();
+    const storageKey = join(productDir, `${id}.webp`).replace(/\\/g, '/');
+    const thumbnailKey = join(productDir, 'thumbs', `${id}.webp`).replace(/\\/g, '/');
+    const absoluteImagePath = join(uploadsDir, storageKey);
+    const absoluteThumbPath = join(uploadsDir, thumbnailKey);
+
+    const image = sharp(file.buffer).rotate();
+    const metadata = await image.metadata();
+    if (!metadata.width || !metadata.height) {
+      throw new BadRequestException('El archivo no parece ser una imagen válida.');
+    }
+
+    const imageInfo = await image
+      .clone()
+      .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 86 })
+      .toFile(absoluteImagePath);
+
+    await image
+      .clone()
+      .resize({ width: 420, height: 420, fit: 'cover' })
+      .webp({ quality: 78 })
+      .toFile(absoluteThumbPath);
+
+    const saved = await this.prisma.productImage.create({
+      data: {
+        productId,
+        variantId: dto.variantId ?? null,
+        storageKey,
+        thumbnailKey,
+        url: `${baseUrl}/${storageKey}`,
+        thumbnailUrl: `${baseUrl}/${thumbnailKey}`,
+        alt: dto.alt?.trim() ?? '',
+        width: imageInfo.width,
+        height: imageInfo.height,
+        sizeBytes: file.size,
+        mimeType: 'image/webp',
+        position: dto.position ?? 0,
+      },
+    });
+
+    return toImageDto(saved);
+  }
+
+  async removeImage(productId: string, imageId: string): Promise<void> {
+    const image = await this.prisma.productImage.findFirst({
+      where: { id: imageId, productId },
+    });
+    if (!image) throw new NotFoundException(`Imagen con id '${imageId}' no encontrada.`);
+
+    await this.prisma.productImage.delete({ where: { id: imageId } });
+
+    const uploadsDir = resolve(this.config.get('UPLOADS_DIR', { infer: true }));
+    await Promise.allSettled([
+      rm(join(uploadsDir, image.storageKey), { force: true }),
+      rm(join(uploadsDir, image.thumbnailKey), { force: true }),
+    ]);
   }
 
   // ── Helpers privados ───────────────────────────────────────────────────────
@@ -636,7 +765,14 @@ export class ProductsService {
   private async findProductOrThrow(id: string) {
     const p = await this.prisma.product.findUnique({
       where: { id },
-      select: { id: true, categoryId: true, basePrice: true, status: true, publishedAt: true, archivedAt: true },
+      select: {
+        id: true,
+        categoryId: true,
+        basePrice: true,
+        status: true,
+        publishedAt: true,
+        archivedAt: true,
+      },
     });
     if (!p) throw new NotFoundException(`Producto con id '${id}' no encontrado.`);
     return p;
