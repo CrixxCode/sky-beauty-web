@@ -1,6 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { MunicipalShippingRate, Prisma, StoreSettings } from '../../generated/prisma/client';
 import { PrismaService } from '../../shared/prisma/prisma.service';
+import {
+  STORE_PAGES,
+  type PublicStorePageDto,
+  type StoreContentDto,
+  type StorePageSlug,
+  type UpdateStoreContentDto,
+} from './content.dto';
 import type {
   PublicStoreInfoDto,
   ShippingRateDto,
@@ -108,7 +115,37 @@ export class StoreSettingsService {
       tiktokUrl: s.tiktokUrl,
       heroTitle: s.heroTitle,
       heroSubtitle: s.heroSubtitle,
+      tagline: s.tagline,
+      announcementText: s.announcementText,
+      publishedPages: (Object.keys(STORE_PAGES) as StorePageSlug[]).filter(
+        (slug) => s[STORE_PAGES[slug].field],
+      ),
     };
+  }
+
+  // ── Contenido (módulo 12) ──────────────────────────────────────────────────
+
+  async getContent(): Promise<StoreContentDto> {
+    return toContentDto(await this.ensure());
+  }
+
+  async updateContent(dto: UpdateStoreContentDto): Promise<StoreContentDto> {
+    await this.ensure();
+    const settings = await this.prisma.storeSettings.update({
+      where: { id: SETTINGS_ID },
+      data: dto,
+    });
+    return toContentDto(settings);
+  }
+
+  /** Página de texto publicada. Sin texto cargado no existe (404), para no publicar borradores. */
+  async getPage(slug: string): Promise<PublicStorePageDto> {
+    if (!Object.hasOwn(STORE_PAGES, slug)) throw new NotFoundException('No existe esa página.');
+    const page = STORE_PAGES[slug as StorePageSlug];
+    const settings = await this.ensure();
+    const text = settings[page.field];
+    if (!text) throw new NotFoundException('No existe esa página.');
+    return { slug, title: page.title, text };
   }
 
   /** La fila única normalmente la crea el script de datos iniciales; si falta, se crea vacía. */
@@ -119,6 +156,19 @@ export class StoreSettingsService {
       update: {},
     });
   }
+}
+
+function toContentDto(s: StoreSettings): StoreContentDto {
+  return {
+    tagline: s.tagline,
+    heroTitle: s.heroTitle,
+    heroSubtitle: s.heroSubtitle,
+    announcementText: s.announcementText,
+    termsText: s.termsText,
+    privacyText: s.privacyText,
+    returnsPolicyText: s.returnsPolicyText,
+    shippingPolicyText: s.shippingPolicyText,
+  };
 }
 
 function toDto(s: StoreSettings): StoreSettingsDto {

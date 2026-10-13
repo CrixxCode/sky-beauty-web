@@ -4,7 +4,7 @@ import { Container } from '@/components/layout/container';
 import { serifClass } from '@/components/ui/typography';
 import { whatsappUrl } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import type { PublicStoreInfo } from '@/types/store';
+import { STORE_PAGE_LINKS, type PublicStoreInfo } from '@/types/store';
 
 const heading = 'mb-5 text-xs font-semibold text-white';
 const linkClass = 'mb-3 block text-[11px] text-[#e2cfdf] hover:text-white';
@@ -40,6 +40,17 @@ export function StoreFooter({ info }: { info: PublicStoreInfo | null }) {
           <Link href="/rastrear" className={linkClass}>
             Rastrear pedido
           </Link>
+          <Link href="/contacto" className={linkClass}>
+            Contacto
+          </Link>
+          {/* Solo las páginas con texto publicado (aprobado) en el panel. */}
+          {STORE_PAGE_LINKS.filter((page) => info?.publishedPages.includes(page.slug)).map(
+            (page) => (
+              <Link key={page.slug} href={`/${page.slug}`} className={linkClass}>
+                {page.label}
+              </Link>
+            ),
+          )}
         </div>
         {contactLines.length > 0 && (
           <div>

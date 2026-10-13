@@ -10,6 +10,7 @@ import {
   UpdateStoreSettingsDto,
   UpsertShippingRateDto,
 } from './store-settings.dto';
+import { PublicStorePageDto, StoreContentDto, UpdateStoreContentDto } from './content.dto';
 import { StoreSettingsService } from './store-settings.service';
 
 /** El personal consulta la configuración; solo la propietaria la modifica (Context/decisiones.md). */
@@ -49,6 +50,40 @@ export class StoreSettingsAdminController {
   @Roles(AdminRole.ADMIN)
   deleteShippingRate(@Param('id') id: string): Promise<void> {
     return this.settings.deleteShippingRate(id);
+  }
+}
+
+/** Contenido de la tienda: el personal lo consulta; solo la propietaria lo modifica. */
+@ApiTags('Panel: contenido')
+@ApiCookieAuth(SESSION_COOKIE)
+@Controller('admin/content')
+export class StoreContentAdminController {
+  constructor(private readonly settings: StoreSettingsService) {}
+
+  @Get()
+  @ApiOkResponse({ type: StoreContentDto })
+  get(): Promise<StoreContentDto> {
+    return this.settings.getContent();
+  }
+
+  @Patch()
+  @Roles(AdminRole.ADMIN)
+  @ApiOkResponse({ type: StoreContentDto })
+  update(@Body() dto: UpdateStoreContentDto): Promise<StoreContentDto> {
+    return this.settings.updateContent(dto);
+  }
+}
+
+@ApiTags('Tienda')
+@Public()
+@Controller('store/content')
+export class StoreContentController {
+  constructor(private readonly settings: StoreSettingsService) {}
+
+  @Get(':slug')
+  @ApiOkResponse({ type: PublicStorePageDto })
+  get(@Param('slug') slug: string): Promise<PublicStorePageDto> {
+    return this.settings.getPage(slug);
   }
 }
 

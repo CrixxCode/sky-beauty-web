@@ -177,4 +177,11 @@ export class PublicStoreInfoDto {
   @ApiProperty({ nullable: true, type: String }) tiktokUrl!: string | null;
   @ApiProperty({ nullable: true, type: String }) heroTitle!: string | null;
   @ApiProperty({ nullable: true, type: String }) heroSubtitle!: string | null;
+  @ApiProperty({ nullable: true, type: String }) tagline!: string | null;
+  @ApiProperty({ nullable: true, type: String }) announcementText!: string | null;
+  @ApiProperty({
+    description: 'Páginas de texto publicadas (con texto cargado), para enlazarlas en la tienda.',
+    type: [String],
+  })
+  publishedPages!: string[];
 }

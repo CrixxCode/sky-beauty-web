@@ -392,6 +392,16 @@ La lógica más delicada del sistema: debe tener pruebas exhaustivas antes de co
 
 **Terminado cuando:** las páginas legales se publican con los textos aprobados.
 
+**Estado:** construido el 2026-10-13. Falta cargar los textos aprobados (bloqueo de negocio).
+
+- Panel: `/admin/contenido` (la propietaria edita; el personal ve en solo lectura): título y texto del inicio, barra de anuncio, descripción para buscadores y las cuatro páginas legales.
+- Tienda: `/terminos`, `/datos-personales`, `/cambios-y-garantias`, `/envios` y `/contacto`. Una página legal sin texto no existe (404) ni aparece en el pie, para no publicar borradores. Las casillas del checkout enlazan a sus textos cuando estén publicados.
+- Los textos legales admiten un formato mínimo sin HTML (`#` títulos, `-` listas, `**negrita**`).
+- Contacto replica el prototipo con los datos configurados; en lugar del formulario (necesitaría correo) la atención es por WhatsApp.
+- Buscadores y redes: descripción y Open Graph desde el panel, vista previa de cada producto con su foto, `robots.txt` (excluye panel, carrito, checkout y páginas privadas) y `sitemap.xml` con productos y páginas publicadas.
+- Pruebas: `test/content.e2e-spec.ts` (integración), `rich-text.test.tsx` (unitaria) y `e2e/content.spec.ts` (Playwright, celular y escritorio).
+- Pendiente: imagen de vista previa general para redes. Necesita el logotipo en PNG (las redes no aceptan SVG).
+
 **Bloqueos de negocio:**
 - **Políticas:** aprobación de las cuatro políticas y validación legal.
 - **Marca:** logotipo monocromo y fotografías autorizadas (los logotipos horizontal y vertical y el ícono ya están incorporados).

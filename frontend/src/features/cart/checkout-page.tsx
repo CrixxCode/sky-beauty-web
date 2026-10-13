@@ -15,7 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { apiFetch, ApiError } from '@/lib/api';
 import type { CreatedOrder } from '@/types/checkout';
-import type { Location } from '@/types/store';
+import type { Location, StorePageSlug } from '@/types/store';
 import { useCart } from './cart-context';
 import { OrderSummary } from './order-summary';
 import { useCartQuote } from './use-cart-quote';
@@ -59,7 +59,7 @@ function validate(form: FormState, paymentAvailable: boolean): string | null {
   return null;
 }
 
-export function CheckoutPage() {
+export function CheckoutPage({ publishedPages }: { publishedPages: StorePageSlug[] }) {
   const router = useRouter();
   const { items, ready, clear } = useCart();
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -309,7 +309,13 @@ export function CheckoutPage() {
               }
               className="mt-1"
             />
-            <span>Acepto los términos y condiciones.</span>
+            <span>
+              Acepto los{' '}
+              <TextLink slug="terminos" published={publishedPages}>
+                términos y condiciones
+              </TextLink>
+              .
+            </span>
           </label>
           <label className="flex items-start gap-2.5 text-[11px] leading-[1.7] text-[#5b4c56]">
             <Checkbox
@@ -320,7 +326,11 @@ export function CheckoutPage() {
               className="mt-1"
             />
             <span>
-              Autorizo el tratamiento de mis datos personales conforme a la Ley 1581 de 2012.
+              Autorizo el{' '}
+              <TextLink slug="datos-personales" published={publishedPages}>
+                tratamiento de mis datos personales
+              </TextLink>{' '}
+              conforme a la Ley 1581 de 2012.
             </span>
           </label>
         </section>
@@ -344,5 +354,23 @@ export function CheckoutPage() {
       </form>
       <OrderSummary quote={quote} checkout />
     </div>
+  );
+}
+
+/** Enlace al texto publicado (en otra pestaña, para no perder el formulario); sin texto, solo el texto. */
+function TextLink({
+  slug,
+  published,
+  children,
+}: {
+  slug: StorePageSlug;
+  published: StorePageSlug[];
+  children: React.ReactNode;
+}) {
+  if (!published.includes(slug)) return <>{children}</>;
+  return (
+    <Link href={`/${slug}`} target="_blank" className="font-medium text-[#7a5178] underline">
+      {children}
+    </Link>
   );
 }

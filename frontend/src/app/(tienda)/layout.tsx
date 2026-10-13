@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { BrandLogo } from '@/components/layout/brand-logo';
@@ -10,6 +11,26 @@ import { fetchPublicApi } from '@/lib/api.server';
 import type { PublicCategory } from '@/types/catalog';
 import type { PublicStoreInfo } from '@/types/store';
 
+/**
+ * Metadatos de la tienda para buscadores y para la vista previa al compartir en redes. La
+ * descripción sale de la configuración (contenido); sin ella se usa la general del sitio.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const info = await fetchPublicApi<PublicStoreInfo>('/store/info');
+  const storeName = info?.storeName ?? 'Sky Beauty Maquillaje';
+  const description = info?.tagline ?? undefined;
+  return {
+    ...(description && { description }),
+    openGraph: {
+      type: 'website',
+      locale: 'es_CO',
+      siteName: storeName,
+      title: storeName,
+      ...(description && { description }),
+    },
+  };
+}
+
 export default async function TiendaLayout({ children }: { children: ReactNode }) {
   const [info, categories] = await Promise.all([
     fetchPublicApi<PublicStoreInfo>('/store/info'),
@@ -21,6 +42,12 @@ export default async function TiendaLayout({ children }: { children: ReactNode }
 
   return (
     <CartProvider>
+      {info?.announcementText && (
+        // Barra de anuncio (replica .announcement del prototipo); el texto sale del panel.
+        <div className="bg-[#9b7199] px-5 py-2 text-center text-[10px] tracking-[.075em] text-white max-[600px]:text-[9px]">
+          {info.announcementText}
+        </div>
+      )}
       <header className="relative z-50 border-b border-[#eee9e6] bg-paper/98">
         <Container className="flex h-22.5 items-center justify-between gap-9.5 max-[850px]:h-20 max-[600px]:h-17.25">
           <Link href="/" aria-label="Inicio de Sky Beauty" className="min-w-0">

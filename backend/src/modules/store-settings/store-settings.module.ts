@@ -1,9 +1,19 @@
 import { Module } from '@nestjs/common';
-import { StoreInfoController, StoreSettingsAdminController } from './store-settings.controller';
+import {
+  StoreContentAdminController,
+  StoreContentController,
+  StoreInfoController,
+  StoreSettingsAdminController,
+} from './store-settings.controller';
 import { StoreSettingsService } from './store-settings.service';
 
 @Module({
-  controllers: [StoreSettingsAdminController, StoreInfoController],
+  controllers: [
+    StoreSettingsAdminController,
+    StoreInfoController,
+    StoreContentAdminController,
+    StoreContentController,
+  ],
   providers: [StoreSettingsService],
   exports: [StoreSettingsService],
 })
