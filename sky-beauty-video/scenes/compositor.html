@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Sky Beauty · compositor del video</title>
+<!--
+  Compositor determinista: window.renderFrame(T) dibuja el cuadro del segundo T.
+  Todo el estado es función pura del tiempo (sin transiciones CSS ni temporizadores),
+  así cada cuadro se puede renderizar en cualquier orden y en paralelo.
+  Los datos (línea de tiempo y cuadros de cada grabación) llegan con window.setup().
+-->
+<style>
+  /* Tipografías oficiales (Fontsource, licencia OFL), locales para que el render no dependa de internet. */
+  @font-face { font-family: 'Playfair Display'; src: url('../assets/fonts/playfair-display-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: block; }
+  @font-face { font-family: 'Playfair Display'; src: url('../assets/fonts/playfair-display-latin-500-normal.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: block; }
+  @font-face { font-family: 'Playfair Display'; src: url('../assets/fonts/playfair-display-latin-400-italic.woff2') format('woff2'); font-weight: 400; font-style: italic; font-display: block; }
+  @font-face { font-family: 'Playfair Display'; src: url('../assets/fonts/playfair-display-latin-500-italic.woff2') format('woff2'); font-weight: 500; font-style: italic; font-display: block; }
+  @font-face { font-family: 'Poppins'; src: url('../assets/fonts/poppins-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: block; }
+  @font-face { font-family: 'Poppins'; src: url('../assets/fonts/poppins-latin-500-normal.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: block; }
+  @font-face { font-family: 'Poppins'; src: url('../assets/fonts/poppins-latin-600-normal.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: block; }
+  :root {
+    --lavender: #b785b8; --mauve: #a46ea4; --mauve-dark: #70436f; --mauve-deep: #5b365b;
+    --beige: #d8d4cb; --ivory: #f5f1eb; --paper: #fffcf9; --ink: #3a2c36; --muted: #6f666b;
+    --border: #ebe5e5; --eyebrow: #815d7f;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--ivory); }
+  body { font-family: 'Poppins', sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  #stage { position: absolute; inset: 0; overflow: hidden; background: var(--ivory); }
+  .abs { position: absolute; will-change: transform, opacity; }
+
+  /* Fondo: marfil con dos brillos lavanda muy suaves que derivan lentamente. */
+  .glow { position: absolute; border-radius: 50%; }
+  #glow1 { width: 1300px; height: 1300px; background: radial-gradient(circle, rgb(183 133 184 / .20), rgb(183 133 184 / 0) 62%); }
+  #glow2 { width: 1100px; height: 1100px; background: radial-gradient(circle, rgb(216 212 203 / .55), rgb(216 212 203 / 0) 65%); }
+
+  /* Introducción */
+  #intro { position: absolute; inset: 0; }
+  #icon { width: 168px; height: 168px; left: 876px; top: 222px; }
+  #logo { width: 560px; left: 680px; top: 418px; }
+  #tagline { left: 0; right: 0; top: 742px; text-align: center; font-family: 'Playfair Display', serif; font-style: italic;
+    font-size: 40px; color: var(--mauve-dark); letter-spacing: .01em; }
+  #rule { left: 930px; top: 718px; width: 60px; height: 1px; background: var(--lavender); }
+
+  /* Ventana del navegador con la interfaz real */
+  #win { left: 0; top: 0; border-radius: 18px; background: var(--paper); overflow: hidden;
+    box-shadow: 0 40px 90px rgb(58 44 54 / .16), 0 12px 30px rgb(58 44 54 / .10), 0 0 0 1px rgb(58 44 54 / .06);
+    transform-origin: 50% 50%; }
+  #bar { position: absolute; left: 0; right: 0; top: 0; height: 40px; background: var(--paper);
+    border-bottom: 1px solid var(--border); display: flex; align-items: center; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; background: var(--beige); margin-left: 9px; }
+  .dot:first-child { margin-left: 18px; }
+  #url { position: absolute; left: 50%; top: 7px; transform: translateX(-50%); height: 26px; min-width: 420px; max-width: 70%;
+    padding: 0 18px 0 12px; border-radius: 13px; background: var(--ivory); display: flex; align-items: center; gap: 9px;
+    font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; }
+  #url img { width: 15px; height: 15px; }
+  #url b { font-weight: 600; color: var(--ink); }
+  #badge { position: absolute; right: 16px; top: 9px; height: 22px; padding: 0 11px; border-radius: 11px;
+    background: #f3e9f2; color: var(--mauve-dark); font-size: 11.5px; font-weight: 500; line-height: 22px; letter-spacing: .02em; }
+  #vp { position: absolute; left: 0; right: 0; top: 40px; bottom: 0; overflow: hidden; background: #fffcf9; }
+  #vp img { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; will-change: transform, opacity; }
+
+  /* Teléfono (escena responsive) */
+  #phone { left: 0; top: 0; width: 375px; height: 784px; border-radius: 56px; background: #2b2028; padding: 12px;
+    box-shadow: 0 40px 90px rgb(58 44 54 / .22), 0 10px 26px rgb(58 44 54 / .14), inset 0 0 0 1.5px #4a3b45; }
+  #pscreen { position: relative; width: 351px; height: 760px; border-radius: 44px; overflow: hidden; background: #fffcf9; }
+  #pscreen img { position: absolute; left: 0; top: 0; width: 351px; height: 760px; }
+
+  /* Textos */
+  .cap { position: absolute; left: 211px; top: 46px; width: 1498px; height: 110px; }
+  .cap .eyebrow { font-size: 13px; font-weight: 600; letter-spacing: .34em; text-transform: uppercase; color: var(--eyebrow); }
+  .cap .title { margin-top: 10px; font-family: 'Playfair Display', serif; font-weight: 500; font-size: 48px; line-height: 1.05;
+    color: var(--ink); letter-spacing: -.012em; white-space: nowrap; }
+  .cap .sub { position: absolute; right: 0; bottom: 18px; max-width: 600px; text-align: right; font-size: 16px; line-height: 1.5; color: var(--muted); }
+
+  /* Cierre */
+  #outro { position: absolute; inset: 0; background: var(--mauve-deep); }
+  #outro .shine { position: absolute; width: 1400px; height: 1400px; left: 260px; top: -160px; border-radius: 50%;
+    background: radial-gradient(circle, rgb(183 133 184 / .30), rgb(183 133 184 / 0) 60%); }
+  #ologo { width: 600px; left: 660px; top: 300px; }
+  #otag { left: 0; right: 0; top: 690px; text-align: center; font-family: 'Playfair Display', serif; font-style: italic;
+    font-size: 44px; color: #f5f1eb; }
+  #orule { left: 930px; top: 662px; width: 60px; height: 1px; background: rgb(245 241 235 / .55); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="glow1" class="glow abs"></div>
+  <div id="glow2" class="glow abs"></div>
+
+  <div id="intro">
+    <img id="icon" class="abs" src="../assets/brand/favicon.svg" alt="">
+    <img id="logo" class="abs" src="../assets/brand/vertical_logo.svg" alt="Sky Beauty">
+    <div id="rule" class="abs"></div>
+    <div id="tagline" class="abs">Tu belleza, nuestra inspiración</div>
+  </div>
+
+  <div id="capA" class="cap abs"><div class="eyebrow"></div><div class="title"></div><div class="sub"></div></div>
+  <div id="capB" class="cap abs"><div class="eyebrow"></div><div class="title"></div><div class="sub"></div></div>
+
+  <div id="win" class="abs">
+    <div id="bar">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <div id="url"><img src="../assets/brand/favicon.svg" alt=""><b>Sky Beauty</b><span id="path"></span></div>
+      <div id="badge">Datos de demostración</div>
+    </div>
+    <div id="vp"><img id="layer0" alt=""><img id="layer1" alt=""></div>
+  </div>
+
+  <div id="phone" class="abs"><div id="pscreen"><img id="player" alt=""></div></div>
+
+  <div id="outro">
+    <div class="shine abs"></div>
+    <img id="ologo" class="abs" src="../assets/brand/logo_vertical_dark.svg" alt="Sky Beauty">
+    <div id="orule" class="abs"></div>
+    <div id="otag" class="abs">Belleza a un clic de distancia</div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let TL = null, FR = null, BASE = '';
+
+// ── Utilidades de tiempo ────────────────────────────────────────────────
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const easeOutExpo = (k) => (k >= 1 ? 1 : 1 - Math.pow(2, -10 * k));
+const easeInOut = (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
+const easeOut = (k) => 1 - Math.pow(1 - k, 3);
+const easeIn = (k) => k * k * k;
+const css = (el, o) => { for (const k in o) el.style[k] = o[k]; };
+
+// ── Geometría de la ventana ─────────────────────────────────────────────
+// Principal: contenido de 1498×843 (0,78 del cuadro) con barra de 40 px.
+const MAIN = { x: 211, y: 176, w: 1498 };
+// Responsive: ventana de escritorio más pequeña a la izquierda y el teléfono a la derecha.
+const DESK = { x: 150, y: 236, w: 1110 };
+const PHONE = { x: 1400, y: 196 };
+const winH = (w) => Math.round(w * 1080 / 1920) + 40;
+
+/** Cuadro de la grabación `clip` en el instante clipTime (el último anterior). */
+function frameUrl(clip, clipTime) {
+  const c = FR[clip];
+  let lo = 0, hi = c.t.length - 1;
+  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (c.t[mid] <= clipTime) lo = mid; else hi = mid - 1; }
+  return `${BASE}${clip}/${c.f[lo]}`;
+}
+function clipTimeAt(shot, T) {
+  for (const m of shot.map) if (T <= m.T1 + 1e-6) return m.s0 + (Math.max(T, m.T0) - m.T0) * m.rate;
+  const m = shot.map[shot.map.length - 1];
+  return m.s1;
+}
+
+/** Cámara: cada clave lleva a (s, x, y) en el tiempo T, recorriendo d segundos. */
+function cameraAt(T) {
+  let st = { s: 1, x: 960, y: 540 };
+  for (const k of TL.cams) {
+    if (T <= k.T - k.d) break;
+    const e = easeInOut(prog(T, k.T - k.d, k.T));
+    st = { s: lerp(st.s, k.s, e), x: lerp(st.x, k.x, e), y: lerp(st.y, k.y, e) };
+  }
+  return st;
+}
+/** Transformación de la imagen dentro de un visor de ancho w: acerca a (x, y) sin dejar bordes. */
+function camTransform(cam, w) {
+  const k = (w / 1920) * cam.s;
+  const h = w * 1080 / 1920;
+  let tx = w / 2 - cam.x * k, ty = h / 2 - cam.y * k;
+  tx = clamp(tx, w - 1920 * k, 0); ty = clamp(ty, h - 1080 * k, 0);
+  return `translate(${tx.toFixed(3)}px, ${ty.toFixed(3)}px) scale(${k.toFixed(5)})`;
+}
+
+const pending = [];
+function setSrc(img, url) {
+  if (img.dataset.src === url) return;
+  img.dataset.src = url;
+  img.src = url;
+  pending.push(img.decode().catch(() => {}));
+}
+
+// ── Textos ──────────────────────────────────────────────────────────────
+function fillCap(el, c) {
+  if (el.dataset.key === c.title) return;
+  el.dataset.key = c.title;
+  el.querySelector('.eyebrow').textContent = c.eyebrow;
+  el.querySelector('.title').textContent = c.title;
+  el.querySelector('.sub').textContent = c.sub;
+}
+// Un texto sale por completo (0,3 s) antes de que entre el siguiente: nunca se superponen.
+const OUT_D = 0.3;
+function renderCaptions(T, hideK) {
+  const caps = TL.captions;
+  const els = [$('capA'), $('capB')];
+  els.forEach((e) => (e.style.opacity = 0));
+  caps.forEach((c, i) => {
+    const next = caps[i + 1];
+    const end = next ? Math.min(c.T1, next.T0) : c.T1;
+    const prevEnd = i > 0 ? Math.min(caps[i - 1].T1, c.T0) : -1;
+    const start = Math.max(c.T0, prevEnd + OUT_D);
+    if (T < start || T >= end + OUT_D) return;
+    const el = els[i % 2];
+    fillCap(el, c);
+    const kin = easeOutExpo(prog(T, start, start + 0.9));
+    const kout = easeIn(prog(T, end, end + OUT_D));
+    const o = kin * (1 - kout) * (1 - hideK);
+    css(el, { opacity: o, transform: `translateY(${((1 - kin) * 16 - kout * 10).toFixed(2)}px)` });
+    el.querySelector('.sub').style.opacity = easeOut(prog(T, start + 0.25, start + 1.0));
+  });
+}
+
+// ── Cuadro ──────────────────────────────────────────────────────────────
+window.renderFrame = async function (T) {
+  pending.length = 0;
+  const { introOut, responsive: R, outro: O, duration: D } = TL;
+
+  // Fondo vivo
+  css($('glow1'), { transform: `translate(${(-250 + Math.sin(T * 0.11) * 160).toFixed(1)}px, ${(-480 + Math.cos(T * 0.09) * 90).toFixed(1)}px)` });
+  css($('glow2'), { transform: `translate(${(1150 + Math.cos(T * 0.08) * 140).toFixed(1)}px, ${(420 + Math.sin(T * 0.1) * 110).toFixed(1)}px)` });
+
+  // 1 · Introducción
+  const outK = easeInOut(prog(T, introOut - 0.4, introOut + 0.7));
+  const iconK = easeOutExpo(prog(T, 0.35, 1.6));
+  const logoK = easeInOut(prog(T, 1.35, 2.9));
+  const tagK = easeOutExpo(prog(T, 3.0, 4.2));
+  $('intro').style.display = T < introOut + 0.8 ? 'block' : 'none';
+  css($('icon'), { opacity: iconK * (1 - outK), transform: `translateY(${(-outK * 70).toFixed(2)}px) scale(${(0.9 + 0.1 * iconK).toFixed(4)})`, filter: `blur(${((1 - iconK) * 12).toFixed(2)}px)` });
+  const wipe = (logoK * 130 - 15).toFixed(2);
+  css($('logo'), {
+    opacity: Math.min(1, logoK * 3) * (1 - outK),
+    transform: `translateY(${((1 - logoK) * 14 - outK * 70).toFixed(2)}px)`,
+    webkitMaskImage: `linear-gradient(100deg, #000 ${wipe}%, transparent ${(+wipe + 15).toFixed(2)}%)`,
+    maskImage: `linear-gradient(100deg, #000 ${wipe}%, transparent ${(+wipe + 15).toFixed(2)}%)`,
+  });
+  css($('rule'), { opacity: tagK * (1 - outK), transform: `translateY(${(-outK * 70).toFixed(2)}px) scaleX(${tagK.toFixed(3)})` });
+  css($('tagline'), { opacity: tagK * (1 - outK), letterSpacing: `${(0.05 - tagK * 0.04).toFixed(4)}em`, transform: `translateY(${((1 - tagK) * 14 - outK * 70).toFixed(2)}px)` });
+
+  // 9 · Disposición: principal → responsive
+  const rK = easeInOut(prog(T, R.R0, R.R0 + 1.3));
+  const rect = { x: lerp(MAIN.x, DESK.x, rK), y: lerp(MAIN.y, DESK.y, rK), w: lerp(MAIN.w, DESK.w, rK) };
+  // Entrada de la ventana (después de la introducción) y salida hacia el cierre
+  const enterK = easeOutExpo(prog(T, introOut - 0.2, introOut + 1.3));
+  const exitK = easeInOut(prog(T, O, O + 1.0));
+  const winOpacity = clamp(enterK * 1.4) * (1 - exitK);
+  const winScale = (0.93 + 0.07 * enterK) * (1 - 0.06 * exitK);
+  const winLift = (1 - enterK) * 220 + exitK * -30;
+  css($('win'), {
+    display: winOpacity > 0.001 ? 'block' : 'none',
+    left: `${rect.x}px`, top: `${rect.y}px`, width: `${rect.w}px`, height: `${winH(rect.w)}px`,
+    opacity: winOpacity, transform: `translateY(${winLift.toFixed(2)}px) scale(${winScale.toFixed(4)})`,
+  });
+
+  // Tomas dentro de la ventana (hasta dos a la vez durante un fundido)
+  const vpW = rect.w;
+  const live = TL.shots.filter((s) => T >= s.t0 && T < s.t1 + 0.001);
+  const layers = [$('layer0'), $('layer1')];
+  layers.forEach((l) => (l.style.opacity = 0));
+  const cam = cameraAt(T);
+  const camForLayout = rK > 0 ? { s: lerp(cam.s, 1, rK), x: lerp(cam.x, 960, rK), y: lerp(cam.y, 540, rK) } : cam;
+  let top = null;
+  live.forEach((s) => {
+    const idx = TL.shots.indexOf(s);
+    const img = layers[idx % 2];
+    setSrc(img, frameUrl(s.clip, clipTimeAt(s, T)));
+    const o = s.fade > 0 ? easeInOut(prog(T, s.t0, s.t0 + s.fade)) : 1;
+    css(img, { opacity: o, zIndex: idx, transform: camTransform(camForLayout, vpW) });
+    top = s;
+  });
+  if (top) {
+    const u = [...TL.urls].reverse().find((x) => x.T <= T + 1e-6 && x.shot === top.id) ?? TL.urls.find((x) => x.shot === top.id);
+    const p = u ? u.path : '/';
+    if ($('path').textContent !== p) $('path').textContent = p;
+  }
+
+  // Teléfono
+  const pK = easeOutExpo(prog(T, R.R0 + 0.5, R.R0 + 1.8));
+  const pOpacity = pK * (1 - exitK);
+  css($('phone'), {
+    display: pOpacity > 0.001 ? 'block' : 'none',
+    left: `${PHONE.x}px`, top: `${PHONE.y}px`, opacity: pOpacity,
+    transform: `translateY(${((1 - pK) * 260 - exitK * 30).toFixed(2)}px) scale(${(1 - 0.06 * exitK).toFixed(4)})`,
+  });
+  const ps = TL.phoneShots.find((s) => T >= s.t0 && T < s.t1 + 0.001) ?? (T >= R.R0 ? TL.phoneShots[0] : null);
+  if (ps && pOpacity > 0) setSrc($('player'), frameUrl(ps.clip, clipTimeAt(ps, Math.max(T, ps.t0))));
+
+  // Textos (se ocultan en la introducción y en el cierre)
+  renderCaptions(T, exitK);
+
+  // 10 · Cierre: el morado de la marca se abre desde el centro
+  const oK = easeInOut(prog(T, O + 0.25, O + 1.45));
+  const olK = easeOutExpo(prog(T, O + 1.2, O + 2.7));
+  const otK = easeOutExpo(prog(T, O + 2.6, O + 3.8));
+  css($('outro'), { display: oK > 0 ? 'block' : 'none', clipPath: `circle(${(oK * 75).toFixed(2)}% at 50% 52%)` });
+  css($('outro').querySelector('.shine'), { transform: `translate(${(Math.sin(T * 0.2) * 60).toFixed(1)}px, ${(Math.cos(T * 0.17) * 40).toFixed(1)}px)` });
+  css($('ologo'), { opacity: olK, transform: `translateY(${((1 - olK) * 18).toFixed(2)}px) scale(${(0.96 + 0.04 * olK).toFixed(4)})`, filter: `blur(${((1 - olK) * 10).toFixed(2)}px)` });
+  css($('orule'), { opacity: otK * 0.9, transform: `scaleX(${otK.toFixed(3)})` });
+  css($('otag'), { opacity: otK, transform: `translateY(${((1 - otK) * 14).toFixed(2)}px)`, letterSpacing: `${(0.05 - otK * 0.04).toFixed(4)}em` });
+
+  // Entrada y salida del video desde el color de fondo
+  $('stage').style.opacity = 1;
+  await Promise.all(pending);
+  return true;
+};
+
+window.setup = async function (timeline, frames, base) {
+  TL = timeline; FR = frames; BASE = base;
+  await Promise.all([...document.fonts].map((f) => f.load().catch(() => {})));
+  await document.fonts.ready;
+  await Promise.all([...document.images].filter((i) => i.src).map((i) => i.decode().catch(() => {})));
+  return [...document.fonts].length >= 7 && [...document.fonts].every((f) => f.status === 'loaded');
+};
+</script>
+</body>
+</html>

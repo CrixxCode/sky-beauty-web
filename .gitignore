@@ -6,6 +6,7 @@ dist/
 dist-e2e/
 .next/
 .next-e2e/
+.next-video/
 out/
 build/
 *.tsbuildinfo
@@ -41,3 +42,10 @@ Thumbs.db
 
 # Skills de agentes de terceros: se reinstalan desde skills-lock.json
 .claude/skills/
+
+# Video de demostración: solo se versionan los scripts, los recursos y la documentación
+sky-beauty-video/node_modules/
+sky-beauty-video/recordings/
+sky-beauty-video/output/
+sky-beauty-video/screenshots/
+sky-beauty-video/scenes/timeline.json
