@@ -186,6 +186,7 @@ function toDto(s: StoreSettings): StoreSettingsDto {
     freeShippingThreshold: s.freeShippingThreshold?.toNumber() ?? null,
     defaultLowStockThreshold: s.defaultLowStockThreshold,
     maxPercentageDiscount: s.maxPercentageDiscount?.toNumber() ?? null,
+    maxUnitsPerProduct: s.maxUnitsPerProduct,
   };
 }
 

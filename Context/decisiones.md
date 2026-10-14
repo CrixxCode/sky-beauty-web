@@ -128,6 +128,26 @@ Prioridad de cálculo en checkout:
 
 ---
 
+## 2026-10-14 — Tope general de unidades por producto
+
+**Decisión:** la tienda tiene un tope general de unidades de un mismo producto (variante) por pedido, para todos los productos. Se combina con el máximo propio de cada variante: aplica el menor de los dos.
+
+- La cifra la fija la propietaria en Configuración → Cifras comerciales. Sin cifra no hay tope general (solo el de cada variante, si lo tiene).
+- Aplica en la tienda, el carrito, el checkout y la edición de pedidos sin confirmar.
+
+**Pendiente:** la cifra del tope.
+
+---
+
+## 2026-10-14 — Resumen del panel
+
+**Decisión:** el Resumen del panel muestra:
+
+- **A todo el panel:** los pendientes del día (pedidos por confirmar, pagos por verificar, avisos por enviar y variantes con stock bajo), cada uno con enlace a su sección.
+- **Solo a la propietaria:** las ventas de los últimos 30 días (total vendido, pedidos pagados, ticket promedio y gráfico por día), con el mismo criterio de los reportes.
+
+---
+
 ## 2026-10-13 — Reportes de ventas y ganancia
 
 **Decisión:** la propietaria tiene reportes de ventas por período, productos más vendidos y márgenes, y puede exportar cada uno a CSV.
@@ -472,6 +492,8 @@ Estado al 2026-10-13. Migraciones en `backend/prisma/migrations/`:
 - **Edición de pedidos:** evento `OrderEventType.ITEMS_CHANGED`; las existencias se ajustan con movimientos `ORDER_RESERVED` y `ORDER_RELEASED`. Los productos que ya estaban conservan su snapshot en `OrderItem`.
 - **Condiciones a una fecha:** `VariantPriceHistory` guarda cada cambio del precio efectivo de una variante y `PromotionRevision` guarda cada versión de una promoción (condiciones y destinos). Con ambas se calcula el precio y la promoción vigentes en `Order.createdAt` para los productos agregados o cambiados al editar.
 - **Costo en el pedido:** `OrderItem.unitCost`.
+- **Tope de unidades:** `StoreSettings.maxUnitsPerProduct` (`null` = sin tope general), combinado con `ProductVariant.maxPerOrder` (gana el menor).
+- **Resumen:** `GET /admin/dashboard/pending` (todo el panel); las ventas salen de `GET /admin/reports/sales` (solo `ADMIN`).
 - **Reportes:** `GET /admin/reports/sales`, `top-products` y `margins` (solo `ADMIN`). Los días se cuentan en hora de Colombia y las ventas se ubican por `Order.paidAt` (fecha de verificación del pago; migración `20261014000000_fecha_pago_verificado`, que completa los pedidos anteriores con su primer registro de pago verificado). Las unidades vendidas sin `unitCost` quedan fuera de la ganancia y se informan aparte.
 - **Permisos:** documentados en `AdminRole`.
 

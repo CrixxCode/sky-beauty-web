@@ -9,6 +9,7 @@ import { type Env, validateEnv } from './config/env';
 import { AdminUsersModule } from './modules/admin-users/admin-users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { HealthModule } from './modules/health/health.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { LocationsModule } from './modules/locations/locations.module';
@@ -76,6 +77,7 @@ import { isInternalRequest } from './shared/security/internal-request';
     OrdersModule,
     NoticesModule,
     ReportsModule,
+    DashboardModule,
     HealthModule,
   ],
   providers: [

@@ -155,6 +155,7 @@ function CommercialForm({ settings, canEdit }: { settings: StoreSettings; canEdi
     freeShippingThreshold: s.freeShippingThreshold?.toString() ?? '',
     defaultLowStockThreshold: s.defaultLowStockThreshold?.toString() ?? '',
     maxPercentageDiscount: s.maxPercentageDiscount?.toString() ?? '',
+    maxUnitsPerProduct: s.maxUnitsPerProduct?.toString() ?? '',
   });
   const {
     register,
@@ -173,6 +174,7 @@ function CommercialForm({ settings, canEdit }: { settings: StoreSettings; canEdi
       freeShippingThreshold: toNullableNumber(values.freeShippingThreshold),
       defaultLowStockThreshold: toNullableNumber(values.defaultLowStockThreshold),
       maxPercentageDiscount: toNullableNumber(values.maxPercentageDiscount),
+      maxUnitsPerProduct: toNullableNumber(values.maxUnitsPerProduct),
     });
     if (saved) reset(toValues(saved));
   });
@@ -196,7 +198,7 @@ function CommercialForm({ settings, canEdit }: { settings: StoreSettings; canEdi
           >
             <label className="flex min-h-11 items-center justify-between gap-4 border border-input-border bg-white px-3.5 py-2.5 text-[11px]">
               <span className="text-[#6f6269]">
-                Activalo para campanas temporales, por ejemplo un fin de semana.
+                Actívalo para campañas temporales, por ejemplo un fin de semana.
               </span>
               <Controller
                 control={control}
@@ -210,17 +212,22 @@ function CommercialForm({ settings, canEdit }: { settings: StoreSettings; canEdi
           {field(
             'freeShippingThreshold',
             'Envío gratis desde (COP)',
-            'Subtotal después de descuentos. Vacio: sin envío gratis por monto.',
+            'Subtotal después de descuentos. Vacío: sin envío gratis por monto.',
           )}
           {field(
             'defaultLowStockThreshold',
             'Stock bajo por defecto (unidades)',
-            'Se propone al crear una variante. Vacio: no se propone.',
+            'Se propone al crear una variante. Vacío: no se propone.',
           )}
           {field(
             'maxPercentageDiscount',
             'Descuento máximo (%)',
-            'Límite para promociones porcentuales. Vacio: hasta 100 %.',
+            'Límite para promociones porcentuales. Vacío: hasta 100 %.',
+          )}
+          {field(
+            'maxUnitsPerProduct',
+            'Máximo por producto en un pedido (unidades)',
+            'Para todos los productos. Si una variante tiene un máximo menor, se usa el suyo. Vacío: sin tope general.',
           )}
         </fieldset>
         {canEdit && (

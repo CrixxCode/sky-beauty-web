@@ -678,6 +678,9 @@ model StoreSettings {
   defaultLowStockThreshold Int?
   /// Máximo permitido para un descuento porcentual. null = aún no configurado (solo aplica el tope de 100 %).
   maxPercentageDiscount    Decimal? @db.Decimal(5, 2)
+  /// Tope general de unidades de una misma variante por pedido. Se combina con
+  /// ProductVariant.maxPerOrder (gana el menor). null = sin tope general (2026-10-14).
+  maxUnitsPerProduct       Int?
   heroTitle                String?
   heroSubtitle             String?
   heroImageUrl             String?

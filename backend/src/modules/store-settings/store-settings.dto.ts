@@ -121,6 +121,16 @@ export class UpdateStoreSettingsDto {
   maxPercentageDiscount?: number | null;
 
   @ApiPropertyOptional({
+    nullable: true,
+    description: 'Tope general de unidades de un mismo producto por pedido. null = sin tope.',
+  })
+  @IsOptional()
+  @IsInt({ message: 'Ingresa un número entero de unidades.' })
+  @Min(1, { message: 'El tope debe ser de al menos 1 unidad.' })
+  @Max(999, { message: 'El tope no puede superar 999 unidades.' })
+  maxUnitsPerProduct?: number | null;
+
+  @ApiPropertyOptional({
     description: 'Campaña temporal: envío gratis a cualquier municipio mientras esté activo.',
   })
   @IsOptional()
@@ -142,6 +152,7 @@ export class StoreSettingsDto {
   @ApiProperty({ nullable: true, type: Number }) freeShippingThreshold!: number | null;
   @ApiProperty({ nullable: true, type: Number }) defaultLowStockThreshold!: number | null;
   @ApiProperty({ nullable: true, type: Number }) maxPercentageDiscount!: number | null;
+  @ApiProperty({ nullable: true, type: Number }) maxUnitsPerProduct!: number | null;
 }
 
 /** Datos públicos de la tienda (sin cifras internas). */

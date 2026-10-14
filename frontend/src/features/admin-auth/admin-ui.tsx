@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ComponentProps, ReactNode } from 'react';
 import { Eyebrow, serifClass } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
@@ -54,5 +55,43 @@ export function AdminStatus({
     >
       {children}
     </span>
+  );
+}
+
+/**
+ * Tarjeta de cifra (replica .admin-stat del prototipo). Con `href`, toda la tarjeta lleva a la
+ * sección correspondiente.
+ */
+export function AdminStat({
+  icon,
+  label,
+  value,
+  detail,
+  href,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  detail: string;
+  href?: string;
+}) {
+  const className =
+    'flex min-w-0 flex-col items-start border border-[#eee8ed] bg-white p-5.5 max-[600px]:p-4';
+  const content = (
+    <>
+      <span className="mb-4.75 grid h-10 w-10 place-items-center bg-[#f3e8f3] text-[#936591]">
+        {icon}
+      </span>
+      <small className="text-[10px] text-[#8b7e88]">{label}</small>
+      <strong className="my-2 max-w-full truncate text-[25px] max-[600px]:text-lg">{value}</strong>
+      <span className="text-[9px] text-[#a48c9c]">{detail}</span>
+    </>
+  );
+  return href ? (
+    <Link href={href} className={cn(className, 'transition-colors hover:border-[#d9c6d6]')}>
+      {content}
+    </Link>
+  ) : (
+    <div className={className}>{content}</div>
   );
 }

@@ -3,10 +3,11 @@ import Link from 'next/link';
 import { navItemsFor } from '@/features/admin-auth/admin-nav-items';
 import { AdminHeading, AdminPanel, AdminPanelTitle } from '@/features/admin-auth/admin-ui';
 import { requireAdmin } from '@/features/admin-auth/session.server';
+import { DashboardPendingStats, DashboardSales } from '@/features/dashboard/dashboard-overview';
 import { ApiStatus } from '@/features/system/api-status';
 
-// Replica la sección "Resumen" del panel del prototipo. Las métricas comerciales se agregan cuando
-// existan pedidos reales (módulos 7 y 13); aquí no se muestran cifras de demostración.
+// Replica la sección "Resumen" del panel del prototipo: cifras arriba; actividad y accesos rápidos
+// debajo. Los pendientes los ve todo el panel; las ventas, solo la propietaria.
 export default async function AdminResumenPage() {
   const admin = await requireAdmin();
   const quickLinks = navItemsFor(admin.role).filter((item) => item.href !== '/admin');
@@ -14,11 +15,15 @@ export default async function AdminResumenPage() {
   return (
     <>
       <AdminHeading title="Resumen" description={`Hola, ${admin.name}.`} />
-      <div className="grid gap-5 max-[600px]:gap-2.5 min-[601px]:grid-cols-[1.7fr_1fr]">
-        <AdminPanel>
-          <AdminPanelTitle>Estado del sistema</AdminPanelTitle>
-          <ApiStatus />
-        </AdminPanel>
+      <DashboardPendingStats />
+      <div className="mt-5 grid gap-5 max-[600px]:mt-2.5 max-[600px]:gap-2.5 min-[601px]:grid-cols-[1.7fr_1fr]">
+        <div className="grid content-start gap-5 max-[600px]:gap-2.5">
+          {admin.role === 'ADMIN' && <DashboardSales />}
+          <AdminPanel>
+            <AdminPanelTitle>Estado del sistema</AdminPanelTitle>
+            <ApiStatus />
+          </AdminPanel>
+        </div>
         <AdminPanel>
           <AdminPanelTitle>Accesos rápidos</AdminPanelTitle>
           {quickLinks.map((item) => (

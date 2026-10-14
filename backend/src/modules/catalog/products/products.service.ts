@@ -12,6 +12,7 @@ import sharp from 'sharp';
 import type { Env } from '../../../config/env';
 import { Prisma } from '../../../generated/prisma/client';
 import type { AdminRole, ProductStatus } from '../../../generated/prisma/client';
+import { effectiveMaxPerOrder } from '../../../shared/max-per-order';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
 import { uploadUrl } from '../../../shared/uploads';
 import { PricingService, type PriceCalculation } from '../../promotions/pricing.service';
@@ -159,14 +160,18 @@ function toVariantDto(v: PrismaVariant, role: AdminRole): VariantDto {
   return dto;
 }
 
-function toPublicVariantDto(v: PrismaVariant, pricing: PriceCalculation): PublicVariantDto {
+function toPublicVariantDto(
+  v: PrismaVariant,
+  pricing: PriceCalculation,
+  generalMax: number | null,
+): PublicVariantDto {
   return {
     id: v.id,
     sku: v.sku,
     name: v.name,
     colorHex: v.colorHex,
     price: v.price?.toNumber() ?? null,
-    maxPerOrder: v.maxPerOrder,
+    maxPerOrder: effectiveMaxPerOrder(v.maxPerOrder, generalMax),
     stock: v.stock,
     isActive: v.isActive,
     position: v.position,
@@ -227,6 +232,7 @@ function toProductDto(p: PrismaProduct, role: AdminRole): ProductDto {
 function toPublicProductDto(
   p: PrismaProduct,
   priceMap: Map<string, PriceCalculation>,
+  generalMax: number | null,
 ): PublicProductDto {
   const activeVariants = p.variants.filter((v) => v.isActive);
   const pricedVariants = activeVariants.map((variant) => {
@@ -239,6 +245,7 @@ function toPublicProductDto(
         finalPrice: fallbackPrice,
         appliedPromotion: null,
       },
+      generalMax,
     );
   });
   // El precio "desde" y su precio regular salen de la misma variante (la de menor precio final),
@@ -398,8 +405,9 @@ export class ProductsService {
 
       const page = matches.slice(skip, skip + limit);
       const priceMap = await this.priceProducts(page);
+      const generalMax = await this.generalMaxPerOrder();
       return {
-        items: page.map((p) => toPublicProductDto(p, priceMap)),
+        items: page.map((p) => toPublicProductDto(p, priceMap, generalMax)),
         total: matches.length,
       };
     }
@@ -416,8 +424,9 @@ export class ProductsService {
     ]);
 
     const priceMap = await this.priceProducts(items);
+    const generalMax = await this.generalMaxPerOrder();
     return {
-      items: items.map((p) => toPublicProductDto(p as PrismaProduct, priceMap)),
+      items: items.map((p) => toPublicProductDto(p as PrismaProduct, priceMap, generalMax)),
       total,
     };
   }
@@ -442,7 +451,11 @@ export class ProductsService {
       },
     });
     if (!p) throw new NotFoundException(`Producto '${slug}' no encontrado.`);
-    return toPublicProductDto(p, await this.priceProducts([p]));
+    return toPublicProductDto(p, await this.priceProducts([p]), await this.generalMaxPerOrder());
+  }
+
+  private async generalMaxPerOrder(): Promise<number | null> {
+    return (await this.storeSettings.get()).maxUnitsPerProduct;
   }
 
   // ── Crear producto ─────────────────────────────────────────────────────────

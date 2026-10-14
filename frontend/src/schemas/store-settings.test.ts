@@ -25,6 +25,7 @@ describe('configuración de la tienda', () => {
         freeShippingThreshold: '',
         defaultLowStockThreshold: '',
         maxPercentageDiscount: '',
+        maxUnitsPerProduct: '',
       }).success,
     ).toBe(true);
   });
@@ -51,6 +52,7 @@ describe('configuración de la tienda', () => {
         freeShippingThreshold: '',
         defaultLowStockThreshold: '',
         maxPercentageDiscount: '',
+        maxUnitsPerProduct: '',
         ...values,
       }).success;
     expect(parse({ freeShippingThreshold: '150000' })).toBe(true);
@@ -59,6 +61,10 @@ describe('configuración de la tienda', () => {
     expect(parse({ maxPercentageDiscount: '0' })).toBe(false);
     expect(parse({ maxPercentageDiscount: '101' })).toBe(false);
     expect(parse({ maxPercentageDiscount: '50' })).toBe(true);
+    expect(parse({ maxUnitsPerProduct: '6' })).toBe(true);
+    expect(parse({ maxUnitsPerProduct: '0' })).toBe(false);
+    expect(parse({ maxUnitsPerProduct: '2.5' })).toBe(false);
+    expect(parse({ maxUnitsPerProduct: '1000' })).toBe(false);
   });
 
   it('convierte los campos numéricos para la API', () => {

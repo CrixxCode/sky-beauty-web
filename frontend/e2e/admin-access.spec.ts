@@ -28,6 +28,12 @@ test('la propietaria crea una cuenta del personal, que solo ve lo permitido', as
   await expect(page.getByRole('heading', { name: 'Resumen' })).toBeVisible();
   await expect(page.getByText(`Hola, ${E2E_OWNER.name}.`)).toBeVisible();
   await expect(page.getByRole('status')).toHaveText('Servidor y base de datos conectados');
+  // Resumen: pendientes del día y, solo para la propietaria, las ventas.
+  await expect(page.getByRole('link', { name: /Pedidos por confirmar/ })).toHaveAttribute(
+    'href',
+    '/admin/pedidos',
+  );
+  await expect(page.getByText('Ventas de los últimos 30 días')).toBeVisible();
 
   // Crea la cuenta del personal desde el menú lateral.
   await openNav(page);
@@ -50,6 +56,8 @@ test('la propietaria crea una cuenta del personal, que solo ve lo permitido', as
   // El personal entra, no ve "Cuentas" y no puede abrirla por URL.
   await login(page, staff.email, staff.password);
   await expect(page.getByText(`Hola, ${staff.name}.`)).toBeVisible();
+  await expect(page.getByRole('link', { name: /Pagos por verificar/ })).toBeVisible();
+  await expect(page.getByText('Ventas de los últimos 30 días')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Cuentas' })).toHaveCount(0);
   await page.goto('/admin/cuentas');
   await expect(page).toHaveURL(/\/admin$/);

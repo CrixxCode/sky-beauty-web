@@ -220,6 +220,38 @@ describe('Carrito y checkout (integración)', () => {
       expect(q.canCheckout).toBe(false);
     });
 
+    it('aplica el tope general de unidades por producto; si la variante tiene uno menor, gana el suyo', async () => {
+      await prisma.storeSettings.updateMany({ data: { maxUnitsPerProduct: 3 } });
+
+      const q = await quote([
+        { variantId, quantity: 4 },
+        { variantId: otherVariantId, quantity: 2 },
+      ]);
+      expect(q.items[0]).toMatchObject({
+        issue: 'OVER_MAX_PER_ORDER',
+        maxPerOrder: 3,
+        maxQuantity: 3,
+      });
+      expect(q.items[1]).toMatchObject({ issue: null, maxPerOrder: 2 });
+
+      const created = await request(server())
+        .post(ORDERS)
+        .send(orderBody({ items: [{ variantId, quantity: 4 }] }))
+        .expect(400);
+      expect((created.body as { message: string }).message).toContain('máximo 3 unidades');
+
+      // La tienda muestra el máximo que aplica a cada variante.
+      const product = await request(server())
+        .get('/api/v1/store/products/producto-checkout-test')
+        .expect(200);
+      const variants = (product.body as { variants: Array<{ sku: string; maxPerOrder: number }> })
+        .variants;
+      expect(Object.fromEntries(variants.map((v) => [v.sku, v.maxPerOrder]))).toEqual({
+        'CHK-001': 3,
+        'CHK-002': 2,
+      });
+    });
+
     it('envío: gratis nacional > gratis por monto > tarifa del municipio > por confirmar', async () => {
       await prisma.municipalShippingRate.create({
         data: { municipalityCode: RIOHACHA, amount: 5000 },

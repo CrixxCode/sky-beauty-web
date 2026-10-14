@@ -15,6 +15,11 @@ const dateTimeFormatter = new Intl.DateTimeFormat('es-CO', {
   timeZone: 'America/Bogota',
 });
 
+/** Fecha AAAA-MM-DD en hora de Colombia (la de los filtros de los reportes). */
+export function bogotaDate(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(date);
+}
+
 /** Fecha y hora en la zona horaria de la tienda (America/Bogota). */
 export function formatDateTime(value: string | Date): string {
   return dateTimeFormatter.format(new Date(value));

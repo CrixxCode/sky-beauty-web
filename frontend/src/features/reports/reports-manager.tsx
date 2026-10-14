@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Download, Receipt, ShoppingBag, TrendingUp, Wallet } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { FormError, FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
@@ -16,10 +16,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AdminPanel, AdminPanelTitle } from '@/features/admin-auth/admin-ui';
+import { AdminPanel, AdminPanelTitle, AdminStat } from '@/features/admin-auth/admin-ui';
 import { ApiError, apiFetch } from '@/lib/api';
 import { downloadText, toCsv } from '@/lib/csv';
-import { formatCOP } from '@/lib/format';
+import { bogotaDate, formatCOP } from '@/lib/format';
 import type { MarginsReport, ReportGrouping, SalesReport, TopProduct } from '@/types/reports';
 
 const GROUPING_LABELS: Record<ReportGrouping, string> = {
@@ -27,11 +27,6 @@ const GROUPING_LABELS: Record<ReportGrouping, string> = {
   week: 'Por semana',
   month: 'Por mes',
 };
-
-/** Fecha local AAAA-MM-DD en hora de Colombia. */
-function bogotaDate(date: Date): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(date);
-}
 
 function defaultRange() {
   const today = new Date();
@@ -134,25 +129,25 @@ function SalesTab({ qs, range, groupBy }: { qs: string; range: Range; groupBy: R
   return (
     <div className="grid gap-5">
       <div className="grid grid-cols-4 gap-4.75 max-[850px]:grid-cols-2 max-[600px]:gap-2.5">
-        <Stat
+        <AdminStat
           icon={<Wallet size={19} />}
           label="Total vendido"
           value={formatCOP(summary.total)}
           detail="Productos + envío"
         />
-        <Stat
+        <AdminStat
           icon={<Receipt size={19} />}
           label="Pedidos"
           value={String(summary.orders)}
           detail="Con pago verificado"
         />
-        <Stat
+        <AdminStat
           icon={<TrendingUp size={19} />}
           label="Ticket promedio"
           value={formatCOP(summary.averageTicket)}
           detail="Total / pedidos"
         />
-        <Stat
+        <AdminStat
           icon={<ShoppingBag size={19} />}
           label="Productos"
           value={formatCOP(summary.productsRevenue)}
@@ -271,25 +266,25 @@ function MarginsTab({ qs, range }: { qs: string; range: Range }) {
   return (
     <div className="grid gap-5">
       <div className="grid grid-cols-4 gap-4.75 max-[850px]:grid-cols-2 max-[600px]:gap-2.5">
-        <Stat
+        <AdminStat
           icon={<TrendingUp size={19} />}
           label="Ganancia"
           value={formatCOP(data.profit)}
           detail={`Margen: ${data.marginPct.toLocaleString('es-CO')} %`}
         />
-        <Stat
+        <AdminStat
           icon={<ShoppingBag size={19} />}
           label="Ventas con costo"
           value={formatCOP(data.revenue)}
           detail="Productos, con descuentos"
         />
-        <Stat
+        <AdminStat
           icon={<Wallet size={19} />}
           label="Costo de compra"
           value={formatCOP(data.cost)}
           detail="Guardado en cada pedido"
         />
-        <Stat
+        <AdminStat
           icon={<Receipt size={19} />}
           label="Envío"
           value={formatCOP(data.shippingCharged)}
@@ -376,30 +371,6 @@ function MarginsTab({ qs, range }: { qs: string; range: Range }) {
           </Table>
         )}
       </AdminPanel>
-    </div>
-  );
-}
-
-/** Tarjeta de cifra (replica .admin-stat del prototipo). */
-function Stat({
-  icon,
-  label,
-  value,
-  detail,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col items-start border border-[#eee8ed] bg-white p-5.5 max-[600px]:p-4">
-      <span className="mb-4.75 grid h-10 w-10 place-items-center bg-[#f3e8f3] text-[#936591]">
-        {icon}
-      </span>
-      <small className="text-[10px] text-[#8b7e88]">{label}</small>
-      <strong className="my-2 max-w-full truncate text-[25px] max-[600px]:text-lg">{value}</strong>
-      <span className="text-[9px] text-[#a48c9c]">{detail}</span>
     </div>
   );
 }

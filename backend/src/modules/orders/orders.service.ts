@@ -23,6 +23,7 @@ import {
   ShippingStatus,
 } from '../../generated/prisma/client';
 import { normalizeWhatsappNumber, WHATSAPP_NUMBER_PATTERN } from '../../shared/phone';
+import { effectiveMaxPerOrder } from '../../shared/max-per-order';
 import { uploadUrl } from '../../shared/uploads';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import {
@@ -257,6 +258,7 @@ export class OrdersService {
     const available = items.filter((item) => variantById.has(item.variantId));
     const priceMap = await this.pricing.priceVariantsAt(available.map((item) => item.variantId));
     const quoteItems: CartQuoteItemDto[] = [];
+    const settings = await this.settings.get();
 
     for (const item of available) {
       const variant = variantById.get(item.variantId);
@@ -265,6 +267,7 @@ export class OrdersService {
         throw new BadRequestException('No se pudo calcular el precio de un producto.');
       }
       const image = variant.images[0] ?? variant.product.images[0] ?? null;
+      const maxPerOrder = effectiveMaxPerOrder(variant.maxPerOrder, settings.maxUnitsPerProduct);
       quoteItems.push({
         variantId: variant.id,
         productId: variant.productId,
@@ -274,9 +277,9 @@ export class OrdersService {
         sku: variant.sku,
         imageUrl: image ? uploadUrl(image.thumbnailKey) : null,
         quantity: item.quantity,
-        maxQuantity: Math.min(variant.stock, variant.maxPerOrder ?? variant.stock),
-        maxPerOrder: variant.maxPerOrder,
-        issue: this.itemIssue(item.quantity, variant),
+        maxQuantity: Math.min(variant.stock, maxPerOrder ?? variant.stock),
+        maxPerOrder,
+        issue: this.itemIssue(item.quantity, { stock: variant.stock, maxPerOrder }),
         unitListPrice: money(price.regularPrice),
         unitDiscount: money(price.discountAmount),
         unitFinalPrice: money(price.finalPrice),
@@ -291,7 +294,6 @@ export class OrdersService {
     const subtotal = quoteItems.reduce((sum, item) => sum + item.lineSubtotal, 0);
     const discountTotal = quoteItems.reduce((sum, item) => sum + item.lineDiscount, 0);
     const productsTotal = quoteItems.reduce((sum, item) => sum + item.lineTotal, 0);
-    const settings = await this.settings.get();
     const configuredRate = dto.municipalityCode
       ? await this.prisma.municipalShippingRate.findUnique({
           where: { municipalityCode: dto.municipalityCode },
@@ -960,6 +962,7 @@ export class OrdersService {
     }> = [];
 
     const keptWithoutVariant: typeof order.items = [];
+    const { maxUnitsPerProduct } = await this.settings.get();
     await this.prisma.$transaction(async (tx) => {
       await this.claimOrder(tx, order);
       for (const existing of order.items) {
@@ -975,9 +978,10 @@ export class OrdersService {
             where: { id: existing.variantId },
             select: { maxPerOrder: true },
           });
-          if (limit?.maxPerOrder != null && nextQuantity > limit.maxPerOrder) {
+          const max = effectiveMaxPerOrder(limit?.maxPerOrder ?? null, maxUnitsPerProduct);
+          if (max !== null && nextQuantity > max) {
             throw new BadRequestException(
-              `${existing.productName} permite máximo ${limit.maxPerOrder} unidades por pedido.`,
+              `${existing.productName} permite máximo ${max} unidades por pedido.`,
             );
           }
           await this.reserveStock(tx, existing.variantId, delta, id);
@@ -1013,9 +1017,10 @@ export class OrdersService {
         if (!variant || !variant.isActive || variant.product.status !== 'ACTIVE') {
           throw new BadRequestException('Uno o más productos agregados no están disponibles.');
         }
-        if (variant.maxPerOrder !== null && desired.quantity > variant.maxPerOrder) {
+        const max = effectiveMaxPerOrder(variant.maxPerOrder, maxUnitsPerProduct);
+        if (max !== null && desired.quantity > max) {
           throw new BadRequestException(
-            `${variant.product.name} permite máximo ${variant.maxPerOrder} unidades por pedido.`,
+            `${variant.product.name} permite máximo ${max} unidades por pedido.`,
           );
         }
         await this.reserveStock(tx, desired.variantId, desired.quantity, id);

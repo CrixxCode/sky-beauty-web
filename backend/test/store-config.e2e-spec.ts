@@ -48,6 +48,7 @@ describe('Configuración de la tienda (integración)', () => {
           freeShippingThreshold: 150000,
           defaultLowStockThreshold: 3,
           maxPercentageDiscount: 50,
+          maxUnitsPerProduct: 6,
         })
         .expect(200);
       expect(saved.body).toMatchObject({
@@ -56,15 +57,17 @@ describe('Configuración de la tienda (integración)', () => {
         freeShippingThreshold: 150000,
         defaultLowStockThreshold: 3,
         maxPercentageDiscount: 50,
+        maxUnitsPerProduct: 6,
       });
 
       const cleared = await owner
         .patch(SETTINGS)
-        .send({ instagramUrl: '', freeShippingThreshold: null })
+        .send({ instagramUrl: '', freeShippingThreshold: null, maxUnitsPerProduct: null })
         .expect(200);
       expect(cleared.body).toMatchObject({
         instagramUrl: null,
         freeShippingThreshold: null,
+        maxUnitsPerProduct: null,
         whatsappNumber: '573001234567',
       });
     });
@@ -78,6 +81,9 @@ describe('Configuración de la tienda (integración)', () => {
         { maxPercentageDiscount: 0 },
         { maxPercentageDiscount: 101 },
         { defaultLowStockThreshold: 2.5 },
+        { maxUnitsPerProduct: 0 },
+        { maxUnitsPerProduct: 1.5 },
+        { maxUnitsPerProduct: 1000 },
         { freeShippingThreshold: -1 },
         { campoDesconocido: 'x' },
       ]) {

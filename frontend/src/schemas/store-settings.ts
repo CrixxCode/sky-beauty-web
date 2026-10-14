@@ -54,6 +54,10 @@ export const commercialSettingsSchema = z.object({
     (n) => n > 0 && n <= 100,
     'Ingresa un porcentaje mayor que 0 y hasta 100.',
   ),
+  maxUnitsPerProduct: optionalNumber(
+    (n) => Number.isInteger(n) && n >= 1 && n <= 999,
+    'Ingresa un número entero de unidades, de 1 a 999.',
+  ),
 });
 export type CommercialSettingsValues = z.infer<typeof commercialSettingsSchema>;
 

@@ -13,6 +13,7 @@ export interface StoreSettings {
   freeShippingThreshold: number | null;
   defaultLowStockThreshold: number | null;
   maxPercentageDiscount: number | null;
+  maxUnitsPerProduct: number | null;
 }
 
 /** Datos públicos de la tienda (GET /store/info). */
