@@ -38,3 +38,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Skills de agentes de terceros: se reinstalan desde skills-lock.json
+.claude/skills/
