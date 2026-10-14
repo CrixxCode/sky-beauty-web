@@ -1,122 +1,181 @@
 'use client';
 
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Children, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import Autoplay from 'embla-carousel-autoplay';
+import { Pause, Play } from 'lucide-react';
+import {
+  Children,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
 import { Button } from '@/components/ui/button';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+  type CarouselApi,
+} from '@/components/ui/carousel';
 import { cn } from '@/lib/utils';
 
+const controlClass = 'static size-10 translate-y-0 rounded-full bg-paper/90';
+
+const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
+
+function subscribeReducedMotion(onChange: () => void) {
+  const media = window.matchMedia(REDUCED_MOTION);
+  media.addEventListener('change', onChange);
+  return () => media.removeEventListener('change', onChange);
+}
+
 /**
- * Carrusel del inicio. Cada hijo es una diapositiva a pantalla completa del bloque. Se desliza con
- * el dedo (scroll con imán) o con las flechas y los puntos; no avanza solo, para que nadie pierda
- * lo que está mirando y no se mueva para quien prefiere menos movimiento.
+ * Carrusel del inicio. Cada hijo es una diapositiva a pantalla completa del bloque. Avanza solo y
+ * en bucle; además se desliza con el dedo, arrastrando con el mouse, con las flechas, con los
+ * puntos o con el teclado.
+ *
+ * El avance automático se detiene mientras el mouse está encima o el foco está dentro (para que
+ * nadie pierda lo que está mirando) y se reanuda al salir. El botón de pausa lo detiene hasta que
+ * se vuelva a activar. Con "reducir movimiento" en el sistema arranca en pausa.
  */
 export function HeroCarousel({
   label,
   className,
+  autoplayDelay = 6000,
   children,
 }: {
   label: string;
   className?: string;
+  /** Milisegundos que se muestra cada diapositiva antes de pasar a la siguiente. */
+  autoplayDelay?: number;
   children: ReactNode;
 }) {
   const slides = Children.toArray(children);
   const total = slides.length;
-  const trackRef = useRef<HTMLDivElement>(null);
+  const [api, setApi] = useState<CarouselApi>();
   const [active, setActive] = useState(0);
-
-  // La diapositiva activa sale de la posición del scroll, así coincide también al deslizar.
-  useEffect(() => {
-    const track = trackRef.current;
-    if (!track || total < 2) return;
-    let frame = 0;
-    const onScroll = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        setActive(Math.round(track.scrollLeft / Math.max(1, track.clientWidth)));
-      });
-    };
-    track.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      cancelAnimationFrame(frame);
-      track.removeEventListener('scroll', onScroll);
-    };
-  }, [total]);
-
-  const goTo = useCallback(
-    (index: number) => {
-      const track = trackRef.current;
-      if (!track) return;
-      const next = (index + total) % total;
-      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      track.scrollTo({ left: next * track.clientWidth, behavior: reduce ? 'auto' : 'smooth' });
-    },
-    [total],
+  // Sin elección de la persona, la pausa sigue la preferencia de "reducir movimiento" del sistema.
+  const reduceMotion = useSyncExternalStore(
+    subscribeReducedMotion,
+    () => window.matchMedia(REDUCED_MOTION).matches,
+    () => false,
+  );
+  const [userPaused, setUserPaused] = useState<boolean | null>(null);
+  const paused = userPaused ?? reduceMotion;
+  // Pausas pasajeras (mouse encima o foco dentro); no cambian el botón de pausa.
+  const hold = useRef({ hover: false, focus: false });
+  const [autoplay] = useState(() =>
+    Autoplay({
+      delay: autoplayDelay,
+      playOnInit: false,
+      stopOnInteraction: false,
+      stopOnMouseEnter: false,
+      stopOnFocusIn: false,
+    }),
   );
 
+  const sync = useCallback(() => {
+    if (!api || total < 2) return;
+    const shouldPlay = !paused && !hold.current.hover && !hold.current.focus;
+    if (shouldPlay && !autoplay.isPlaying()) autoplay.play();
+    if (!shouldPlay && autoplay.isPlaying()) autoplay.stop();
+  }, [api, autoplay, paused, total]);
+
+  useEffect(() => {
+    if (!api) return;
+    // Cada cambio de diapositiva (automático o a mano) reinicia el tiempo de la siguiente.
+    const onSelect = () => {
+      setActive(api.selectedScrollSnap());
+      autoplay.reset();
+    };
+    onSelect();
+    api.on('select', onSelect).on('reInit', onSelect);
+    // Al soltar un arrastre el complemento reanuda el avance; si debe seguir quieto, se detiene.
+    api.on('pointerUp', sync);
+    sync();
+    return () => {
+      api.off('select', onSelect).off('reInit', onSelect).off('pointerUp', sync);
+    };
+  }, [api, autoplay, sync]);
+
   return (
-    <div
-      role="region"
-      aria-roledescription="carrusel"
+    <Carousel
+      setApi={setApi}
+      opts={{ loop: true }}
+      plugins={[autoplay]}
       aria-label={label}
-      className={cn('relative h-full w-full', className)}
+      className={cn('h-full w-full *:data-[slot=carousel-content]:h-full', className)}
+      onPointerEnter={(event) => {
+        if (event.pointerType !== 'mouse') return;
+        hold.current.hover = true;
+        sync();
+      }}
+      onPointerLeave={(event) => {
+        if (event.pointerType !== 'mouse') return;
+        hold.current.hover = false;
+        sync();
+      }}
+      onFocus={() => {
+        hold.current.focus = true;
+        sync();
+      }}
+      onBlur={(event) => {
+        if (event.currentTarget.contains(event.relatedTarget)) return;
+        hold.current.focus = false;
+        sync();
+      }}
     >
-      <div
-        ref={trackRef}
-        className="flex h-full w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
+      {/* Mientras avanza solo no se anuncia cada cambio; en pausa, sí. */}
+      <CarouselContent className="ml-0 h-full" aria-live={paused ? 'polite' : 'off'}>
         {slides.map((slide, index) => (
-          <div
+          <CarouselItem
             key={index}
-            role="group"
-            aria-roledescription="diapositiva"
             aria-label={`${index + 1} de ${total}`}
-            className="relative h-full w-full shrink-0 snap-start snap-always"
+            className="relative h-full pl-0"
           >
             {slide}
-          </div>
+          </CarouselItem>
         ))}
-      </div>
+      </CarouselContent>
+      {/* Arriba a la derecha: abajo los tapaba el botón flotante de WhatsApp. */}
       {total > 1 && (
-        <div className="absolute bottom-5 right-5 z-20 flex items-center gap-1.5 max-[600px]:bottom-4 max-[600px]:right-4">
+        <div className="absolute right-5 top-5 z-20 flex items-center gap-1.5 max-[600px]:right-4 max-[600px]:top-4">
           <Button
             variant="light"
             size="icon"
-            onClick={() => goTo(active - 1)}
-            aria-label="Diapositiva anterior"
-            className="h-10 w-10 rounded-full bg-paper/90 max-[600px]:hidden"
+            onClick={() => setUserPaused(!paused)}
+            aria-label={paused ? 'Reanudar el avance automático' : 'Pausar el avance automático'}
+            className={controlClass}
           >
-            <ChevronLeft size={18} />
+            {paused ? <Play size={16} /> : <Pause size={16} />}
           </Button>
-          <div className="flex items-center">
+          <CarouselPrevious variant="light" className={cn(controlClass, 'max-[600px]:hidden')} />
+          <div className="flex h-10 items-center rounded-full bg-paper/90 px-1">
             {slides.map((_, index) => (
-              <button
+              <Button
                 key={index}
-                type="button"
-                onClick={() => goTo(index)}
+                variant="ghost"
+                size="icon"
+                onClick={() => api?.scrollTo(index)}
                 aria-label={`Ver diapositiva ${index + 1} de ${total}`}
                 aria-current={index === active ? 'true' : undefined}
-                className="grid h-10 w-7 place-items-center"
+                className="h-10 w-7 min-h-0 rounded-none p-0 enabled:hover:translate-y-0 enabled:hover:bg-transparent"
               >
                 <span
                   className={cn(
-                    'block h-1.5 rounded-full bg-white/70 transition-[width,background-color] duration-300',
-                    index === active ? 'w-5 bg-white' : 'w-1.5',
+                    'block h-1.5 rounded-full bg-mauve-dark/35 transition-[width,background-color] duration-300',
+                    index === active ? 'w-5 bg-mauve-dark' : 'w-1.5',
                   )}
                 />
-              </button>
+              </Button>
             ))}
           </div>
-          <Button
-            variant="light"
-            size="icon"
-            onClick={() => goTo(active + 1)}
-            aria-label="Diapositiva siguiente"
-            className="h-10 w-10 rounded-full bg-paper/90 max-[600px]:hidden"
-          >
-            <ChevronRight size={18} />
-          </Button>
+          <CarouselNext variant="light" className={cn(controlClass, 'max-[600px]:hidden')} />
         </div>
       )}
-    </div>
+    </Carousel>
   );
 }

@@ -210,7 +210,7 @@ export function HeroSlide({ product, first }: { product: PublicProduct; first: b
       />
       <Link
         href={`/producto/${product.slug}`}
-        className="group absolute bottom-11.25 left-11.25 right-40 z-10 text-white max-[850px]:bottom-7.5 max-[850px]:left-7.5 max-[850px]:right-36 max-[600px]:bottom-6.75 max-[600px]:left-6.75 max-[600px]:right-28"
+        className="group absolute bottom-11.25 left-11.25 right-11.25 z-10 text-white max-[850px]:bottom-7.5 max-[850px]:left-7.5 max-[850px]:right-7.5 max-[600px]:bottom-6.75 max-[600px]:left-6.75 max-[600px]:right-6.75"
       >
         {percent > 0 && (
           <span className="mb-3 inline-block bg-[#fff9f8] px-2.25 py-1.5 text-xs font-semibold text-[#94526c]">

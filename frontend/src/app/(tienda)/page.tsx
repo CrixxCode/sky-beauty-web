@@ -88,7 +88,9 @@ export default async function InicioPage() {
 
   return (
     <>
-      <section aria-label="Presentación" className="overflow-hidden bg-ivory">
+      {/* @container: el carrusel calcula con el ancho de la sección (cqw) cuánto le falta para
+          llegar al borde derecho de la pantalla. */}
+      <section aria-label="Presentación" className="@container overflow-hidden bg-ivory">
         <Container className="grid min-h-148.75 grid-cols-[52%_48%] max-[1150px]:min-h-130 max-[850px]:min-h-122.5 max-[850px]:grid-cols-2 max-[600px]:min-h-0 max-[600px]:grid-cols-1">
           <div className="flex flex-col justify-center py-25.75 pr-11.25 max-[850px]:py-16 max-[850px]:pr-6.25 max-[600px]:py-12 max-[600px]:pr-0">
             {info?.heroTitle && <Eyebrow className="mb-6 max-[600px]:mb-4">{storeName}</Eyebrow>}
@@ -120,7 +122,9 @@ export default async function InicioPage() {
               )}
             </div>
           </div>
-          <div className="relative min-h-148.75 overflow-hidden max-[1150px]:min-h-130 max-[850px]:min-h-122.5 max-[600px]:-mx-4.25 max-[600px]:min-h-100">
+          {/* El carrusel llega hasta el borde derecho de la pantalla: el margen negativo es el
+              espacio lateral del Container en cada ancho (en celular ocupa todo el ancho). */}
+          <div className="relative min-h-148.75 overflow-hidden max-[1150px]:min-h-130 max-[850px]:min-h-122.5 max-[600px]:-mx-4.25 max-[600px]:min-h-100 min-[601px]:-mr-4.5 min-[851px]:-mr-6.25 min-[1151px]:-mr-[max(36px,calc(50cqw-640px))]">
             {heroProducts.length > 0 ? (
               <HeroCarousel label="Productos destacados" className="absolute inset-0">
                 {heroProducts.map((product, index) => (
