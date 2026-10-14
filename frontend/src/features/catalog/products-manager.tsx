@@ -1328,23 +1328,47 @@ function ProductInfoTab({
         </FormField>
 
         <FormField id="ep-brand" label="Marca *" error={errors.brandId?.message}>
-          <Select {...fieldA11y('ep-brand', errors.brandId?.message)} {...register('brandId')}>
-            {brands.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </Select>
+          <Controller
+            control={control}
+            name="brandId"
+            render={({ field }) => (
+              <Select
+                {...fieldA11y('ep-brand', errors.brandId?.message)}
+                name={field.name}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+              >
+                {brands.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          />
         </FormField>
 
         <FormField id="ep-cat" label="Categoría *" error={errors.categoryId?.message}>
-          <Select {...fieldA11y('ep-cat', errors.categoryId?.message)} {...register('categoryId')}>
-            {validCategories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
+          <Controller
+            control={control}
+            name="categoryId"
+            render={({ field }) => (
+              <Select
+                {...fieldA11y('ep-cat', errors.categoryId?.message)}
+                name={field.name}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+              >
+                {validCategories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          />
         </FormField>
 
         <FormField

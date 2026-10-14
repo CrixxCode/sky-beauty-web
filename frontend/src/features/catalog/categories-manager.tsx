@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Boxes, CornerDownRight, Edit2, FolderTree, Plus, Search, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -205,6 +205,7 @@ function CreateCategoryForm({
   const queryClient = useQueryClient();
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
@@ -255,14 +256,26 @@ function CreateCategoryForm({
         description="Selecciona una categoría si es subcategoría, o déjalo vacío para que sea categoría principal."
         error={errors.parentId?.message}
       >
-        <Select {...fieldA11y('cat-parent', errors.parentId?.message)} {...register('parentId')}>
-          <option value="">(Ninguna — Categoría principal)</option>
-          {rootCategories.map((rc) => (
-            <option key={rc.id} value={rc.id}>
-              Subcategoría de: {rc.name}
-            </option>
-          ))}
-        </Select>
+        <Controller
+          control={control}
+          name="parentId"
+          render={({ field }) => (
+            <Select
+              {...fieldA11y('cat-parent', errors.parentId?.message)}
+              name={field.name}
+              value={field.value ?? ''}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+            >
+              <option value="">(Ninguna — Categoría principal)</option>
+              {rootCategories.map((rc) => (
+                <option key={rc.id} value={rc.id}>
+                  Subcategoría de: {rc.name}
+                </option>
+              ))}
+            </Select>
+          )}
+        />
       </FormField>
 
       <div className="grid gap-x-4 min-[601px]:grid-cols-2">

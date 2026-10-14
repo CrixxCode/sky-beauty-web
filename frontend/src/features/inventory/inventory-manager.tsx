@@ -149,12 +149,23 @@ export function InventoryManager() {
                 <TableHead>Stock</TableHead>
                 <TableHead>Umbral</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Acción</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {variants.map((variant) => (
-                <TableRow key={variant.variantId}>
+                <TableRow
+                  key={variant.variantId}
+                  tabIndex={0}
+                  aria-current={variant.variantId === selectedVariantId ? 'true' : undefined}
+                  onClick={() => setSelectedVariantId(variant.variantId)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setSelectedVariantId(variant.variantId);
+                    }
+                  }}
+                  className="cursor-pointer outline-offset-[-2px] aria-[current=true]:bg-[#faf1fa]"
+                >
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden bg-[#f4eff2] text-[#c4b7c1]">
@@ -193,15 +204,6 @@ export function InventoryManager() {
                   <TableCell>{variant.lowStockThreshold ?? 'Sin umbral'}</TableCell>
                   <TableCell>
                     <StockStatus variant={variant} />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setSelectedVariantId(variant.variantId)}
-                    >
-                      Seleccionar
-                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
