@@ -203,6 +203,19 @@ Motivo: no hay servicio de correo para enviar las novedades (ver "Infraestructur
 
 ---
 
+## 2026-10-14 — Logotipos para fondo oscuro
+
+**Decisión:** se incorporan las versiones oficiales del logotipo para fondo morado, en blanco y crema, ubicadas en `frontend/public/brand/`:
+
+- `logo_vertical_dark.svg`: logotipo vertical para fondo oscuro. Se usa en el pie de la tienda, en lugar del nombre de la tienda en texto.
+- `logo_horizontal_dark.svg`: logotipo horizontal para fondo oscuro. Queda disponible; todavía no se usa en ninguna vista.
+
+Los logotipos de la entrada del 2026-10-13 siguen usándose sobre fondos claros.
+
+**Pendiente:** el logotipo monocromo. Estas versiones son de dos colores, así que no lo reemplazan.
+
+---
+
 ## 2026-10-13 — Reportes de ventas y ganancia
 
 **Decisión:** la propietaria tiene reportes de ventas por período, productos más vendidos y márgenes, y puede exportar cada uno a CSV.
@@ -470,7 +483,7 @@ Una vez confirmado, el pedido no se puede editar.
 - **Prototipo de referencia:** `C:\Users\Usuario\Downloads\Sky_Beauty_React_Demo\sky-beauty-demo`. ~~Toda vista del frontend (tienda y panel) debe verse tal cual el prototipo.~~ Reemplazado el 2026-10-14: el prototipo es un punto de partida (ver "El prototipo es un punto de partida").
 - **Alcance del prototipo:** se copia solo el diseño. La funcionalidad sigue `negocio.md` y este archivo; las funciones del prototipo que el contexto descarta o no menciona (cuentas y registro de clientes, favoritos, cupones, recuperación por correo, testimonios) no se construyen sin consultarlo. Favoritos y testimonios se consultaron y aprobaron el 2026-10-14 (ver "Favoritos sin cuenta" y "Testimonios de clientas"); el resto sigue sin construirse.
 
-**Pendiente:** el logotipo monocromo y las fotografías autorizadas. Los logotipos horizontal y vertical y el ícono ya se incorporaron (ver la entrada del 2026-10-13).
+**Pendiente:** el logotipo monocromo y las fotografías autorizadas. Los logotipos horizontal y vertical y el ícono ya se incorporaron (ver la entrada del 2026-10-13), y sus versiones para fondo oscuro también (ver "Logotipos para fondo oscuro", 2026-10-14).
 
 ---
 

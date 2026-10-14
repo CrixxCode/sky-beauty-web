@@ -1,7 +1,7 @@
 import { ArrowRight } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { Container } from '@/components/layout/container';
-import { serifClass } from '@/components/ui/typography';
 import { whatsappUrl } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { STORE_PAGE_LINKS, type PublicStoreInfo } from '@/types/store';
@@ -42,10 +42,17 @@ export function StoreFooter({ info }: { info: PublicStoreInfo | null }) {
           WhatsApp solo aparecen si están configuradas, así que las columnas se reparten solas.
           En tableta y escritorio angosto, tres columnas bajo la marca. */}
       <Container className="grid gap-6.25 min-[601px]:grid-cols-3 min-[601px]:gap-x-8 min-[601px]:gap-y-10 min-[1151px]:auto-cols-fr min-[1151px]:grid-flow-col min-[1151px]:grid-cols-[1.6fr] min-[1151px]:gap-10 max-[600px]:grid-cols-2 max-[600px]:gap-x-4.25 max-[600px]:gap-y-8">
+        {/* Versión del logotipo vertical para fondo morado. */}
         <div className="col-span-full min-[1151px]:col-span-1">
-          <h2 className={cn(serifClass, 'mb-4.75 mt-0.75 text-[39px] text-white')}>
-            {info?.storeName ?? 'Sky Beauty'}
-          </h2>
+          <Link href="/" className="mt-0.75 inline-block transition-opacity hover:opacity-90">
+            <Image
+              src="/brand/logo_vertical_dark.svg"
+              alt="Sky Beauty by Cielo Oviedo"
+              width={160}
+              height={79}
+              className="h-auto w-35 max-[600px]:w-32.5"
+            />
+          </Link>
         </div>
         <nav aria-label="Tienda">
           <h3 className={heading}>Tienda</h3>

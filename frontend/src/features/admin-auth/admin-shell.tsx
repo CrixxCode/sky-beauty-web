@@ -61,7 +61,9 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
           mobileOpen ? 'max-[850px]:translate-x-0' : 'max-[850px]:-translate-x-full',
         )}
       >
-        <div className="flex h-24 shrink-0 items-center justify-between border-b border-[#eee9ec] px-6">
+        {/* El logotipo va centrado en el aside; el botón de cerrar (solo en celular) queda
+            superpuesto a la derecha para no desplazarlo. */}
+        <div className="relative flex h-24 shrink-0 items-center justify-center border-b border-[#eee9ec] px-6">
           <Image
             src="/brand/vertical_logo.svg"
             alt="Sky Beauty by Cielo Oviedo"
@@ -73,7 +75,7 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
           <Button
             variant="ghost"
             size="icon"
-            className="h-auto w-auto min-h-0 p-0 text-ink enabled:hover:translate-y-0 enabled:hover:bg-transparent min-[851px]:hidden"
+            className="absolute inset-y-0 right-6 h-auto w-auto min-h-0 p-0 text-ink enabled:hover:translate-y-0 enabled:hover:bg-transparent min-[851px]:hidden"
             aria-label="Cerrar navegación"
             onClick={() => setMobileOpen(false)}
           >
