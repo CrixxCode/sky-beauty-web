@@ -1,5 +1,6 @@
 import {
   BadgePercent,
+  BarChart3,
   BellRing,
   Boxes,
   ClipboardList,
@@ -29,6 +30,7 @@ export interface AdminNavItem {
 // Vive fuera de admin-shell.tsx ('use client') para poder usarse también en componentes de servidor.
 export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin', label: 'Resumen', icon: LayoutDashboard },
+  { href: '/admin/reportes', label: 'Reportes', icon: BarChart3, roles: ['ADMIN'] },
   { href: '/admin/pedidos', label: 'Pedidos', icon: FileText },
   { href: '/admin/avisos', label: 'Avisos', icon: BellRing },
   { href: '/admin/pagos', label: 'Pagos', icon: CreditCard },

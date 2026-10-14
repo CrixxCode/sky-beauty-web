@@ -15,6 +15,7 @@ import { NoticesModule } from './modules/notices/notices.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentMethodsModule } from './modules/payment-methods/payment-methods.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { ShippingModule } from './modules/shipping/shipping.module';
 import { StoreSettingsModule } from './modules/store-settings/store-settings.module';
 import { AllExceptionsFilter } from './shared/http/all-exceptions.filter';
@@ -60,6 +61,7 @@ import { PrismaModule } from './shared/prisma/prisma.module';
     ShippingModule,
     OrdersModule,
     NoticesModule,
+    ReportsModule,
     HealthModule,
   ],
   providers: [
