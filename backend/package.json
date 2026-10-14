@@ -18,6 +18,8 @@
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
+    "db:demo": "tsx prisma/demo/seed-demo.ts",
+    "db:demo:clean": "tsx prisma/demo/clean-demo.ts",
     "owner:reset-password": "node dist/cli/reset-owner-password.js",
     "owner:reset-password:dev": "tsx src/cli/reset-owner-password.ts",
     "orders:run-deadlines": "node dist/cli/run-order-deadlines.js",
