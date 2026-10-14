@@ -33,7 +33,7 @@ export default async function InicioPage() {
   return (
     <>
       <section className="overflow-hidden bg-ivory">
-        <Container className="grid min-h-148.75 grid-cols-[52%_48%] max-[600px]:grid-cols-1">
+        <Container className="grid min-h-148.75 grid-cols-[52%_48%] max-[1150px]:min-h-130 max-[850px]:min-h-122.5 max-[850px]:grid-cols-2 max-[600px]:min-h-0 max-[600px]:grid-cols-1">
           <div className="flex flex-col justify-center py-25.75 pr-11.25 max-[600px]:min-h-103.75 max-[600px]:py-13.75 max-[600px]:pr-0">
             {info?.heroTitle && <Eyebrow className="mb-6">{storeName}</Eyebrow>}
             <h1 className={cn(serifClass, 'mb-6.5 max-w-160 text-[clamp(66px,7.5vw,112px)] leading-[1.1] max-[600px]:text-[clamp(64px,13vw,87px)]')}>
@@ -53,10 +53,12 @@ export default async function InicioPage() {
               </Button>
             </div>
           </div>
-          <div className="relative min-h-148.75 overflow-hidden max-[600px]:mx-[-17px] max-[600px]:min-h-100">
+          <div className="relative min-h-148.75 overflow-hidden max-[1150px]:min-h-130 max-[850px]:min-h-122.5 max-[600px]:-mx-4.25 max-[600px]:min-h-100">
+            {/* Posición absoluta: la foto llena el bloque sin que su tamaño original lo agrande. */}
             <ProductPhoto
-              src={heroProduct ? productCover(heroProduct) : null}
+              src={heroProduct ? productCover(heroProduct, 'full') : null}
               alt={heroProduct?.name ?? 'Producto de Sky Beauty'}
+              className="absolute inset-0 object-[center_27%]"
             />
             <div className="absolute inset-0 bg-linear-to-b from-transparent from-60% to-[#4d394240]" />
             {heroProduct && (

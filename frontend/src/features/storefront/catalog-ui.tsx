@@ -29,13 +29,20 @@ export function isSoldOut(product: PublicProduct): boolean {
     .every((variant) => variant.stock <= 0);
 }
 
-export function productCover(product: PublicProduct): string | null {
-  return (
-    product.images[0]?.thumbnailUrl ??
-    product.images[0]?.url ??
-    product.variants.find((variant) => variant.images.length > 0)?.images[0]?.thumbnailUrl ??
-    null
-  );
+/**
+ * Foto de portada del producto. `thumbnail` (420 px, recortada al cuadrado) sirve para tarjetas;
+ * `full` (hasta 1600 px) para contenedores grandes, donde la miniatura se vería borrosa.
+ */
+export function productCover(
+  product: PublicProduct,
+  size: 'thumbnail' | 'full' = 'thumbnail',
+): string | null {
+  const image =
+    product.images[0] ??
+    product.variants.find((variant) => variant.images.length > 0)?.images[0] ??
+    null;
+  if (!image) return null;
+  return size === 'full' ? image.url : image.thumbnailUrl;
 }
 
 export function ProductPhoto({
