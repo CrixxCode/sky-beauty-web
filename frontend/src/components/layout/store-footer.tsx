@@ -42,15 +42,20 @@ export function StoreFooter({ info }: { info: PublicStoreInfo | null }) {
           WhatsApp solo aparecen si están configuradas, así que las columnas se reparten solas.
           En tableta y escritorio angosto, tres columnas bajo la marca. */}
       <Container className="grid gap-6.25 min-[601px]:grid-cols-3 min-[601px]:gap-x-8 min-[601px]:gap-y-10 min-[1151px]:auto-cols-fr min-[1151px]:grid-flow-col min-[1151px]:grid-cols-[1.6fr] min-[1151px]:gap-10 max-[600px]:grid-cols-2 max-[600px]:gap-x-4.25 max-[600px]:gap-y-8">
-        {/* Versión del logotipo vertical para fondo morado. */}
-        <div className="col-span-full min-[1151px]:col-span-1">
-          <Link href="/" className="mt-0.75 inline-block transition-opacity hover:opacity-90">
+        {/* Versión del logotipo vertical para fondo morado, centrada en su columna (escritorio
+            ancho) o en su fila (tableta y celular). En columnas angostas se reduce para no
+            desbordarse. */}
+        <div className="col-span-full flex justify-center min-[1151px]:col-span-1">
+          <Link
+            href="/"
+            className="mt-0.75 block w-full max-w-40 transition-opacity hover:opacity-90 min-[601px]:max-w-48 min-[1151px]:max-w-55"
+          >
             <Image
               src="/brand/logo_vertical_dark.svg"
               alt="Sky Beauty by Cielo Oviedo"
-              width={160}
-              height={79}
-              className="h-auto w-35 max-[600px]:w-32.5"
+              width={220}
+              height={108}
+              className="h-auto w-full"
             />
           </Link>
         </div>
