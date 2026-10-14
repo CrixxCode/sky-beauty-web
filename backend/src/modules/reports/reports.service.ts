@@ -18,7 +18,8 @@ const pct = (part: number, whole: number) => (whole > 0 ? round((part / whole) *
 /**
  * Reportes para la propietaria (módulo 13; decisión del 2026-10-13). Una venta es un pedido con el
  * pago verificado (incluye contra entrega pagado al entregarse); no cuentan los cancelados ni los
- * devueltos. Las ventas se ubican por la fecha del pedido, en hora de Colombia.
+ * devueltos. Cada venta se ubica en la fecha en que se verificó el pago (`Order.paidAt`), en hora de
+ * Colombia (decisión del 2026-10-14): un pedido sin pago verificado no es venta y se cancela.
  */
 @Injectable()
 export class ReportsService {
@@ -40,8 +41,8 @@ export class ReportsService {
     const o = Prisma.raw(`"${alias}"`);
     return Prisma.sql`${o}."paymentStatus" = 'PAID'
       AND ${o}."status" <> 'CANCELLED'
-      AND ${o}."createdAt" >= (${range.from}::date::timestamp AT TIME ZONE ${TIME_ZONE})
-      AND ${o}."createdAt" < ((${range.to}::date + 1)::timestamp AT TIME ZONE ${TIME_ZONE})`;
+      AND ${o}."paidAt" >= (${range.from}::date::timestamp AT TIME ZONE ${TIME_ZONE})
+      AND ${o}."paidAt" < ((${range.to}::date + 1)::timestamp AT TIME ZONE ${TIME_ZONE})`;
   }
 
   async sales(
@@ -72,7 +73,7 @@ export class ReportsService {
       Array<{ period: string; orders: number; products: number; total: number }>
     >`
       WITH sales AS (
-        SELECT date_trunc(${groupBy}, o."createdAt" AT TIME ZONE ${TIME_ZONE}) AS period,
+        SELECT date_trunc(${groupBy}, o."paidAt" AT TIME ZONE ${TIME_ZONE}) AS period,
                count(*)::int AS orders,
                sum(o."subtotal" - o."discountTotal") AS products,
                sum(o."total") AS total

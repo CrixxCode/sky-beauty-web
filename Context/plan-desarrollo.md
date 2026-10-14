@@ -420,7 +420,7 @@ La lógica más delicada del sistema: debe tener pruebas exhaustivas antes de co
 
 **Estado:** terminado el 2026-10-13.
 
-- Reportes según `decisiones.md` (2026-10-13): venta = pago verificado, sin cancelados ni devueltos; ganancia solo de productos; solo la propietaria.
+- Reportes según `decisiones.md` (2026-10-13): venta = pago verificado, sin cancelados ni devueltos, ubicada en la fecha de verificación del pago (`Order.paidAt`, 2026-10-14); ganancia solo de productos; solo la propietaria.
 - Backend: `GET /admin/reports/sales` (resumen y serie por día, semana o mes, con los períodos sin ventas), `top-products` y `margins`. Días en hora de Colombia, rango máximo de 3 años.
 - Panel: `/admin/reportes` con filtros de fechas (por defecto los últimos 30 días) y pestañas Ventas, Más vendidos y Márgenes. Cada tabla se exporta a CSV (separador `;` y coma decimal, para Excel en español).
 - Pruebas: `test/reports.e2e-spec.ts` (integración), `csv.test.ts` (unitaria) y `e2e/reports.spec.ts` (Playwright, celular y escritorio).

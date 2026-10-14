@@ -41,6 +41,8 @@ describe('Reportes (integración)', () => {
   /** Pedido ficticio con fecha y estados controlados. */
   async function order(input: {
     createdAt: string;
+    /** Fecha de verificación del pago; por defecto la de creación si el pedido quedó pagado. */
+    paidAt?: string;
     status?: OrderStatus;
     paymentStatus?: PaymentStatus;
     shippingCost?: number | null;
@@ -93,6 +95,10 @@ describe('Reportes (integración)', () => {
         cancelledAt: input.status === OrderStatus.CANCELLED ? new Date() : null,
         confirmedAt: new Date(),
         createdAt: new Date(input.createdAt),
+        paidAt:
+          (input.paymentStatus ?? PaymentStatus.PAID) === PaymentStatus.PAID
+            ? new Date(input.paidAt ?? input.createdAt)
+            : null,
         items: {
           create: input.items.map((i) => ({
             productId: '00000000-0000-4000-8000-000000000000',
@@ -169,6 +175,24 @@ describe('Reportes (integración)', () => {
 
     const res = await owner.get(`${REPORTS}/sales?from=2026-10-01&to=2026-10-31`).expect(200);
     expect(sales(res).summary.orders).toBe(2);
+  });
+
+  it('ubica cada venta en la fecha en que se verificó el pago, no en la del pedido', async () => {
+    const item = [{ sku: 'A', qty: 1, price: 10000 }];
+    // Pedido del 30 de septiembre con el pago verificado el 2 de octubre (hora de Colombia).
+    await order({
+      createdAt: '2026-09-30T20:00:00Z',
+      paidAt: '2026-10-02T15:00:00Z',
+      items: item,
+    });
+
+    const september = await owner.get(`${REPORTS}/sales?from=2026-09-01&to=2026-09-30`).expect(200);
+    expect(sales(september).summary.orders).toBe(0);
+    const october = await owner
+      .get(`${REPORTS}/sales?from=2026-10-01&to=2026-10-31&groupBy=day`)
+      .expect(200);
+    expect(sales(october).summary.orders).toBe(1);
+    expect(sales(october).series.find((p) => p.orders > 0)?.period).toBe('2026-10-02');
   });
 
   it('agrupa por día, semana o mes e incluye los períodos sin ventas', async () => {

@@ -86,7 +86,8 @@ export function ReportsManager() {
         </div>
         <p className="mt-3 text-[10px] text-[#8b7f87]">
           Cuentan como venta los pedidos con el pago verificado (incluido el contra entrega pagado
-          al entregarse), según la fecha del pedido. No cuentan los cancelados ni los devueltos.
+          al entregarse), en la fecha en que se verificó el pago. No cuentan los cancelados ni los
+          devueltos.
         </p>
         {!validRange && (
           <FormError>Revisa las fechas: la inicial no puede ser posterior a la final.</FormError>

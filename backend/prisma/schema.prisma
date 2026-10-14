@@ -473,6 +473,10 @@ model Order {
   /// Momento en que la tienda marcó el pago como REJECTED. Desde aquí corre el plazo
   /// (ORDER_PAYMENT_CLARIFICATION_HOURS) para que el cliente aclare el pago.
   paymentRejectedAt       DateTime? @db.Timestamptz(3)
+  /// Momento en que el pago quedó verificado (PAID): verificación de la propietaria o contra
+  /// entrega pagado al entregarse. Los reportes ubican cada venta en esta fecha. Se conserva si
+  /// después se devuelve el pago.
+  paidAt                  DateTime? @db.Timestamptz(3)
   cancelledAt             DateTime? @db.Timestamptz(3)
   /// Obligatorio cuando el pedido está cancelado (también en cancelaciones automáticas).
   cancelReason            String?
@@ -491,6 +495,7 @@ model Order {
   @@index([paymentStatus])
   @@index([customerId, createdAt])
   @@index([createdAt])
+  @@index([paidAt])
 }
 
 model OrderItem {

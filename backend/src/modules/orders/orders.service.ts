@@ -880,6 +880,7 @@ export class OrdersService {
         data: {
           status: nextOrderStatus,
           paymentStatus: shouldRegisterCodPayment ? PaymentStatus.PAID : order.paymentStatus,
+          ...(shouldRegisterCodPayment && { paidAt: new Date() }),
         },
       });
       await tx.orderStatusHistory.create({
@@ -1264,7 +1265,7 @@ export class OrdersService {
       await this.claimOrder(tx, order);
       await tx.order.update({
         where: { id },
-        data: { paymentStatus: PaymentStatus.PAID, paymentRejectedAt: null },
+        data: { paymentStatus: PaymentStatus.PAID, paymentRejectedAt: null, paidAt: new Date() },
       });
       await tx.paymentRecord.create({
         data: {

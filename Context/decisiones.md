@@ -132,6 +132,7 @@ Prioridad de cálculo en checkout:
 **Decisión:** la propietaria tiene reportes de ventas por período, productos más vendidos y márgenes, y puede exportar cada uno a CSV.
 
 - **Qué es una venta:** un pedido con el pago verificado (`paymentStatus = PAID`), incluido el contra entrega pagado al entregarse. No cuentan los pedidos cancelados ni los devueltos.
+- **Fecha de la venta (2026-10-14):** cada venta se ubica en la fecha en que se verificó el pago, no en la del pedido, porque un pedido cuyo pago no se logra verificar se cancela. En el contra entrega es la fecha en que se marcó entregado y pagado.
 - **Ganancia:** solo de productos. Es lo vendido en productos (con los descuentos aplicados) menos el costo de compra guardado en el pedido. El envío se muestra aparte: lo cobrado al cliente y el costo real registrado de la transportadora.
 - **Acceso:** solo la propietaria. El personal no ve los reportes.
 
@@ -470,7 +471,7 @@ Estado al 2026-10-13. Migraciones en `backend/prisma/migrations/`:
 - **Edición de pedidos:** evento `OrderEventType.ITEMS_CHANGED`; las existencias se ajustan con movimientos `ORDER_RESERVED` y `ORDER_RELEASED`. Los productos que ya estaban conservan su snapshot en `OrderItem`.
 - **Condiciones a una fecha:** `VariantPriceHistory` guarda cada cambio del precio efectivo de una variante y `PromotionRevision` guarda cada versión de una promoción (condiciones y destinos). Con ambas se calcula el precio y la promoción vigentes en `Order.createdAt` para los productos agregados o cambiados al editar.
 - **Costo en el pedido:** `OrderItem.unitCost`.
-- **Reportes:** `GET /admin/reports/sales`, `top-products` y `margins` (solo `ADMIN`). Los días se cuentan en hora de Colombia y las ventas se ubican por `Order.createdAt`. Las unidades vendidas sin `unitCost` quedan fuera de la ganancia y se informan aparte.
+- **Reportes:** `GET /admin/reports/sales`, `top-products` y `margins` (solo `ADMIN`). Los días se cuentan en hora de Colombia y las ventas se ubican por `Order.paidAt` (fecha de verificación del pago; migración `20261014000000_fecha_pago_verificado`, que completa los pedidos anteriores con su primer registro de pago verificado). Las unidades vendidas sin `unitCost` quedan fuera de la ganancia y se informan aparte.
 - **Permisos:** documentados en `AdminRole`.
 
 ### Pendiente en el código

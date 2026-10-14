@@ -264,8 +264,13 @@ describe('Envíos (integración)', () => {
       await ship(id, { status: 'IN_TRANSIT', carrierId, trackingNumber: 'G-8' }).expect(200);
       const delivered = (await ship(id, { status: 'DELIVERED' }).expect(200)).body as AdminOrder;
       expect(delivered.paymentStatus).toBe('PAID');
+      const paidAt = async () => (await prisma.order.findUniqueOrThrow({ where: { id } })).paidAt;
+      const firstPaidAt = await paidAt();
+      expect(firstPaidAt).toBeInstanceOf(Date);
       await ship(id, { status: 'DELIVERED', notes: 'Corrección' }).expect(200);
       expect(await prisma.paymentRecord.count({ where: { orderId: id, status: 'PAID' } })).toBe(1);
+      // Corregir la entrega no cambia la fecha del pago.
+      expect(await paidAt()).toEqual(firstPaidAt);
     });
   });
 

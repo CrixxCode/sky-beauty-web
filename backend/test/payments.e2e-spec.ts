@@ -125,8 +125,12 @@ describe('Pagos (integración)', () => {
     await staff.patch(`${ORDERS}/${id}/payment/verify`).send({}).expect(403);
     await staff.patch(`${ORDERS}/${id}/payment/reject`).send({ reason: 'No' }).expect(403);
 
+    const beforeVerify = Date.now();
     await owner.patch(`${ORDERS}/${id}/payment/verify`).send({}).expect(200);
     expect(await paymentOf(id)).toBe('PAID');
+    // La fecha de verificación ubica la venta en los reportes.
+    const { paidAt } = await prisma.order.findUniqueOrThrow({ where: { id } });
+    expect(paidAt?.getTime()).toBeGreaterThanOrEqual(beforeVerify - 1000);
 
     const records = await prisma.paymentRecord.findMany({
       where: { orderId: id },
