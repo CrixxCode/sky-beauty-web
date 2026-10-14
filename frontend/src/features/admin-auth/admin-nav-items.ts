@@ -8,6 +8,7 @@ import {
   FileText,
   KeyRound,
   LayoutDashboard,
+  MessageSquareQuote,
   Newspaper,
   Settings,
   ShoppingBag,
@@ -42,6 +43,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/marcas', label: 'Marcas', icon: Tag },
   { href: '/admin/cuentas', label: 'Cuentas', icon: Users, roles: ['ADMIN'] },
   { href: '/admin/contenido', label: 'Contenido', icon: Newspaper },
+  { href: '/admin/testimonios', label: 'Testimonios', icon: MessageSquareQuote },
   // El personal ve la configuración en modo solo lectura (Context/decisiones.md).
   { href: '/admin/configuracion', label: 'Configuración', icon: Settings },
   { href: '/admin/mi-cuenta', label: 'Mi cuenta', icon: KeyRound },

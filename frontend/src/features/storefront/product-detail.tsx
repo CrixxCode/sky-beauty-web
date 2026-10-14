@@ -4,9 +4,18 @@ import { ShieldCheck, Truck } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Eyebrow, serifClass } from '@/components/ui/typography';
 import { AddToCartControls } from '@/features/cart/add-to-cart-controls';
+import { FavoriteButton } from '@/features/favorites/favorite-button';
 import { formatCOP } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { PublicBrand, PublicCategory, PublicProduct, PublicVariant } from '@/types/catalog';
@@ -43,22 +52,39 @@ export function ProductDetail({
   const regularPrice = variantRegularPrice(product, selectedVariant);
   const percent = discountPercent(regularPrice, finalPrice);
   const selectedSoldOut = !selectedVariant || selectedVariant.stock <= 0;
+  const eyebrow = [brand?.name, category?.name, product.netContent].filter(Boolean).join(' · ');
 
   return (
     <div className="pt-7">
-      <nav className="mb-7.25 flex flex-wrap gap-2.75 text-[10px] text-[#9c8d95]">
-        <Link href="/">Inicio</Link>
-        <span>/</span>
-        <Link href="/productos">Productos</Link>
-        {category && (
-          <>
-            <span>/</span>
-            <Link href={`/productos?categoria=${category.id}`}>{category.name}</Link>
-          </>
-        )}
-        <span>/</span>
-        <span>{product.name}</span>
-      </nav>
+      <Breadcrumb className="mb-7.25">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/">Inicio</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/productos">Productos</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          {category && (
+            <>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link href={`/productos?categoria=${category.id}`}>{category.name}</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+            </>
+          )}
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{product.name}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
 
       <div className="grid grid-cols-[51%_1fr] gap-18.75 max-[850px]:gap-10 max-[600px]:grid-cols-1 max-[600px]:gap-5">
         <div>
@@ -66,24 +92,18 @@ export function ProductDetail({
             <ProductPhoto
               src={activeImage?.url ?? activeImage?.thumbnailUrl ?? null}
               alt={activeImage?.alt || product.name}
+              priority
+              size={1600}
             />
-            {(percent > 0 || soldOut) && (
-              <div className="absolute left-4.75 top-4.75 flex flex-col gap-1.5">
-                {percent > 0 && (
-                  <span className="bg-white px-3.25 py-2.25 text-[11px] text-[#98566f]">
-                    −{percent}%
-                  </span>
-                )}
-                {soldOut && (
-                  <span className="bg-white px-3.25 py-2.25 text-[11px] text-[#98566f]">
-                    Agotado
-                  </span>
-                )}
-              </div>
+            {/* "Agotado" ya se indica junto al nombre; aquí solo el descuento. */}
+            {percent > 0 && (
+              <span className="absolute left-4.75 top-4.75 bg-white px-3.25 py-2.25 text-xs text-[#98566f]">
+                −{percent}%
+              </span>
             )}
           </div>
           {gallery.length > 1 && (
-            <div className="mt-3.25 flex gap-2.5 overflow-x-auto">
+            <div className="mt-3.25 flex gap-2.5 overflow-x-auto overscroll-x-contain">
               {gallery.map((image, index) => (
                 <Button
                   key={image.id}
@@ -94,9 +114,10 @@ export function ProductDetail({
                     'h-20.75 w-20.75 shrink-0 rounded-none border-2 border-transparent bg-[#f7f2f5] p-0 enabled:hover:translate-y-0 max-[600px]:h-17 max-[600px]:w-17',
                     activeIndex === index && 'border-[#9b6a98]',
                   )}
-                  aria-label={`Ver imagen ${index + 1}`}
+                  aria-label={`Ver imagen ${index + 1} de ${gallery.length}`}
+                  aria-pressed={activeIndex === index}
                 >
-                  <ProductPhoto src={image.thumbnailUrl} alt={image.alt || product.name} />
+                  <ProductPhoto src={image.thumbnailUrl} alt="" />
                 </Button>
               ))}
             </div>
@@ -104,11 +125,12 @@ export function ProductDetail({
         </div>
 
         <div className="pt-3.25">
-          <Eyebrow>
-            {[brand?.name, category?.name, product.netContent].filter(Boolean).join(' · ')}
-          </Eyebrow>
+          {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
           <h1
-            className={cn(serifClass, 'mb-3.75 mt-2.5 text-[clamp(34px,4vw,57px)] leading-[1.23]')}
+            className={cn(
+              serifClass,
+              'mb-3.75 mt-2.5 text-balance wrap-break-word text-[clamp(32px,4vw,57px)] leading-[1.23]',
+            )}
           >
             {product.name}
           </h1>
@@ -116,24 +138,26 @@ export function ProductDetail({
             {product.isFeatured && <Badge>Destacado</Badge>}
             {soldOut && <Badge variant="danger">Agotado</Badge>}
           </div>
-          <div className="my-5 flex items-baseline gap-4 border-b border-[#ebe1e5] pb-5">
+          <div className="my-5 flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-[#ebe1e5] pb-5 tabular-nums">
             <strong className="text-[27px] text-[#694368]">{formatCOP(finalPrice)}</strong>
             {percent > 0 && (
               <>
-                <del className="text-sm text-[#b3a5a9]">{formatCOP(regularPrice)}</del>
-                <span className="text-[11px] text-[#94526c]">
+                <del className="text-sm text-[#6f6669]">{formatCOP(regularPrice)}</del>
+                <span className="text-xs text-[#94526c]">
                   Ahorras {formatCOP(regularPrice - finalPrice)}
                 </span>
               </>
             )}
           </div>
-          <p className="py-2.5 text-xs leading-[2.15] text-[#796b75]">{product.description}</p>
+          <p className="whitespace-pre-line py-2.5 text-xs leading-[2.15] text-[#6a5e66] wrap-break-word">
+            {product.description}
+          </p>
 
           {variants.length > 0 && (
             <div className="pt-3.75">
-              <strong className="text-[11px]">
+              <strong className="text-xs">
                 Variante:{' '}
-                <span className="font-normal text-[#957b8d]">{selectedVariant?.name}</span>
+                <span className="font-normal text-[#776271]">{selectedVariant?.name}</span>
               </strong>
               <div className="my-4.25 flex flex-wrap gap-2.5">
                 {variants.map((variant) => (
@@ -148,26 +172,28 @@ export function ProductDetail({
                     className={cn(
                       'rounded-none border-[#ddd1dc] bg-white px-3 font-normal text-[#493a45] enabled:hover:translate-y-0',
                       selectedVariant?.id === variant.id && 'border-[#765276] bg-[#f5edf4]',
-                      variant.stock <= 0 && 'text-[#a0929b]',
+                      variant.stock <= 0 && 'text-[#70666c]',
                     )}
                     aria-pressed={selectedVariant?.id === variant.id}
                   >
                     {variant.colorHex && (
                       <span
+                        aria-hidden="true"
                         className="h-4 w-4 rounded-full border border-black/20"
                         style={{ backgroundColor: variant.colorHex }}
                       />
                     )}
                     {variant.name}
-                    {variant.stock <= 0 && <span className="text-[9px]">Agotado</span>}
+                    {variant.stock <= 0 && <span className="text-xs">· Agotado</span>}
                   </Button>
                 ))}
               </div>
             </div>
           )}
 
-          <p className="text-[11px] text-[#766e71]">
+          <p role="status" className="text-xs text-[#6a5e65]">
             <span
+              aria-hidden="true"
               className={cn(
                 'mr-1.75 inline-block h-1.75 w-1.75 rounded-full bg-[#75a587]',
                 selectedSoldOut && 'bg-[#c2818e]',
@@ -175,14 +201,21 @@ export function ProductDetail({
             />
             {selectedSoldOut ? 'Esta variante no está disponible.' : 'Disponible.'}
           </p>
-          <AddToCartControls variant={selectedVariant} />
+          {/* La clave reinicia la cantidad elegida al cambiar de variante. */}
+          <AddToCartControls key={selectedVariant?.id ?? 'none'} variant={selectedVariant} />
+          <FavoriteButton
+            variant="outline"
+            productId={product.id}
+            productName={product.name}
+            className="-mt-4 max-[600px]:w-full"
+          />
           <div className="mt-7 flex gap-6.75 border-y border-[#ece5e8] py-5.75 max-[600px]:flex-wrap">
-            <span className="flex items-center gap-2 text-[10px] text-[#786a75]">
-              <ShieldCheck size={17} className="text-[#a1769f]" />
+            <span className="flex items-center gap-2 text-xs text-[#6a5e65]">
+              <ShieldCheck size={17} className="text-[#7f5d7e]" />
               Compra sin cuenta
             </span>
-            <span className="flex items-center gap-2 text-[10px] text-[#786a75]">
-              <Truck size={17} className="text-[#a1769f]" />
+            <span className="flex items-center gap-2 text-xs text-[#6a5e65]">
+              <Truck size={17} className="text-[#7f5d7e]" />
               Envío según tu municipio
             </span>
           </div>

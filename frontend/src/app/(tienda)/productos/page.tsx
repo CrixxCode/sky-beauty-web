@@ -1,34 +1,68 @@
-import { SlidersHorizontal } from 'lucide-react';
 import { Container } from '@/components/layout/container';
 import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
+import {
+  ActiveFilters,
   CatalogFilters,
+  catalogHref,
   EmptyCatalog,
-  MobileFilterLinks,
+  flattenCategories,
+  MobileCategoryChips,
   ProductGrid,
   StorePageHeading,
+  type CatalogParams,
 } from '@/features/storefront/catalog-ui';
+import { MobileFiltersSheet } from '@/features/storefront/mobile-filters-sheet';
 import { fetchPublicApi } from '@/lib/api.server';
-import type {
-  PaginatedPublicProducts,
-  PublicBrand,
-  PublicCategory,
-} from '@/types/catalog';
+import type { PaginatedPublicProducts, PublicBrand, PublicCategory } from '@/types/catalog';
+
+/** Productos por página: llena filas completas con 4 columnas (escritorio) y 2 (celular). */
+const PAGE_SIZE = 24;
 
 type ProductosPageProps = {
   searchParams: Promise<{
     categoria?: string;
     marca?: string;
     q?: string;
+    ofertas?: string;
+    pagina?: string;
   }>;
 };
 
+/** Números de página a mostrar: la primera, la última y las vecinas de la actual. */
+function pageList(current: number, total: number): Array<number | 'gap'> {
+  const pages = new Set([1, total, current - 1, current, current + 1]);
+  const sorted = [...pages].filter((page) => page >= 1 && page <= total).sort((a, b) => a - b);
+  return sorted.flatMap((page, index) =>
+    index > 0 && page - sorted[index - 1] > 1 ? (['gap', page] as const) : [page],
+  );
+}
+
 export default async function ProductosPage({ searchParams }: ProductosPageProps) {
-  const params = await searchParams;
+  const { pagina, ...rest } = await searchParams;
+  const params: CatalogParams = {
+    categoria: rest.categoria || undefined,
+    marca: rest.marca || undefined,
+    q: rest.q?.trim() || undefined,
+    ofertas: rest.ofertas === '1' ? '1' : undefined,
+  };
+  const page = Math.max(1, Number.parseInt(pagina ?? '1', 10) || 1);
+
   const query = new URLSearchParams();
-  query.set('limit', '60');
+  query.set('limit', String(PAGE_SIZE));
+  query.set('page', String(page));
   if (params.categoria) query.set('categoryId', params.categoria);
   if (params.marca) query.set('brandId', params.marca);
   if (params.q) query.set('q', params.q);
+  // Las ofertas salen ordenadas por descuento, de mayor a menor.
+  if (params.ofertas) query.set('onSale', 'true');
 
   const [productsData, categories, brands] = await Promise.all([
     fetchPublicApi<PaginatedPublicProducts>(`/store/products?${query.toString()}`),
@@ -37,38 +71,109 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
   ]);
   const products = productsData?.items ?? [];
   const total = productsData?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const first = (page - 1) * PAGE_SIZE + 1;
+  const last = Math.min(total, first + products.length - 1);
+
+  const categoryName = flattenCategories(categories ?? []).find(
+    (category) => category.id === params.categoria,
+  )?.name;
+  const brandName = (brands ?? []).find((brand) => brand.id === params.marca)?.name;
+  const activeCount = [params.categoria, params.marca, params.q, params.ofertas].filter(
+    Boolean,
+  ).length;
+  const title = params.q
+    ? `Resultados para “${params.q}”`
+    : [params.ofertas && 'Ofertas', categoryName, brandName].filter(Boolean).join(' · ') ||
+      'Productos disponibles';
+
+  const filters = (
+    <CatalogFilters categories={categories ?? []} brands={brands ?? []} params={params} />
+  );
 
   return (
     <Container className="min-h-[70vh] py-16.25 max-[600px]:py-11.25">
       <StorePageHeading
         eyebrow="Catálogo"
-        title="Productos disponibles"
-        description="Filtra por categoría, marca o búsqueda para encontrar productos publicados en la tienda."
+        title={title}
+        description={
+          params.ofertas
+            ? 'Productos con una promoción vigente, del mayor al menor descuento. El descuento ya está aplicado en el precio.'
+            : 'Filtra por categoría, marca o búsqueda para encontrar productos publicados en la tienda.'
+        }
       />
-      <div className="mb-5 flex items-center justify-between gap-2.5 border-y border-[#ece5e7] py-4 text-[11px] text-[#766a73]">
-        <span>
-          <strong>{total}</strong> {total === 1 ? 'producto encontrado' : 'productos encontrados'}
-        </span>
-        <span className="hidden items-center gap-2 max-[600px]:flex">
-          <SlidersHorizontal size={16} /> Filtros
-        </span>
-      </div>
-      <MobileFilterLinks categories={categories ?? []} brands={brands ?? []} />
-      <div className="grid grid-cols-[220px_minmax(0,1fr)] gap-10.5 max-[850px]:grid-cols-[190px_minmax(0,1fr)] max-[600px]:block">
-        <CatalogFilters
-          categories={categories ?? []}
-          brands={brands ?? []}
-          activeCategory={params.categoria}
-          activeBrand={params.marca}
-          query={params.q}
-        />
-        <div>
-          {products.length > 0 ? (
-            <ProductGrid products={products} brands={brands ?? []} categories={categories ?? []} />
+      <div className="mb-5 flex items-center justify-between gap-2.5 border-y border-[#ece5e7] py-3 text-xs text-[#6a5e65]">
+        <p aria-live="polite" className="tabular-nums">
+          {total === 0 ? (
+            'Sin resultados'
+          ) : totalPages > 1 && products.length > 0 ? (
+            <>
+              Mostrando <strong>{first}</strong>–<strong>{last}</strong> de <strong>{total}</strong>{' '}
+              productos
+            </>
           ) : (
-            <EmptyCatalog />
+            <>
+              <strong>{total}</strong>{' '}
+              {total === 1 ? 'producto encontrado' : 'productos encontrados'}
+            </>
           )}
-        </div>
+        </p>
+        <MobileFiltersSheet activeCount={activeCount}>{filters}</MobileFiltersSheet>
+      </div>
+      <MobileCategoryChips categories={categories ?? []} params={params} />
+      <ActiveFilters params={params} categoryName={categoryName} brandName={brandName} />
+      <div className="grid grid-cols-[220px_minmax(0,1fr)] gap-10.5 max-[850px]:grid-cols-[190px_minmax(0,1fr)] max-[600px]:block">
+        <aside aria-label="Filtros" className="max-[600px]:hidden">
+          {filters}
+        </aside>
+        <section aria-labelledby="resultados">
+          <h2 id="resultados" className="sr-only">
+            Productos
+          </h2>
+          {products.length > 0 ? (
+            <ProductGrid
+              products={products}
+              brands={brands ?? []}
+              categories={categories ?? []}
+              eagerCount={4}
+            />
+          ) : (
+            <EmptyCatalog filtered={activeCount > 0 || page > 1} />
+          )}
+          {totalPages > 1 && (
+            <Pagination className="mt-12">
+              <PaginationContent>
+                {page > 1 && (
+                  <PaginationItem>
+                    <PaginationPrevious href={catalogHref(params, {}, page - 1)} />
+                  </PaginationItem>
+                )}
+                {pageList(page, totalPages).map((item, index) =>
+                  item === 'gap' ? (
+                    <PaginationItem key={`gap-${index}`}>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  ) : (
+                    <PaginationItem key={item}>
+                      <PaginationLink
+                        href={catalogHref(params, {}, item)}
+                        isActive={item === page}
+                        aria-label={`Página ${item}`}
+                      >
+                        {item}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ),
+                )}
+                {page < totalPages && (
+                  <PaginationItem>
+                    <PaginationNext href={catalogHref(params, {}, page + 1)} />
+                  </PaginationItem>
+                )}
+              </PaginationContent>
+            </Pagination>
+          )}
+        </section>
       </div>
     </Container>
   );

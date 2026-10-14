@@ -7,7 +7,10 @@ import { cn } from '@/lib/utils';
 
 const EMPTY_VALUE = '__sky_beauty_empty__';
 
-type NativeSelectProps = Omit<React.ComponentProps<'select'>, 'size'>;
+type NativeSelectProps = Omit<React.ComponentProps<'select'>, 'size'> & {
+  /** Clases del menú desplegable (se abre en un portal, fuera del área de la página). */
+  contentClassName?: string;
+};
 
 function optionValue(value: unknown, fallback: React.ReactNode) {
   if (value === undefined || value === null) return String(fallback ?? '');
@@ -46,6 +49,7 @@ const Select = React.forwardRef<HTMLSelectElement, NativeSelectProps>(
       onBlur,
       'aria-invalid': ariaInvalid,
       'aria-describedby': ariaDescribedBy,
+      contentClassName,
       ...props
     },
     ref,
@@ -94,22 +98,25 @@ const Select = React.forwardRef<HTMLSelectElement, NativeSelectProps>(
             aria-invalid={ariaInvalid}
             aria-describedby={ariaDescribedBy}
             className={cn(
-              'flex min-h-11.25 w-full items-center justify-between gap-2 rounded-none border border-field-border bg-white px-3.5 py-3.25 text-left text-[11px] text-ink outline-offset-2 transition-colors focus:border-field-focus disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-danger-border',
+              'flex min-h-11.25 w-full items-center justify-between gap-2 rounded-none border border-field-border bg-white px-3.5 py-3.25 text-left text-[11px] text-ink outline-offset-2 max-[600px]:text-base store:min-[601px]:text-xs transition-colors focus:border-field-focus disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-danger-border',
               className,
             )}
           >
             <SelectPrimitive.Value />
             <SelectPrimitive.Icon asChild>
-              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#917987]" />
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#77636f]" />
             </SelectPrimitive.Icon>
           </SelectPrimitive.Trigger>
           <SelectPrimitive.Portal>
             <SelectPrimitive.Content
               position="popper"
               sideOffset={4}
-              className="z-[160] max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-hidden border border-admin-line bg-white text-ink shadow-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+              className={cn(
+                'z-[160] max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-hidden border border-admin-line bg-white text-ink shadow-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
+                contentClassName,
+              )}
             >
-              <SelectPrimitive.ScrollUpButton className="flex h-6 items-center justify-center text-[#917987]">
+              <SelectPrimitive.ScrollUpButton className="flex h-6 items-center justify-center text-[#77636f]">
                 <ChevronUp className="h-3.5 w-3.5" />
               </SelectPrimitive.ScrollUpButton>
               <SelectPrimitive.Viewport className="p-1">
@@ -134,7 +141,7 @@ const Select = React.forwardRef<HTMLSelectElement, NativeSelectProps>(
                   );
                 })}
               </SelectPrimitive.Viewport>
-              <SelectPrimitive.ScrollDownButton className="flex h-6 items-center justify-center text-[#917987]">
+              <SelectPrimitive.ScrollDownButton className="flex h-6 items-center justify-center text-[#77636f]">
                 <ChevronDown className="h-3.5 w-3.5" />
               </SelectPrimitive.ScrollDownButton>
             </SelectPrimitive.Content>

@@ -69,13 +69,13 @@ export default async function ContactoPage() {
             </ContactPoint>
           )}
           {!hasDetails && (
-            <p className="text-xs text-[#88777e]">
+            <p className="text-xs text-[#72646a]">
               Los datos de contacto aún no están disponibles.
             </p>
           )}
         </div>
         <div className="bg-[#f8f2f5] p-10 max-[850px]:p-6.75">
-          <MessageCircle size={30} className="mb-4 text-[#9b7199]" />
+          <MessageCircle size={30} className="mb-4 text-[#7f5d7d]" />
           <h2 className={cn(serifClass, 'mb-3 text-[29px] leading-tight')}>WhatsApp</h2>
           {info?.whatsappNumber ? (
             <Button asChild className="mt-2">
@@ -84,7 +84,7 @@ export default async function ContactoPage() {
               </a>
             </Button>
           ) : (
-            <p className="text-xs text-[#88777e]">El número de WhatsApp aún no está disponible.</p>
+            <p className="text-xs text-[#72646a]">El número de WhatsApp aún no está disponible.</p>
           )}
         </div>
       </div>
@@ -102,11 +102,13 @@ function ContactPoint({
   children: ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-4.25 border-b border-[#ede4e8] py-4.5 text-[#9b7199]">
-      <span className="mt-0.5 [&>svg]:size-5">{icon}</span>
-      <span className="text-[11px]">
+    <div className="flex items-start gap-4.25 border-b border-[#ede4e8] py-4.5 text-[#7f5d7d]">
+      <span className="mt-0.5 shrink-0 [&>svg]:size-5">{icon}</span>
+      <span className="min-w-0 text-xs">
         <strong className="block font-semibold text-[#3f333c]">{label}</strong>
-        <span className="mt-1 block text-[#6f606a] [&_a]:hover:text-[#7a5178]">{children}</span>
+        <span className="mt-1 block wrap-break-word text-[#6f606a] [&_a]:underline-offset-4 [&_a]:hover:text-[#7a5178] [&_a]:hover:underline">
+          {children}
+        </span>
       </span>
     </div>
   );

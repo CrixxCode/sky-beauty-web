@@ -1,4 +1,12 @@
-import { ArrowRight, Clock3, CreditCard, PackageCheck, ShoppingBag, Truck } from 'lucide-react';
+import {
+  ArrowRight,
+  Check,
+  Clock3,
+  CreditCard,
+  PackageCheck,
+  ShoppingBag,
+  Truck,
+} from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -26,6 +34,12 @@ type SeguimientoPageProps = {
 function formatDate(value: string | null) {
   return value ? formatDateTime(value) : 'Pendiente';
 }
+
+const STEP_STATE_LABELS = {
+  done: 'completado',
+  current: 'paso actual',
+  pending: 'pendiente',
+} as const;
 
 function stepState(currentIndex: number, index: number) {
   if (index < currentIndex) return 'done';
@@ -74,13 +88,13 @@ export default async function SeguimientoPage({ params }: SeguimientoPageProps) 
   return (
     <Container className="py-11.25">
       <div className="mb-9 max-w-185">
-        <p className="text-[10px] font-bold uppercase tracking-[.22em] text-[#9b7099]">
+        <p className="text-xs font-bold uppercase tracking-[.22em] text-[#815d7f]">
           Enlace privado
         </p>
         <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="font-serif text-[48px] leading-[1.15] max-[600px]:text-[38px]">
-              Pedido {order.code}
+            <h1 className="wrap-break-word font-serif text-[48px] leading-[1.15] max-[600px]:text-[34px]">
+              Pedido <span translate="no">{order.code}</span>
             </h1>
             <p className="mt-3 max-w-150 text-xs leading-[1.9] text-[#786b74]">
               Consulta el avance de tu pedido. La tienda actualiza estos estados según la
@@ -94,7 +108,7 @@ export default async function SeguimientoPage({ params }: SeguimientoPageProps) 
       {cancelled && (
         <div
           role="status"
-          className="mb-5 border border-[#ead0d4] bg-[#fff7f7] p-4.5 text-[11px] leading-[1.8] text-[#8f313f]"
+          className="mb-5 border border-[#ead0d4] bg-[#fff7f7] p-4.5 text-xs leading-[1.8] text-[#8f313f]"
         >
           {order.notice?.stage === 'AFTER' ? (
             order.notice.text
@@ -110,8 +124,8 @@ export default async function SeguimientoPage({ params }: SeguimientoPageProps) 
 
       {!cancelled && order.notice?.stage === 'BEFORE' && (
         <div
-          role="alert"
-          className="mb-5 border border-[#ecd9b5] bg-[#fff9ee] p-4.5 text-[11px] leading-[1.8] text-[#7a5413]"
+          role="status"
+          className="mb-5 border border-[#ecd9b5] bg-[#fff9ee] p-4.5 text-xs leading-[1.8] text-[#7a5413]"
         >
           {order.notice.text}
         </div>
@@ -120,35 +134,50 @@ export default async function SeguimientoPage({ params }: SeguimientoPageProps) 
       {!cancelled && (
         <section className="mb-5 border border-[#eee8ed] bg-white p-5">
           <h2 className="mb-4 text-sm font-semibold text-[#493a45]">Avance del pedido</h2>
-          <div className="grid gap-3 min-[760px]:grid-cols-5">
+          <ol className="grid gap-3 max-[759px]:gap-2 min-[760px]:grid-cols-5">
             {steps.map((step, index) => {
               const state = stepState(currentStep, index);
               return (
-                <div
+                <li
                   key={step.label}
+                  aria-current={state === 'current' ? 'step' : undefined}
                   className={cn(
-                    'min-h-24 border p-3.5',
+                    'border p-3.5 max-[759px]:flex max-[759px]:items-center max-[759px]:justify-between max-[759px]:gap-3 max-[759px]:py-2.75 min-[760px]:min-h-24',
                     state === 'done' && 'border-[#c7ddce] bg-[#f5fbf6]',
-                    state === 'current' && 'border-[#d8bfda] bg-[#fbf5fb]',
+                    state === 'current' && 'border-[#a46ea4] bg-[#fbf5fb]',
                     state === 'pending' && 'border-[#eee8ed] bg-[#fbfafb]',
                   )}
                 >
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-semibold text-[#493a45]">{step.label}</span>
+                  <div className="flex items-center gap-2 min-[760px]:mb-2 min-[760px]:justify-between">
                     <span
                       className={cn(
-                        'h-2.5 w-2.5 rounded-full',
-                        state === 'done' && 'bg-success',
-                        state === 'current' && 'bg-[#a46ea4]',
-                        state === 'pending' && 'bg-[#d8d4cb]',
+                        'text-xs text-[#493a45]',
+                        state === 'pending' ? 'font-medium' : 'font-semibold',
                       )}
-                    />
+                    >
+                      {step.label}
+                      <span className="sr-only">, {STEP_STATE_LABELS[state]}</span>
+                    </span>
+                    {/* El estado no depende solo del color: el paso completado lleva visto bueno. */}
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        'grid size-4.5 shrink-0 place-items-center rounded-full max-[759px]:order-first',
+                        state === 'done' && 'bg-success text-white',
+                        state === 'current' && 'border-2 border-[#a46ea4] bg-white',
+                        state === 'pending' && 'border border-[#d8d4cb] bg-white',
+                      )}
+                    >
+                      {state === 'done' && <Check size={11} strokeWidth={3} />}
+                    </span>
                   </div>
-                  <p className="text-[10px] leading-[1.7] text-[#83747c]">{step.detail}</p>
-                </div>
+                  <p className="text-xs leading-[1.7] text-[#72656c] max-[759px]:text-right">
+                    {step.detail}
+                  </p>
+                </li>
               );
             })}
-          </div>
+          </ol>
         </section>
       )}
 
@@ -179,7 +208,7 @@ export default async function SeguimientoPage({ params }: SeguimientoPageProps) 
           {order.shipping?.trackingUrl && (
             <Button asChild variant="outline" className="mt-3 w-full">
               <a href={order.shipping.trackingUrl} target="_blank" rel="noreferrer">
-                Abrir rastreo <ArrowRight size={15} />
+                Rastrear en la transportadora <ArrowRight size={15} />
               </a>
             </Button>
           )}
@@ -195,15 +224,15 @@ export default async function SeguimientoPage({ params }: SeguimientoPageProps) 
           {order.items.map((item, index) => (
             <li
               key={`${item.productName}-${item.variantName}-${index}`}
-              className="flex justify-between gap-3 py-2.5 text-[11px]"
+              className="flex justify-between gap-3 py-2.5 text-xs"
             >
-              <span>
+              <span className="min-w-0 wrap-break-word">
                 <strong className="block font-semibold text-[#493a45]">{item.productName}</strong>
-                <span className="text-[#8b7f87]">
+                <span className="tabular-nums text-[#6f666c]">
                   {item.variantName} · {item.quantity} × {formatCOP(item.unitFinalPrice)}
                 </span>
               </span>
-              <strong className="whitespace-nowrap font-semibold text-[#493a45]">
+              <strong className="whitespace-nowrap font-semibold tabular-nums text-[#493a45]">
                 {formatCOP(item.lineTotal)}
               </strong>
             </li>
@@ -212,7 +241,7 @@ export default async function SeguimientoPage({ params }: SeguimientoPageProps) 
         <div className="mt-2 max-w-90 border-t border-[#f0ecf0] pt-2 min-[760px]:ml-auto">
           <Summary label="Subtotal" value={formatCOP(order.subtotal)} />
           {order.discountTotal > 0 && (
-            <Summary label="Descuentos" value={`-${formatCOP(order.discountTotal)}`} />
+            <Summary label="Descuentos" value={`−${formatCOP(order.discountTotal)}`} />
           )}
           <Summary
             label="Envío"
@@ -247,14 +276,14 @@ function InvalidTracking() {
   return (
     <Container className="py-11.25">
       <div className="mx-auto max-w-150 bg-[#faf6f8] px-6 py-15 text-center">
-        <Clock3 size={44} className="mx-auto mb-4 text-[#9b7199]" />
-        <p className="text-[10px] font-bold uppercase tracking-[.22em] text-[#9b7099]">
+        <Clock3 size={44} className="mx-auto mb-4 text-[#7f5d7d]" />
+        <p className="text-xs font-bold uppercase tracking-[.22em] text-[#815d7f]">
           Enlace privado
         </p>
         <h1 className="font-serif mb-4 mt-2 text-[42px] leading-tight">
           No pudimos abrir este seguimiento
         </h1>
-        <p className="mx-auto mb-6 max-w-110 text-xs leading-[1.9] text-[#88777e]">
+        <p className="mx-auto mb-6 max-w-110 text-xs leading-[1.9] text-[#72646a]">
           Revisa que el enlace esté completo. Por seguridad no mostramos información cuando el
           enlace no es válido.
         </p>
@@ -288,9 +317,11 @@ function StatusPanel({
 
 function Summary({ label, value }: { label: string; value: string }) {
   return (
-    <div className="my-2 flex justify-between gap-3 text-[11px]">
-      <span className="text-[#756a72]">{label}</span>
-      <strong className="text-right font-semibold text-[#493a45]">{value}</strong>
+    <div className="my-2 flex justify-between gap-3 text-xs">
+      <span className="text-[#6a5f67]">{label}</span>
+      <strong className="min-w-0 text-right font-semibold tabular-nums text-[#493a45] wrap-break-word">
+        {value}
+      </strong>
     </div>
   );
 }

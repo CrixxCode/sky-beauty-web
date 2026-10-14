@@ -1,7 +1,8 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { CartLine } from '@/types/checkout';
 
@@ -16,7 +17,15 @@ interface CartContextValue {
   addItem: (variantId: string, quantity: number, max: number) => void;
   updateItem: (variantId: string, quantity: number) => void;
   removeItem: (variantId: string) => void;
+  /** Devuelve a la bolsa una línea quitada (deshacer), en su posición original. */
+  restoreItem: (line: CartLine, index: number) => void;
   clear: () => void;
+  /**
+   * Borrador del formulario del checkout. Vive solo en memoria mientras la pestaña esté abierta,
+   * para no perder los datos al ir a la bolsa y volver; no se guarda en el navegador.
+   */
+  getCheckoutDraft: () => unknown;
+  saveCheckoutDraft: (draft: unknown) => void;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -47,6 +56,8 @@ function writeCart(items: CartLine[]): void {
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartLine[]>([]);
   const [ready, setReady] = useState(false);
+  const checkoutDraft = useRef<unknown>(null);
+  const router = useRouter();
 
   // Primero se lee lo guardado; solo después se guarda, para no borrar el carrito al recargar.
   useEffect(() => {
@@ -84,6 +95,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           next < current + quantity
             ? 'Agregamos a tu bolsa las unidades disponibles.'
             : 'Producto agregado a tu bolsa.',
+          { action: { label: 'Ver bolsa', onClick: () => router.push('/carrito') } },
         );
       },
       updateItem: (variantId, quantity) => {
@@ -95,9 +107,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
       removeItem: (variantId) => {
         setItems((list) => list.filter((item) => item.variantId !== variantId));
       },
+      restoreItem: (line, index) => {
+        setItems((list) =>
+          list.some((item) => item.variantId === line.variantId)
+            ? list
+            : [...list.slice(0, index), line, ...list.slice(index)],
+        );
+      },
       clear: () => setItems([]),
+      getCheckoutDraft: () => checkoutDraft.current,
+      saveCheckoutDraft: (draft) => {
+        checkoutDraft.current = draft;
+      },
     }),
-    [items, ready],
+    [items, ready, router],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

@@ -20,7 +20,7 @@ export function StoreMessage({
         <h1 className="font-serif mb-3 text-[38px] leading-[1.2] max-[600px]:text-[32px]">
           {title}
         </h1>
-        <p className="mb-6 text-xs leading-[1.8] text-[#88777e]">{description}</p>
+        <p className="mb-6 text-xs leading-[1.8] text-[#72646a]">{description}</p>
         {children && <div className="flex flex-wrap justify-center gap-3">{children}</div>}
       </div>
     </Container>

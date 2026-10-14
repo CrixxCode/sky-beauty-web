@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Playfair_Display, Poppins } from 'next/font/google';
 import { Providers } from './providers';
 import './globals.css';
@@ -30,6 +30,12 @@ export const metadata: Metadata = {
   },
   description: 'Tienda de maquillaje y productos de belleza en Riohacha, La Guajira, Colombia.',
   icons: { icon: { url: '/brand/favicon.svg', type: 'image/svg+xml' } },
+};
+
+// La identidad visual no define modo oscuro: la barra del navegador toma el fondo del sitio.
+export const viewport: Viewport = {
+  themeColor: '#fffcf9',
+  colorScheme: 'light',
 };
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {

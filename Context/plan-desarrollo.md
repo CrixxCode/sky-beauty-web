@@ -17,7 +17,7 @@ Estado al 2026-10-09: el modelo de datos está completo (`backend/prisma/schema.
    - cumple el criterio de terminado del módulo;
    - typecheck, lint y pruebas pasan;
    - las preguntas surgidas se resolvieron y quedaron en `decisiones.md`.
-5. **Diseño:** cada vista replica el prototipo de referencia (ver `AGENTS.md`, sección 4), con los colores, tipografías, logotipo e ícono oficiales de `decisiones.md`. El logotipo monocromo sigue pendiente.
+5. **Diseño:** cada vista parte del prototipo de referencia, que se puede mejorar en usabilidad, accesibilidad y experiencia en celular (ver `AGENTS.md`, sección 4, y la decisión del 2026-10-14 en `decisiones.md`), con los colores, tipografías, logotipo e ícono oficiales de `decisiones.md`. El logotipo monocromo sigue pendiente.
 
 ---
 

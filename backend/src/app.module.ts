@@ -20,6 +20,7 @@ import { PromotionsModule } from './modules/promotions/promotions.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { ShippingModule } from './modules/shipping/shipping.module';
 import { StoreSettingsModule } from './modules/store-settings/store-settings.module';
+import { TestimonialsModule } from './modules/testimonials/testimonials.module';
 import { AllExceptionsFilter } from './shared/http/all-exceptions.filter';
 import { PrismaModule } from './shared/prisma/prisma.module';
 import { isInternalRequest } from './shared/security/internal-request';
@@ -78,6 +79,7 @@ import { isInternalRequest } from './shared/security/internal-request';
     NoticesModule,
     ReportsModule,
     DashboardModule,
+    TestimonialsModule,
     HealthModule,
   ],
   providers: [

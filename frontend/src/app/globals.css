@@ -19,9 +19,9 @@
   --mauve-deep: #5b365b;
   --ink: #3a2c36;
   --paper: #fffcf9;
-  --muted: #80757a;
+  --muted: #6f666b;
   --border: #ebe5e5;
-  --eyebrow: #9b7099;
+  --eyebrow: #815d7f;
   --field-border: #e5dbe2;
   --field-focus: #a77da3;
   --field-label: #5b4c56;
@@ -58,6 +58,12 @@
   --ring: var(--mauve-dark);
   --radius: 0.25rem;
 }
+
+/*
+ * Variante `store:` — aplica solo dentro de la tienda (layout con data-area="store"), no en el
+ * panel. La tienda usa una escala mínima de 12px (decisión del 2026-10-14).
+ */
+@custom-variant store (&:where([data-area='store'] *));
 
 @theme inline {
   --color-lavender: var(--lavender);
@@ -122,6 +128,18 @@ input,
 select,
 textarea {
   outline-offset: 3px;
+}
+
+/* Toques sin la espera del doble toque para ampliar y con un resaltado suave de la marca. */
+a,
+button,
+label,
+input,
+select,
+textarea,
+[role='button'] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgb(112 67 111 / 0.12);
 }
 
 a:focus-visible,

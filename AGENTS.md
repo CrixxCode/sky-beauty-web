@@ -60,9 +60,9 @@ Estas se desprenden directamente de `Context/negocio.md` y deben respetarse. Las
 - Prioridad de la experiencia: móvil, sencilla, sin recargar; los productos deben destacar.
 - **Sin servicios de pago:** solo se paga el despliegue en Railway y el dominio. No agregues dependencias de servicios externos de pago (almacenamiento en la nube, CDN, correo, SMS, APIs de WhatsApp, etc.) sin consultarlo.
 
-## 4. Diseño de las vistas: replicar el prototipo
+## 4. Diseño de las vistas: el prototipo como punto de partida
 
-**Toda vista del frontend, tanto de la tienda como del panel administrativo, debe verse tal cual el prototipo de referencia.** Antes de construir o modificar una vista, abre el prototipo y replica su diseño.
+**El prototipo de referencia es el punto de partida del diseño de toda vista del frontend, tanto de la tienda como del panel administrativo** (decisión del 2026-10-14 en `Context/decisiones.md`). Antes de construir o modificar una vista, abre el prototipo y parte de su lenguaje visual. Puedes apartarte de él cuando eso mejore la usabilidad, la accesibilidad o la experiencia en celular; cuando lo hagas, menciónalo en tu respuesta.
 
 - **Ubicación del prototipo:** `C:\Users\Usuario\Downloads\Sky_Beauty_React_Demo\sky-beauty-demo` (fuera del repositorio; React 18 + Vite + Tailwind 3). Si no tienes acceso a esa ruta, detente y pídesela a la persona usuaria; no diseñes la vista por tu cuenta.
 - **Dónde está cada vista:**
@@ -72,11 +72,12 @@ Estas se desprenden directamente de `Context/negocio.md` y deben respetarse. Las
   - Carrito, checkout y acceso: `src/pages/Account.tsx`.
   - Nosotros, contacto y panel administrativo: `src/pages/StoryAdmin.tsx`.
   - Estilos: `src/styles.css` (clases y medidas) y `tailwind.config.js` (colores y tipografías).
-- **Qué se replica:** distribución, jerarquía, espaciados, tamaños, colores, tipografías, componentes visuales, estados (vacío, error, éxito) y comportamiento responsive, en celular y escritorio.
-- **Cómo se replica:** dentro del stack de este proyecto (Next.js 16, React 19, Tailwind 4, componentes de `frontend/src/components`). Las clases y medidas de `styles.css` se traducen a Tailwind y a los tokens de `globals.css`; no se copia el CSS ni el código del prototipo tal cual, y no se agregan sus dependencias (React Router, Vite, Tailwind 3).
-- **Componentes shadcn obligatorios:** cuando se desarrolle o modifique frontend, usa estrictamente componentes de shadcn/ui para los elementos de interfaz siempre que exista un componente shadcn aplicable. No crees componentes visuales personalizados ni uses HTML estilizado a mano para controles que shadcn ya cubre; adapta los componentes shadcn a los tokens, estilos y medidas del proyecto para replicar el prototipo.
+- **Qué se toma del prototipo:** distribución, jerarquía, espaciados, colores, tipografías, componentes visuales, estados (vacío, error, éxito) y comportamiento responsive, en celular y escritorio, como base que se puede mejorar.
+- **Tamaño mínimo de texto en la tienda:** 12 px en toda la tienda pública; en celular, los campos de formulario usan 16 px. En los componentes compartidos con el panel, usa la variante `store:` de `globals.css` (aplica solo dentro de la tienda) para no cambiar el panel.
+- **Cómo se implementa:** dentro del stack de este proyecto (Next.js 16, React 19, Tailwind 4, componentes de `frontend/src/components`). Las clases y medidas de `styles.css` se traducen a Tailwind y a los tokens de `globals.css`; no se copia el CSS ni el código del prototipo tal cual, y no se agregan sus dependencias (React Router, Vite, Tailwind 3).
+- **Componentes shadcn obligatorios:** cuando se desarrolle o modifique frontend, usa estrictamente componentes de shadcn/ui para los elementos de interfaz siempre que exista un componente shadcn aplicable. No crees componentes visuales personalizados ni uses HTML estilizado a mano para controles que shadcn ya cubre; adapta los componentes shadcn a los tokens, estilos y medidas del proyecto.
 - **La funcionalidad la manda `Context/`, no el prototipo.** El prototipo es una demostración con datos y funciones simuladas:
-  - No construyas funciones que el contexto descarta o no menciona aunque aparezcan en el prototipo: registro, inicio de sesión y "Mi cuenta" de clientes, favoritos, cupones, recuperación de contraseña por correo, testimonios, pasarela de pago. Si una vista del prototipo depende de ellas, replica el resto del diseño y consulta qué hacer con esa parte.
+  - No construyas funciones que el contexto descarta o no menciona aunque aparezcan en el prototipo: registro, inicio de sesión y "Mi cuenta" de clientes, cupones, recuperación de contraseña por correo, pasarela de pago. Tampoco construyas una suscripción a novedades por correo (descartada por ahora). Si una vista del prototipo depende de ellas, toma el resto del diseño y consulta qué hacer con esa parte. Los favoritos (en el navegador, sin cuenta) y los testimonios (registrados por la propietaria) sí están aprobados: sigue lo que dice `Context/decisiones.md`.
   - No copies sus datos de demostración como si fueran reales: productos, marcas, precios, existencias, métricas del panel, textos comerciales, cupón `CIELO10`, fotografías de Unsplash. Los textos y datos reales salen de la API, de `Context/` o de la persona usuaria.
   - El logotipo no está en el prototipo (deja un espacio reservado). Usa los archivos oficiales de `frontend/public/brand/` (logotipo horizontal, vertical e ícono); no los recrees ni los modifiques.
 - **Si una vista no existe en el prototipo** (por ejemplo, la gestión de cuentas del personal), constrúyela con el mismo lenguaje visual de las vistas más parecidas (para el panel, las de `/admin` del prototipo) y menciónalo en tu respuesta.

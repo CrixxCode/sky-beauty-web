@@ -19,15 +19,17 @@ export function FormField({
 }) {
   return (
     <div className={cn('mb-3.5 flex flex-col gap-1.5', className)}>
-      <label htmlFor={id} className="text-[11px] font-medium text-field-label">
+      <label htmlFor={id} className="text-[11px] font-medium text-field-label store:text-xs">
         {label}
       </label>
       {description && (
-        <span className="-mt-0.5 text-[10px] leading-tight text-muted">{description}</span>
+        <span className="-mt-0.5 text-[10px] leading-tight text-muted store:text-xs">
+          {description}
+        </span>
       )}
       {children}
       {error && (
-        <p id={`${id}-error`} className="text-[11px] text-danger">
+        <p id={`${id}-error`} className="text-[11px] text-danger store:text-xs">
           {error}
         </p>
       )}
@@ -49,7 +51,7 @@ export function FormError({ children }: { children: ReactNode }) {
   return (
     <p
       role="alert"
-      className="my-3 border border-danger-border bg-danger-bg px-3.25 py-2.75 text-[11px] text-danger"
+      className="my-3 border border-danger-border bg-danger-bg px-3.25 py-2.75 text-[11px] text-danger store:text-xs"
     >
       {children}
     </p>

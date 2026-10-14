@@ -324,4 +324,47 @@ describe('Catálogo (integración)', () => {
     });
     expect(history.map((h) => h.price.toNumber())).toEqual([10000, 12000]);
   });
+
+  it('filtra destacados, productos en oferta (mayor descuento primero) e ids', async () => {
+    const plain = await createProduct('Sin Oferta Test');
+    const small = await createProduct('Oferta Pequena Test');
+    const big = await createProduct('Oferta Grande Test');
+    const draft = await createProduct('Borrador Test', { status: 'DRAFT' });
+    await owner
+      .patch(`${ADMIN}/products/${plain.productId}`)
+      .send({ isFeatured: true })
+      .expect(200);
+
+    const promotion = (productId: string, discountValue: number) => ({
+      name: `Promoción ficticia ${discountValue}`,
+      discountType: 'PERCENTAGE',
+      discountValue,
+      scope: 'PRODUCT',
+      productIds: [productId],
+      startsAt: new Date(Date.now() - 60_000).toISOString(),
+      endsAt: new Date(Date.now() + 86_400_000).toISOString(),
+    });
+    await owner.post(`${ADMIN}/promotions`).send(promotion(small.productId, 10)).expect(201);
+    await owner.post(`${ADMIN}/promotions`).send(promotion(big.productId, 30)).expect(201);
+    await owner.post(`${ADMIN}/promotions`).send(promotion(draft.productId, 50)).expect(201);
+
+    const server = app.getHttpServer();
+    const featured = await request(server).get(`${STORE}/products?featured=true`).expect(200);
+    expect(slugsOf(featured)).toEqual(['sin-oferta-test']);
+
+    const onSale = await request(server).get(`${STORE}/products?onSale=true`).expect(200);
+    expect(slugsOf(onSale)).toEqual(['oferta-grande-test', 'oferta-pequena-test']);
+    expect((onSale.body as PublicList).total).toBe(2);
+    const firstPage = await request(server)
+      .get(`${STORE}/products?onSale=true&limit=1`)
+      .expect(200);
+    expect(slugsOf(firstPage)).toEqual(['oferta-grande-test']);
+    expect((firstPage.body as PublicList).total).toBe(2);
+
+    // Ids (favoritos): solo devuelve los publicados.
+    const ids = [plain.productId, draft.productId].join(',');
+    const byIds = await request(server).get(`${STORE}/products?ids=${ids}`).expect(200);
+    expect(slugsOf(byIds)).toEqual(['sin-oferta-test']);
+    await request(server).get(`${STORE}/products?ids=no-es-un-id`).expect(400);
+  });
 });

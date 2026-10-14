@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsEnum,
   IsInt,
@@ -445,6 +447,34 @@ export class PublicListProductsQueryDto {
   @IsOptional()
   @IsString()
   q?: string;
+
+  @ApiPropertyOptional({ description: 'Solo productos destacados.' })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  featured?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Solo productos con alguna variante en promoción vigente (ordenados por descuento).',
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  onSale?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Ids de productos separados por coma (p. ej. los favoritos guardados en el navegador).',
+  })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.split(',').filter(Boolean) : value,
+  )
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsUUID('all', { each: true })
+  ids?: string[];
 }
 
 // ─────────────────────────────── Paginación ──────────────────────────────────

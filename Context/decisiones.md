@@ -148,6 +148,61 @@ Prioridad de cálculo en checkout:
 
 ---
 
+## 2026-10-14 — El prototipo es un punto de partida
+
+**Decisión:** el prototipo de referencia fue una estructura inicial, un punto de partida para desarrollar las vistas. Ya no es obligatorio que las vistas (tienda y panel) se vean tal cual el prototipo. Reemplaza lo dicho sobre el prototipo en "Identidad visual y prototipo de referencia".
+
+- Las vistas parten del lenguaje visual del prototipo y pueden apartarse de él para mejorar la usabilidad, la accesibilidad y la experiencia en celular.
+- Siguen vigentes los colores, tipografías, logotipos e ícono oficiales, y el alcance del prototipo: no se construyen sus funciones que el contexto descarta o no menciona, ni se copian sus datos de demostración.
+
+**Tamaño mínimo de texto en la tienda:** todo texto de la tienda pública mide como mínimo 12 px. En celular, los campos de formulario usan 16 px. Esta decisión no cambia el panel administrativo.
+
+---
+
+## 2026-10-14 — Favoritos sin cuenta
+
+**Decisión:** la tienda tiene favoritos. Como no hay cuentas de clientes, se guardan en el navegador de cada cliente.
+
+- El cliente guarda o quita un producto con el corazón de la tarjeta o del detalle, y los ve en la página "Favoritos" (`/favoritos`), con un contador en el encabezado.
+- No pasan a otros dispositivos y se pierden si el cliente borra los datos del navegador. La página lo dice.
+- Máximo 100 productos guardados.
+- Solo se muestran los productos que siguen publicados; si alguno dejó de estarlo, la página lo avisa y permite quitarlo.
+
+---
+
+## 2026-10-14 — Testimonios de clientas
+
+**Decisión:** la tienda muestra testimonios de clientas en el inicio.
+
+- **Origen:** los registra la propietaria en el panel a partir de opiniones reales que recibió (por WhatsApp o redes). No hay formulario público para que los clientes los envíen.
+- **Qué se publica:** nombre y primera letra del apellido (por ejemplo, "María G."), valoración de 1 a 5, comentario y, si la propietaria lo indica, el producto que compró. El producto solo se muestra mientras siga publicado.
+- **Publicación:** cada testimonio se publica u oculta desde el panel. El inicio muestra hasta 6 publicados, del más reciente al más antiguo. Sin testimonios publicados, la sección no aparece.
+- **Permisos:** como el resto del contenido, solo la propietaria los crea, edita, publica y elimina; el personal los consulta.
+
+**Pendiente:** cómo se registra la autorización de la clienta para publicar su nombre e inicial (Ley 1581 de 2012).
+
+---
+
+## 2026-10-14 — Página de ofertas
+
+**Decisión:** la tienda tiene una vista de ofertas con los productos que tienen una promoción vigente, ordenados del mayor al menor descuento. Es el catálogo con el filtro "Solo ofertas" (`/productos?ofertas=1`), que se combina con los demás filtros, y se enlaza desde el menú de categorías, el pie y la franja de ofertas del inicio.
+
+---
+
+## 2026-10-14 — Agregar a la bolsa desde la tarjeta del producto
+
+**Decisión:** las tarjetas de producto (inicio, catálogo y favoritos) tienen un botón "+" para agregar una unidad a la bolsa sin entrar al detalle, solo en productos de una sola variante. Con varias variantes, la tarjeta lleva al detalle para elegir. Respeta las existencias y el máximo por pedido, como el detalle.
+
+---
+
+## 2026-10-14 — Sin suscripción a novedades por ahora
+
+**Decisión:** la tienda no tiene suscripción a novedades (formulario para dejar el correo) por ahora. No se guardan correos de clientes con fines comerciales.
+
+Motivo: no hay servicio de correo para enviar las novedades (ver "Infraestructura sin servicios de pago") y la política de tratamiento de datos personales sigue en borrador.
+
+---
+
 ## 2026-10-13 — Reportes de ventas y ganancia
 
 **Decisión:** la propietaria tiene reportes de ventas por período, productos más vendidos y márgenes, y puede exportar cada uno a CSV.
@@ -412,8 +467,8 @@ Una vez confirmado, el pedido no se puede editar.
 
 - **Colores oficiales:** `#B785B8`, `#A46EA4`, `#D8D4CB`, `#F5F1EB`, `#8A694D`.
 - **Tipografías oficiales:** Playfair Display (títulos) y Poppins (textos).
-- **Prototipo de referencia:** `C:\Users\Usuario\Downloads\Sky_Beauty_React_Demo\sky-beauty-demo`. Toda vista del frontend (tienda y panel) debe verse tal cual el prototipo (ver `AGENTS.md`, sección 4).
-- **Alcance del prototipo:** se copia solo el diseño. La funcionalidad sigue `negocio.md` y este archivo; las funciones del prototipo que el contexto descarta o no menciona (cuentas y registro de clientes, favoritos, cupones, recuperación por correo, testimonios) no se construyen sin consultarlo.
+- **Prototipo de referencia:** `C:\Users\Usuario\Downloads\Sky_Beauty_React_Demo\sky-beauty-demo`. ~~Toda vista del frontend (tienda y panel) debe verse tal cual el prototipo.~~ Reemplazado el 2026-10-14: el prototipo es un punto de partida (ver "El prototipo es un punto de partida").
+- **Alcance del prototipo:** se copia solo el diseño. La funcionalidad sigue `negocio.md` y este archivo; las funciones del prototipo que el contexto descarta o no menciona (cuentas y registro de clientes, favoritos, cupones, recuperación por correo, testimonios) no se construyen sin consultarlo. Favoritos y testimonios se consultaron y aprobaron el 2026-10-14 (ver "Favoritos sin cuenta" y "Testimonios de clientas"); el resto sigue sin construirse.
 
 **Pendiente:** el logotipo monocromo y las fotografías autorizadas. Los logotipos horizontal y vertical y el ícono ya se incorporaron (ver la entrada del 2026-10-13).
 
@@ -496,6 +551,10 @@ Estado al 2026-10-13. Migraciones en `backend/prisma/migrations/`:
 - **Resumen:** `GET /admin/dashboard/pending` (todo el panel); las ventas salen de `GET /admin/reports/sales` (solo `ADMIN`).
 - **Reportes:** `GET /admin/reports/sales`, `top-products` y `margins` (solo `ADMIN`). Los días se cuentan en hora de Colombia y las ventas se ubican por `Order.paidAt` (fecha de verificación del pago; migración `20261014000000_fecha_pago_verificado`, que completa los pedidos anteriores con su primer registro de pago verificado). Las unidades vendidas sin `unitCost` quedan fuera de la ganancia y se informan aparte.
 - **Permisos:** documentados en `AdminRole`.
+- **Texto mínimo de la tienda:** el layout de la tienda marca su área con `data-area="store"` y `globals.css` define la variante `store:`, que sube a 12 px los componentes compartidos con el panel solo dentro de la tienda.
+- **Favoritos:** en el navegador (`localStorage`, clave `sky-beauty-favorites`), en `frontend/src/features/favorites/`. La página `/favoritos` consulta `GET /store/products?ids=...` (máximo 100 ids; solo devuelve productos publicados) y no se indexa en buscadores.
+- **Testimonios:** tabla `Testimonial` (migración `20261014040000_testimonios`, con la valoración restringida a 1–5 en la base de datos). Panel: `/admin/testimonios` (`/admin/testimonials`: escritura solo `ADMIN`). Tienda: `GET /store/testimonials` (publicados, máximo 6, nombre con la inicial del apellido).
+- **Ofertas y destacados:** `GET /store/products` acepta `featured=true` y `onSale=true`; este último se filtra después de calcular los precios con el motor de promociones y se ordena por descuento. El catálogo lo usa con `?ofertas=1`.
 
 ### Pendiente en el código
 

@@ -83,7 +83,8 @@ test('la propietaria publica el contenido y la tienda lo muestra; sin texto, avi
   ).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Texto ficticio de prueba' })).toBeVisible();
   await expect(page.getByText('negrita')).toHaveJSProperty('tagName', 'STRONG');
-  await expect(page.getByRole('listitem')).toHaveCount(2);
+  // Solo las del texto: el menú de categorías del encabezado también es una lista.
+  await expect(page.getByRole('main').getByRole('listitem')).toHaveCount(2);
 
   // Sin texto: aviso de que estará disponible pronto, y no se indexa.
   const missing = await page.goto('/datos-personales');

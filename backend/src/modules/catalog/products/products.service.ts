@@ -229,6 +229,12 @@ function toProductDto(p: PrismaProduct, role: AdminRole): ProductDto {
   };
 }
 
+/** Descuento del precio "desde" respecto de su precio regular (0 si no tiene). */
+function discountRatio(product: PublicProductDto): number {
+  if (product.regularPriceFrom <= 0) return 0;
+  return (product.regularPriceFrom - product.finalPriceFrom) / product.regularPriceFrom;
+}
+
 function toPublicProductDto(
   p: PrismaProduct,
   priceMap: Map<string, PriceCalculation>,
@@ -369,6 +375,8 @@ export class ProductsService {
     const where: Prisma.ProductWhereInput = { status: 'ACTIVE' };
 
     if (query.brandId) where.brandId = query.brandId;
+    if (query.featured) where.isFeatured = true;
+    if (query.ids) where.id = { in: query.ids };
 
     // El filtro por categoría incluye subcategorías
     if (query.categoryId) {
@@ -392,16 +400,28 @@ export class ProductsService {
       images: { where: { variantId: null }, orderBy: { position: 'asc' as const } },
     };
 
-    if (query.q) {
-      const needle = normalizeSearchText(query.q);
+    if (query.q || query.onSale) {
       const candidates = await this.prisma.product.findMany({
         where,
         include,
         orderBy: { publishedAt: 'desc' },
       });
-      const matches = candidates.filter((product) =>
-        normalizeSearchText(product.name).includes(needle),
-      );
+      const needle = query.q ? normalizeSearchText(query.q) : null;
+      const matches = needle
+        ? candidates.filter((product) => normalizeSearchText(product.name).includes(needle))
+        : candidates;
+
+      // Saber si un producto está en oferta exige calcular sus precios con las promociones
+      // vigentes, así que se filtra después de calcularlos. Primero el mayor descuento.
+      if (query.onSale) {
+        const priceMap = await this.priceProducts(matches);
+        const generalMax = await this.generalMaxPerOrder();
+        const onSale = matches
+          .map((p) => toPublicProductDto(p, priceMap, generalMax))
+          .filter((p) => p.hasDiscount)
+          .sort((a, b) => discountRatio(b) - discountRatio(a));
+        return { items: onSale.slice(skip, skip + limit), total: onSale.length };
+      }
 
       const page = matches.slice(skip, skip + limit);
       const priceMap = await this.priceProducts(page);

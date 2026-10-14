@@ -140,9 +140,10 @@ model Product {
   createdAt        DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt        DateTime      @updatedAt @db.Timestamptz(3)
 
-  images     ProductImage[]
-  variants   ProductVariant[]
-  promotions PromotionProduct[]
+  images       ProductImage[]
+  variants     ProductVariant[]
+  promotions   PromotionProduct[]
+  testimonials Testimonial[]
 
   @@index([status, categoryId])
   @@index([status, brandId])
@@ -784,4 +785,27 @@ model AdminNotificationRead {
 
   @@id([notificationId, adminId])
   @@index([adminId])
+}
+
+// ─────────────────────────────── Contenido ───────────────────────────────────
+
+/// Testimonio de una clienta. Lo registra la propietaria a partir de una opinión real que
+/// recibió (WhatsApp, redes); no hay formulario público. Se publica el nombre y la inicial del
+/// apellido (decisión de la persona usuaria, 2026-10-14).
+model Testimonial {
+  id          String   @id @default(uuid()) @db.Uuid
+  firstName   String   @db.VarChar(60)
+  /// Primera letra del apellido, sin punto.
+  lastInitial String   @db.VarChar(1)
+  /// Valoración de 1 a 5 (restricción en la base de datos).
+  rating      Int      @db.SmallInt
+  comment     String   @db.VarChar(600)
+  /// Producto que compró, si la propietaria lo indica.
+  productId   String?  @db.Uuid
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([isPublished, createdAt])
 }

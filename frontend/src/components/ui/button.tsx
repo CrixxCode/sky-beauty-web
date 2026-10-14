@@ -22,7 +22,7 @@ export const buttonVariants = cva(
       size: {
         md: 'min-h-11.25 px-6.25 py-3 text-xs',
         default: 'min-h-11.25 px-6.25 py-3 text-xs',
-        sm: 'min-h-11.25 px-4 py-2 text-[11px]',
+        sm: 'min-h-11.25 px-4 py-2 text-[11px] store:text-xs',
         icon: 'h-11.25 w-11.25 p-0',
       },
     },
