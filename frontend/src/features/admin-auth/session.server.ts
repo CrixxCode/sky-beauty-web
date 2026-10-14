@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
+import { internalApiHeaders } from '@/lib/api.server';
 import type { AdminProfile, AdminRole } from '@/types/admin';
 
 /** Debe coincidir con SESSION_COOKIE del backend (backend/src/modules/auth/auth.types.ts). */
@@ -19,7 +20,7 @@ export const getCurrentAdmin = cache(async (): Promise<AdminProfile | null> => {
   if (!apiUrl) throw new Error('API_INTERNAL_URL no está definida.');
 
   const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/v1/admin/auth/me`, {
-    headers: { cookie: `${SESSION_COOKIE}=${session.value}` },
+    headers: internalApiHeaders({ cookie: `${SESSION_COOKIE}=${session.value}` }),
     cache: 'no-store',
   });
   if (response.status === 401) return null;

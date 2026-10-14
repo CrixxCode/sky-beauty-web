@@ -2,6 +2,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { AdminRole } from '../src/generated/prisma/client';
 import { SESSION_COOKIE } from '../src/modules/auth/auth.types';
+import { SessionService } from '../src/modules/auth/session.service';
 import type { PrismaService } from '../src/shared/prisma/prisma.service';
 import { createAdminUser, createTestApp, loginAgent, TEST_PASSWORD } from './utils/app';
 import { resetDatabase } from './utils/database';
@@ -114,6 +115,25 @@ describe('Acceso al panel (integración)', () => {
         (await prisma.adminSession.findUniqueOrThrow({ where: { id: session.id } })).revokedAt,
       ).not.toBeNull();
       await agent.get(ME).expect(401);
+    });
+
+    it('borra las sesiones vencidas o cerradas hace más de 30 días', async () => {
+      const admin = await createAdminUser(prisma, { email: 'duena@ejemplo.test' });
+      await loginAgent(app, 'duena@ejemplo.test');
+      const day = 24 * 60 * 60_000;
+      const ago = (days: number) => new Date(Date.now() - days * day);
+      const old = await prisma.adminSession.createMany({
+        data: [
+          { adminUserId: admin.id, expiresAt: ago(31) },
+          { adminUserId: admin.id, expiresAt: ago(-1), revokedAt: ago(40) },
+          { adminUserId: admin.id, expiresAt: ago(5) },
+        ],
+      });
+      expect(old.count).toBe(3);
+
+      expect(await app.get(SessionService).purgeExpired()).toBe(2);
+      // Quedan la sesión activa y la vencida hace 5 días.
+      expect(await prisma.adminSession.count()).toBe(2);
     });
 
     it('rechaza sesiones de cuentas que fueron desactivadas', async () => {

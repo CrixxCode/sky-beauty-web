@@ -23,6 +23,7 @@ import {
   ShippingStatus,
 } from '../../generated/prisma/client';
 import { normalizeWhatsappNumber, WHATSAPP_NUMBER_PATTERN } from '../../shared/phone';
+import { uploadUrl } from '../../shared/uploads';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import {
   ALL_NOTICE_CASES,
@@ -271,7 +272,7 @@ export class OrdersService {
         productSlug: variant.product.slug,
         variantName: variant.name,
         sku: variant.sku,
-        imageUrl: image?.thumbnailUrl ?? image?.url ?? null,
+        imageUrl: image ? uploadUrl(image.thumbnailKey) : null,
         quantity: item.quantity,
         maxQuantity: Math.min(variant.stock, variant.maxPerOrder ?? variant.stock),
         maxPerOrder: variant.maxPerOrder,
@@ -519,7 +520,7 @@ export class OrdersService {
       throw new NotFoundException('No existe ese enlace de seguimiento.');
     }
 
-    const order = await this.prisma.order.findFirst({
+    const order = await this.prisma.order.findUnique({
       where: { publicTokenHash: sha256(normalizedToken) },
       include: {
         shipping: { include: { carrier: true } },
@@ -1759,7 +1760,7 @@ export class OrdersService {
   ): Promise<MethodForCheckout> {
     const available = await this.availablePaymentMethods(municipalityCode, total);
     if (!available.some((method) => method.id === paymentMethodId)) {
-      throw new BadRequestException('El metodo de pago no esta disponible para este pedido.');
+      throw new BadRequestException('El método de pago no está disponible para este pedido.');
     }
     return this.prisma.paymentMethod.findUniqueOrThrow({
       where: { id: paymentMethodId },
@@ -1772,7 +1773,7 @@ export class OrdersService {
    * no se puede calcular a partir de los datos del pedido, y un reintento obtiene el mismo enlace.
    */
   private publicTokenFor(idempotencyKey: string): string {
-    return createHmac('sha256', this.config.get('JWT_SECRET', { infer: true }))
+    return createHmac('sha256', this.config.get('TRACKING_TOKEN_SECRET', { infer: true }))
       .update(`order-tracking:${idempotencyKey}`)
       .digest('hex')
       .slice(0, 48);
@@ -1810,14 +1811,17 @@ export class OrdersService {
   }
 
   private async generateOrderCode(tx: Prisma.TransactionClient): Promise<string> {
-    const date = new Date();
-    const stamp = date.toISOString().slice(2, 10).replace(/-/g, '');
+    // Fecha del pedido en hora de Colombia (AAMMDD), no en UTC.
+    const stamp = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' })
+      .format(new Date())
+      .slice(2)
+      .replace(/-/g, '');
     for (let attempt = 0; attempt < 8; attempt += 1) {
       const code = `SB-${stamp}-${randomBytes(3).toString('hex').toUpperCase()}`;
       const exists = await tx.order.findUnique({ where: { code }, select: { id: true } });
       if (!exists) return code;
     }
-    throw new ConflictException('No se pudo generar un codigo de pedido unico.');
+    throw new ConflictException('No se pudo generar un código de pedido único.');
   }
 
   /** Respuesta del checkout, armada con el pedido tal como quedó registrado. */

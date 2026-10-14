@@ -604,7 +604,7 @@ function ProductDetailModalContent({
         <ProductInfoTab product={product} brands={brands} validCategories={validCategories} />
       </TabsContent>
       <TabsContent value="status">
-        <ProductStatusTab product={product} onDeleted={onClose} />
+        <ProductStatusTab product={product} role={role} onDeleted={onClose} />
       </TabsContent>
     </Tabs>
   );
@@ -1432,7 +1432,15 @@ function ProductInfoTab({
 }
 
 /** Pestaña 3: Publicación, cambio de estado y eliminación */
-function ProductStatusTab({ product, onDeleted }: { product: Product; onDeleted: () => void }) {
+function ProductStatusTab({
+  product,
+  role,
+  onDeleted,
+}: {
+  product: Product;
+  role: AdminRole;
+  onDeleted: () => void;
+}) {
   const queryClient = useQueryClient();
   const [confirmAction, setConfirmAction] = useState<'archive' | 'delete' | null>(null);
 
@@ -1522,37 +1530,39 @@ function ProductStatusTab({ product, onDeleted }: { product: Product; onDeleted:
         </div>
       </div>
 
-      {/* Zona de peligro: Eliminación física */}
-      <div className="border border-red-200 bg-red-50/50 p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h4 className="text-xs font-semibold text-red-900">
-              Zona de peligro: Eliminación física
-            </h4>
-            <p className="mt-1 text-[11px] text-red-700">
-              Solo es posible eliminar un producto si nunca ha tenido pedidos registrados. Si ya
-              tiene pedidos asociados, el sistema requerirá que sea archivado en lugar de eliminado
-              para salvaguardar la contabilidad.
-            </p>
-          </div>
+      {/* Zona de peligro: eliminar es exclusivo de la propietaria (Context/decisiones.md). */}
+      {role === 'ADMIN' && (
+        <div className="border border-red-200 bg-red-50/50 p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h4 className="text-xs font-semibold text-red-900">
+                Zona de peligro: Eliminación física
+              </h4>
+              <p className="mt-1 text-[11px] text-red-700">
+                Solo es posible eliminar un producto que nunca ha tenido pedidos ni movimientos de
+                inventario. Si ya los tiene, archívalo en lugar de eliminarlo, para conservar el
+                historial.
+              </p>
+            </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setConfirmAction('delete')}
-            disabled={deleteProduct.isPending}
-            className="border-red-300 text-danger hover:border-danger hover:bg-danger-bg shrink-0"
-          >
-            <Trash2 size={13} className="mr-1.5" />
-            Eliminar definitivamente
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmAction('delete')}
+              disabled={deleteProduct.isPending}
+              className="border-red-300 text-danger hover:border-danger hover:bg-danger-bg shrink-0"
+            >
+              <Trash2 size={13} className="mr-1.5" />
+              Eliminar definitivamente
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
       <ConfirmDialog
         open={confirmAction === 'archive'}
         onOpenChange={(open) => !open && setConfirmAction(null)}
         title="Archivar producto"
-        description="El producto conservara su historial de pedidos, pero dejara de estar disponible para nuevas compras."
+        description="El producto conservará su historial de pedidos, pero dejará de estar disponible para nuevas compras."
         confirmLabel={changeStatus.isPending ? 'Archivando...' : 'Archivar producto'}
         onConfirm={() => changeStatus.mutate('ARCHIVED')}
       />
@@ -1560,7 +1570,7 @@ function ProductStatusTab({ product, onDeleted }: { product: Product; onDeleted:
         open={confirmAction === 'delete'}
         onOpenChange={(open) => !open && setConfirmAction(null)}
         title="Eliminar producto definitivamente"
-        description={`Esta acción eliminará "${product.name}" y no se puede deshacer. Si tiene pedidos asociados, el sistema la rechazará.`}
+        description={`Esta acción eliminará "${product.name}" y no se puede deshacer. Si tiene pedidos o movimientos de inventario, el sistema la rechazará.`}
         confirmLabel={deleteProduct.isPending ? 'Eliminando...' : 'Eliminar definitivamente'}
         destructive
         onConfirm={() => deleteProduct.mutate()}

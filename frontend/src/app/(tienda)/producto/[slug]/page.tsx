@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Container } from '@/components/layout/container';
 import { ProductDetail } from '@/features/storefront/product-detail';
-import { fetchPublicApi } from '@/lib/api.server';
+import { fetchPublicApi, fetchPublicApiOptional } from '@/lib/api.server';
 import type { PublicBrand, PublicCategory, PublicProduct } from '@/types/catalog';
 
 type ProductoDetallePageProps = {
@@ -12,7 +12,7 @@ type ProductoDetallePageProps = {
 /** Título, descripción y foto del producto para buscadores y para compartir en redes. */
 export async function generateMetadata({ params }: ProductoDetallePageProps): Promise<Metadata> {
   const { slug } = await params;
-  const product = await fetchPublicApi<PublicProduct>(
+  const product = await fetchPublicApiOptional<PublicProduct>(
     `/store/products/${encodeURIComponent(slug)}`,
   );
   if (!product) return { robots: { index: false } };

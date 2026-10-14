@@ -13,6 +13,7 @@ import type { Env } from '../../../config/env';
 import { Prisma } from '../../../generated/prisma/client';
 import type { AdminRole, ProductStatus } from '../../../generated/prisma/client';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
+import { uploadUrl } from '../../../shared/uploads';
 import { PricingService, type PriceCalculation } from '../../promotions/pricing.service';
 import { StoreSettingsService } from '../../store-settings/store-settings.service';
 import type {
@@ -88,9 +89,7 @@ type PrismaImage = {
   productId: string;
   variantId: string | null;
   storageKey: string;
-  url: string;
   thumbnailKey: string;
-  thumbnailUrl: string;
   alt: string;
   width: number;
   height: number;
@@ -106,9 +105,9 @@ function toImageDto(img: PrismaImage): ImageDto {
     productId: img.productId,
     variantId: img.variantId,
     storageKey: img.storageKey,
-    url: img.url,
+    url: uploadUrl(img.storageKey),
     thumbnailKey: img.thumbnailKey,
-    thumbnailUrl: img.thumbnailUrl,
+    thumbnailUrl: uploadUrl(img.thumbnailKey),
     alt: img.alt,
     width: img.width,
     height: img.height,
@@ -574,8 +573,22 @@ export class ProductsService {
         'El producto tiene pedidos asociados y no puede eliminarse. Archívalo en su lugar.',
       );
     }
+    // El historial de inventario no se borra (Context/negocio.md: todo movimiento queda registrado).
+    const movementCount = await this.prisma.inventoryMovement.count({
+      where: { variant: { productId: id } },
+    });
+    if (movementCount > 0) {
+      throw new ConflictException(
+        'El producto tiene movimientos de inventario registrados y no puede eliminarse. Archívalo en su lugar.',
+      );
+    }
 
-    await this.prisma.product.delete({ where: { id } });
+    // Las variantes no se borran solas con el producto (la relación lo impide a propósito).
+    await this.prisma.$transaction([
+      this.prisma.productVariant.deleteMany({ where: { productId: id } }),
+      this.prisma.product.delete({ where: { id } }),
+    ]);
+    await rm(join(this.uploadsDir(), 'products', id), { recursive: true, force: true });
   }
 
   // ── Crear variante ─────────────────────────────────────────────────────────
@@ -697,10 +710,20 @@ export class ProductsService {
 
     const orderItemCount = await this.prisma.orderItem.count({ where: { variantId } });
     if (orderItemCount > 0) {
-      throw new ConflictException('La variante tiene pedidos asociados y no puede eliminarse.');
+      throw new ConflictException(
+        'La variante tiene pedidos asociados y no puede eliminarse. Desactívala en su lugar.',
+      );
+    }
+    const movementCount = await this.prisma.inventoryMovement.count({ where: { variantId } });
+    if (movementCount > 0) {
+      throw new ConflictException(
+        'La variante tiene movimientos de inventario registrados y no puede eliminarse. Desactívala en su lugar.',
+      );
     }
 
+    const images = await this.prisma.productImage.findMany({ where: { variantId } });
     await this.prisma.productVariant.delete({ where: { id: variantId } });
+    await this.removeImageFiles(images);
   }
 
   // ── Imágenes ───────────────────────────────────────────────────────────────
@@ -729,8 +752,7 @@ export class ProductsService {
       await this.findVariantOrThrow(productId, dto.variantId);
     }
 
-    const uploadsDir = resolve(this.config.get('UPLOADS_DIR', { infer: true }));
-    const baseUrl = this.config.get('PUBLIC_UPLOADS_BASE_URL', { infer: true }).replace(/\/$/, '');
+    const uploadsDir = this.uploadsDir();
     const productDir = join('products', productId);
     const absoluteProductDir = join(uploadsDir, productDir);
     const absoluteThumbDir = join(absoluteProductDir, 'thumbs');
@@ -767,8 +789,6 @@ export class ProductsService {
         variantId: dto.variantId ?? null,
         storageKey,
         thumbnailKey,
-        url: `${baseUrl}/${storageKey}`,
-        thumbnailUrl: `${baseUrl}/${thumbnailKey}`,
         alt: dto.alt?.trim() ?? '',
         width: imageInfo.width,
         height: imageInfo.height,
@@ -788,12 +808,24 @@ export class ProductsService {
     if (!image) throw new NotFoundException(`Imagen con id '${imageId}' no encontrada.`);
 
     await this.prisma.productImage.delete({ where: { id: imageId } });
+    await this.removeImageFiles([image]);
+  }
 
-    const uploadsDir = resolve(this.config.get('UPLOADS_DIR', { infer: true }));
-    await Promise.allSettled([
-      rm(join(uploadsDir, image.storageKey), { force: true }),
-      rm(join(uploadsDir, image.thumbnailKey), { force: true }),
-    ]);
+  private uploadsDir(): string {
+    return resolve(this.config.get('UPLOADS_DIR', { infer: true }));
+  }
+
+  /** Borra del disco los archivos de fotos ya eliminadas de la base de datos. */
+  private async removeImageFiles(
+    images: Array<{ storageKey: string; thumbnailKey: string }>,
+  ): Promise<void> {
+    const dir = this.uploadsDir();
+    await Promise.allSettled(
+      images.flatMap((image) => [
+        rm(join(dir, image.storageKey), { force: true }),
+        rm(join(dir, image.thumbnailKey), { force: true }),
+      ]),
+    );
   }
 
   // ── Helpers privados ───────────────────────────────────────────────────────

@@ -35,6 +35,7 @@ El personal también puede:
 - ver y editar costos de compra;
 - la configuración comercial de la tienda;
 - crear, desactivar y cambiar la contraseña de las cuentas del personal. El personal solo puede cambiar su propia contraseña.
+- eliminar productos, marcas y categorías (2026-10-14). El personal sí puede eliminar variantes y quitar fotos de un producto, como parte de editarlo.
 
 ---
 

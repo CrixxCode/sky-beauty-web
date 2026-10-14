@@ -48,7 +48,7 @@ export class QuoteCartDto {
   items!: CartItemInputDto[];
 
   @ApiPropertyOptional({
-    description: 'Codigo DIVIPOLA del municipio para filtrar metodos de pago.',
+    description: 'Código DIVIPOLA del municipio para filtrar métodos de pago.',
   })
   @IsOptional()
   @Matches(/^\d{5}$/)
@@ -56,7 +56,7 @@ export class QuoteCartDto {
 }
 
 export class CreateOrderDto extends QuoteCartDto {
-  @ApiProperty({ description: 'Codigo DIVIPOLA del municipio de entrega.' })
+  @ApiProperty({ description: 'Código DIVIPOLA del municipio de entrega.' })
   @Matches(/^\d{5}$/)
   declare municipalityCode: string;
 
@@ -66,7 +66,7 @@ export class CreateOrderDto extends QuoteCartDto {
   @MaxLength(120)
   customerName!: string;
 
-  @ApiProperty({ description: 'Telefono del cliente. Se normaliza como WhatsApp.' })
+  @ApiProperty({ description: 'Teléfono del cliente. Se normaliza como WhatsApp.' })
   @IsString()
   @MinLength(7)
   @MaxLength(30)
@@ -283,7 +283,7 @@ export class ListOrdersQueryDto {
   @IsString()
   paymentStatus?: PaymentStatus;
 
-  @ApiPropertyOptional({ description: 'Busqueda por codigo, cliente o telefono.' })
+  @ApiPropertyOptional({ description: 'Búsqueda por código, cliente o teléfono.' })
   @IsOptional()
   @IsString()
   q?: string;
@@ -409,7 +409,7 @@ export class QuoteShippingDto {
 }
 
 export class ConfirmOrderDto {
-  @ApiPropertyOptional({ minimum: 0, description: 'Obligatorio si el envio seguia por confirmar.' })
+  @ApiPropertyOptional({ minimum: 0, description: 'Obligatorio si el envío seguía por confirmar.' })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)

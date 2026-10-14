@@ -121,7 +121,7 @@ export class UpdateStoreSettingsDto {
   maxPercentageDiscount?: number | null;
 
   @ApiPropertyOptional({
-    description: 'Campania temporal: envio gratis a cualquier municipio mientras este activo.',
+    description: 'Campaña temporal: envío gratis a cualquier municipio mientras esté activo.',
   })
   @IsOptional()
   @IsBoolean()
@@ -155,7 +155,7 @@ export class ShippingRateDto {
 
 export class UpsertShippingRateDto {
   @ApiProperty({ example: '44001' })
-  @Matches(/^\d{5}$/, { message: 'Codigo de municipio invalido.' })
+  @Matches(/^\d{5}$/, { message: 'Código de municipio inválido.' })
   municipalityCode!: string;
 
   @ApiProperty({ example: 5000 })

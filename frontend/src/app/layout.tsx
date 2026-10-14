@@ -28,8 +28,7 @@ export const metadata: Metadata = {
     default: 'Sky Beauty Maquillaje',
     template: '%s | Sky Beauty Maquillaje',
   },
-  description:
-    'Tienda de maquillaje, cuidado personal y belleza en Riohacha, La Guajira, Colombia.',
+  description: 'Tienda de maquillaje y productos de belleza en Riohacha, La Guajira, Colombia.',
   icons: { icon: { url: '/brand/favicon.svg', type: 'image/svg+xml' } },
 };
 

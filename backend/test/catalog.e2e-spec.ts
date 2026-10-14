@@ -1,5 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import sharp from 'sharp';
@@ -20,9 +19,8 @@ type PublicList = {
   items: Array<{ slug: string; variants: Array<{ stock: number }> }>;
 };
 
-// Las fotos se guardan en una carpeta temporal, nunca en la carpeta de imágenes de desarrollo.
-const uploadsDir = mkdtempSync(join(tmpdir(), 'sky-beauty-uploads-'));
-process.env.UPLOADS_DIR = uploadsDir;
+// Carpeta temporal de las fotos de las pruebas (test/setup-env.ts).
+const uploadsDir = process.env.UPLOADS_DIR as string;
 
 const idOf = (res: request.Response) => (res.body as IdBody).id;
 const slugsOf = (res: request.Response) => (res.body as PublicList).items.map((p) => p.slug);
@@ -143,7 +141,7 @@ describe('Catálogo (integración)', () => {
     expect(JSON.stringify(detail.body)).not.toContain('costPrice');
 
     // La foto se sirve desde el disco del servidor.
-    const path = new URL(body.images[0].url).pathname;
+    const path = body.images[0].url;
     await request(app.getHttpServer())
       .get(path)
       .expect(200)
@@ -236,6 +234,78 @@ describe('Catálogo (integración)', () => {
 
     const stored = await prisma.productVariant.findUniqueOrThrow({ where: { id: idOf(variant) } });
     expect(stored.costPrice).toBeNull();
+  });
+
+  it('solo la propietaria elimina productos, marcas y categorías', async () => {
+    const staff = await loginAgent(app, 'personal@ejemplo.test');
+    const productId = idOf(
+      await staff
+        .post(`${ADMIN}/products`)
+        .send({
+          name: 'Producto Sin Variantes Test',
+          description: 'Producto ficticio.',
+          brandId,
+          categoryId: subcategoryId,
+          basePrice: 10000,
+        })
+        .expect(201),
+    );
+
+    await staff.delete(`${ADMIN}/products/${productId}`).expect(403);
+    await staff.delete(`${ADMIN}/brands/${otherBrandId}`).expect(403);
+    await staff.delete(`${ADMIN}/categories/${parentId}`).expect(403);
+    expect(await prisma.product.count({ where: { id: productId } })).toBe(1);
+
+    await owner.delete(`${ADMIN}/products/${productId}`).expect(204);
+    await owner.delete(`${ADMIN}/brands/${otherBrandId}`).expect(204);
+  });
+
+  it('elimina un producto sin historial con sus variantes y fotos; con historial pide archivar', async () => {
+    const png = await sharp({ create: { width: 20, height: 20, channels: 3, background: '#fff' } })
+      .png()
+      .toBuffer();
+    const { productId, variantId } = await createProduct('Eliminar Test', { status: 'DRAFT' });
+    const image = await owner
+      .post(`${ADMIN}/products/${productId}/images`)
+      .attach('file', png, { filename: 'foto.png', contentType: 'image/png' })
+      .expect(201);
+    const { storageKey } = image.body as { storageKey: string };
+    expect(existsSync(join(uploadsDir, storageKey))).toBe(true);
+
+    await owner.delete(`${ADMIN}/products/${productId}`).expect(204);
+    expect(await prisma.productVariant.count({ where: { id: variantId } })).toBe(0);
+    expect(existsSync(join(uploadsDir, 'products', productId))).toBe(false);
+
+    // Con movimientos de inventario no se borra: se conserva el historial.
+    const kept = await createProduct('Con Historial Test');
+    await owner
+      .post(`${ADMIN}/inventory/movements`)
+      .send({ variantId: kept.variantId, type: 'INITIAL', quantity: 2 })
+      .expect(201);
+    const product = await owner.delete(`${ADMIN}/products/${kept.productId}`).expect(409);
+    expect((product.body as { message: string }).message).toMatch(
+      /movimientos de inventario.*Archívalo/,
+    );
+    const variant = await owner
+      .delete(`${ADMIN}/products/${kept.productId}/variants/${kept.variantId}`)
+      .expect(409);
+    expect((variant.body as { message: string }).message).toMatch(
+      /movimientos de inventario.*Desactívala/,
+    );
+  });
+
+  it('rechaza una foto demasiado grande mientras la recibe', async () => {
+    const { productId } = await createProduct('Foto Grande Test', { status: 'DRAFT' });
+    const res = await owner
+      .post(`${ADMIN}/products/${productId}/images`)
+      .attach('file', Buffer.alloc(11 * 1024 * 1024), {
+        filename: 'grande.png',
+        contentType: 'image/png',
+      })
+      .expect(413);
+    expect((res.body as { message: string }).message).toBe(
+      'El archivo supera el tamaño máximo permitido.',
+    );
   });
 
   it('registra el historial de precios en cada cambio del precio efectivo', async () => {

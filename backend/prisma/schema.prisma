@@ -158,10 +158,9 @@ model ProductImage {
   variantId    String?         @db.Uuid
   variant      ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
   /// Ruta del archivo relativa a UPLOADS_DIR (disco del servidor).
+  /// La dirección pública se calcula al responder (src/shared/uploads.ts), no se guarda.
   storageKey   String
-  url          String
   thumbnailKey String
-  thumbnailUrl String
   alt          String          @default("")
   width        Int
   height       Int
@@ -429,7 +428,7 @@ model Order {
   /// Identificador público legible, p. ej. SB-251009-7KQ4M.
   code            String        @unique
   /// Hash SHA-256 del token que permite al cliente consultar su pedido.
-  publicTokenHash String
+  publicTokenHash String        @unique
   /// Clave de idempotencia enviada por el cliente + hash de la solicitud original.
   idempotencyKey  String        @unique
   requestHash     String

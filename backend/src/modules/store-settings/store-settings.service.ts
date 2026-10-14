@@ -97,7 +97,7 @@ export class StoreSettingsService {
 
   async deleteShippingRate(id: string): Promise<void> {
     const rate = await this.prisma.municipalShippingRate.findUnique({ where: { id } });
-    if (!rate) throw new NotFoundException('No existe esa tarifa de envio.');
+    if (!rate) throw new NotFoundException('No existe esa tarifa de envío.');
     await this.prisma.municipalShippingRate.delete({ where: { id } });
   }
 

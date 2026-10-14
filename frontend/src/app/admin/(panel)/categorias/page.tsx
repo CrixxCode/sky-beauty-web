@@ -6,7 +6,7 @@ import { CategoriesManager } from '@/features/catalog/categories-manager';
 export const metadata: Metadata = { title: 'Categorías' };
 
 export default async function CategoriasPage() {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   return (
     <>
@@ -14,8 +14,7 @@ export default async function CategoriasPage() {
         title="Categorías"
         description="Organización del catálogo en categorías y subcategorías (máximo 2 niveles)."
       />
-      <CategoriesManager />
+      <CategoriesManager canDelete={admin.role === 'ADMIN'} />
     </>
   );
 }
-

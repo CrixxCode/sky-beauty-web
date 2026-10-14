@@ -97,6 +97,12 @@ test('la propietaria publica un producto con variante y foto, y el cliente lo en
   await page.getByRole('heading', { name: product }).click();
   await expect(page.getByRole('heading', { name: product, level: 1 })).toBeVisible();
   await expect(page.getByRole('button', { name: /Tono Ficticio/ })).toBeVisible();
-  await expect(page.getByRole('img', { name: product }).first()).toBeVisible();
+  const photo = page.getByRole('img', { name: product }).first();
+  await expect(photo).toBeVisible();
+  // La foto se sirve desde el dominio de la tienda (Next.js reenvía /uploads al backend).
+  await expect(photo).toHaveAttribute('src', /^\/uploads\//);
+  await expect
+    .poll(() => photo.evaluate((img: HTMLImageElement) => (img.complete ? img.naturalWidth : 0)))
+    .toBeGreaterThan(0);
   await expect(page.getByText('Esta variante no está disponible.')).toBeVisible();
 });

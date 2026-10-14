@@ -5,6 +5,7 @@ import {
   HttpException,
   HttpStatus,
   Logger,
+  PayloadTooLargeException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { Prisma } from '../../generated/prisma/client';
@@ -50,6 +51,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
   }
 
   private resolve(exception: unknown): { statusCode: number; message: string | string[] } {
+    if (exception instanceof PayloadTooLargeException) {
+      return {
+        statusCode: HttpStatus.PAYLOAD_TOO_LARGE,
+        message: 'El archivo supera el tamaño máximo permitido.',
+      };
+    }
     if (exception instanceof HttpException) {
       const res = exception.getResponse();
       const message =

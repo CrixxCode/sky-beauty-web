@@ -51,6 +51,9 @@ export class StoreOrdersController {
   }
 
   @Post()
+  // Cada pedido reserva existencias: un límite estricto evita que pedidos falsos en masa dejen la
+  // tienda agotada hasta que venzan.
+  @Throttle({ default: { limit: 10, ttl: 600_000 } })
   @ApiOkResponse({ type: CreatedOrderDto })
   create(@Body() dto: CreateOrderDto): Promise<CreatedOrderDto> {
     return this.orders.createOrder(dto);

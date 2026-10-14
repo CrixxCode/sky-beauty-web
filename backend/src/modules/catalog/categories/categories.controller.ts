@@ -9,8 +9,9 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
+import { AdminRole } from '../../../generated/prisma/client';
 import { ApiCookieAuth, ApiNoContentResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { Public } from '../../auth/auth.decorators';
+import { Public, Roles } from '../../auth/auth.decorators';
 import { SESSION_COOKIE } from '../../auth/auth.types';
 import {
   CategoryDto,
@@ -48,6 +49,8 @@ export class AdminCategoriesController {
   }
 
   @Delete(':id')
+  // Eliminar es exclusivo de la propietaria; el personal crea y edita (Context/decisiones.md).
+  @Roles(AdminRole.ADMIN)
   @HttpCode(204)
   @ApiNoContentResponse()
   remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {

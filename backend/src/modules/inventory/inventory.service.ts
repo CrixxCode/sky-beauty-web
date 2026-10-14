@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InventoryMovementType, Prisma } from '../../generated/prisma/client';
+import { uploadUrl } from '../../shared/uploads';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import type {
   CreateInventoryMovementDto,
@@ -91,8 +92,10 @@ export class InventoryService {
         isLowStock:
           variant.lowStockThreshold !== null && variant.stock <= variant.lowStockThreshold,
         isActive: variant.isActive,
-        thumbnailUrl:
-          variant.images[0]?.thumbnailUrl ?? variant.product.images[0]?.thumbnailUrl ?? null,
+        thumbnailUrl: (() => {
+          const image = variant.images[0] ?? variant.product.images[0];
+          return image ? uploadUrl(image.thumbnailKey) : null;
+        })(),
       }))
       .filter((variant) => !query.lowStock || variant.isLowStock);
   }

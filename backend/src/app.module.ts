@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import type { Request } from 'express';
 import { LoggerModule } from 'nestjs-pino';
 import { type Env, validateEnv } from './config/env';
 import { AdminUsersModule } from './modules/admin-users/admin-users.module';
@@ -20,6 +21,7 @@ import { ShippingModule } from './modules/shipping/shipping.module';
 import { StoreSettingsModule } from './modules/store-settings/store-settings.module';
 import { AllExceptionsFilter } from './shared/http/all-exceptions.filter';
 import { PrismaModule } from './shared/prisma/prisma.module';
+import { isInternalRequest } from './shared/security/internal-request';
 
 @Module({
   imports: [
@@ -33,18 +35,30 @@ import { PrismaModule } from './shared/prisma/prisma.module';
             config.get('NODE_ENV', { infer: true }) === 'development'
               ? { target: 'pino-pretty', options: { singleLine: true } }
               : undefined,
-          redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
+          redact: [
+            'req.headers.authorization',
+            'req.headers.cookie',
+            'req.headers["x-internal-api-key"]',
+            'res.headers["set-cookie"]',
+          ],
           autoLogging: { ignore: (req) => req.url?.endsWith('/health') ?? false },
         },
       }),
     }),
     // Límite general de peticiones por IP. Los endpoints sensibles (p. ej. inicio de sesión)
-    // definen límites más estrictos en su propio módulo. Se desactiva en las pruebas automáticas.
+    // definen límites más estrictos en su propio módulo. Se desactiva en las pruebas automáticas y
+    // para el servidor de Next.js: todas sus peticiones (las páginas que arma para cada visitante)
+    // llegan desde la misma IP y agotarían el límite entre todos los clientes.
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService<Env, true>) => ({
         throttlers: [{ ttl: 60_000, limit: 120 }],
-        skipIf: () => config.get('NODE_ENV', { infer: true }) === 'test',
+        skipIf: (context) =>
+          config.get('NODE_ENV', { infer: true }) === 'test' ||
+          isInternalRequest(
+            context.switchToHttp().getRequest<Request>(),
+            config.get('INTERNAL_API_KEY', { infer: true }),
+          ),
       }),
     }),
     // Tareas programadas: cancelaciones automáticas y avisos (módulo 11).

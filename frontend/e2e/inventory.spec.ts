@@ -83,10 +83,20 @@ test('el personal registra entradas y ajustes, el historial cuadra y aparece el 
   await expect(row).toBeVisible();
   await expect(row.getByText('Stock bajo')).toBeVisible();
 
+  // El personal no elimina categorías, marcas ni productos; la propietaria sí.
+  const deleteCategory = page.getByRole('button', {
+    name: `Eliminar categoría Categoría Inventario ${suffix}`,
+  });
+  await page.goto('/admin/categorias');
+  await expect(page.getByText(`Categoría Inventario ${suffix}`)).toBeVisible();
+  await expect(deleteCategory).toHaveCount(0);
+
   // La tienda muestra la variante como disponible cuando el producto se publica.
   await logout(page);
   await login(page, E2E_OWNER.email, E2E_OWNER.password);
   await expect(page).toHaveURL(/\/admin$/);
+  await page.goto('/admin/categorias');
+  await expect(deleteCategory).toBeVisible();
   const published = await api.patch(`/api/v1/admin/products/${created.id}/status`, {
     data: { status: 'ACTIVE' },
   });

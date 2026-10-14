@@ -432,5 +432,8 @@ La lógica más delicada del sistema: debe tener pruebas exhaustivas antes de co
 - Despliegue en **Railway**: backend, frontend y PostgreSQL. Volumen persistente para las imágenes (`UPLOADS_DIR`), variables de producción (incluida `PUBLIC_SITE_URL` con el dominio de la tienda), dominio y HTTPS.
 - **`TRUST_PROXY_HOPS`:** el navegador llega al backend a través del proxy de Railway y de Next.js. Hay que configurar los saltos para que el backend vea la IP real del cliente; si no, los límites de intentos (inicio de sesión, rastreador) se comparten entre todos los clientes.
 - Sin servicios de pago adicionales (ver `decisiones.md`, "Infraestructura sin servicios de pago").
+- **Variables nuevas (revisión del 2026-10-14):** `TRACKING_TOKEN_SECRET` (enlaces de seguimiento, distinto de `JWT_SECRET`) e `INTERNAL_API_KEY` (la misma en backend y frontend; obligatoria en producción). Sin esa clave, las páginas que arma Next.js agotan el límite de peticiones por IP del backend.
+- **Fotos:** se sirven desde el dominio de la tienda (Next.js reenvía `/uploads` al backend), así que el backend no necesita dominio público; basta la red interna de Railway en `API_INTERNAL_URL`.
+- **Arranque:** `next start` usa el puerto que asigna Railway (`PORT`). `NEXT_PUBLIC_SITE_URL` se fija al compilar: debe estar definida antes del build. Los datos iniciales (`prisma db seed`) se ejecutan con `tsx`, que hoy es dependencia de desarrollo.
 
 **Bloqueos de negocio:** compra del dominio; estrategia de copias de seguridad de la base de datos y de las imágenes.

@@ -9,6 +9,8 @@ const validEnv = {
   TRUST_PROXY_HOPS: '1',
   DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
   JWT_SECRET: 'x'.repeat(48),
+  TRACKING_TOKEN_SECRET: 'y'.repeat(48),
+  INTERNAL_API_KEY: '',
   ADMIN_SESSION_TTL_MINUTES: '480',
   LOGIN_MAX_FAILED_ATTEMPTS: '5',
   LOGIN_LOCK_MINUTES: '15',
@@ -16,7 +18,6 @@ const validEnv = {
   ORDER_UNPAID_TTL_HOURS: '24',
   ORDER_PAYMENT_CLARIFICATION_HOURS: '8',
   UPLOADS_DIR: './uploads',
-  PUBLIC_UPLOADS_BASE_URL: 'http://localhost:4000/uploads',
   MAX_IMAGE_SIZE_MB: '5',
   TEST_DATABASE_URL: '',
 };
@@ -39,6 +40,21 @@ describe('validateEnv', () => {
     );
   });
 
+  it('exige un secreto propio para los enlaces de seguimiento', () => {
+    expect(() => validateEnv({ ...validEnv, TRACKING_TOKEN_SECRET: undefined })).toThrow(
+      'TRACKING_TOKEN_SECRET',
+    );
+  });
+
+  it('exige la clave interna solo en producción', () => {
+    expect(validateEnv(validEnv).INTERNAL_API_KEY).toBeUndefined();
+    expect(() => validateEnv({ ...validEnv, NODE_ENV: 'production' })).toThrow('INTERNAL_API_KEY');
+    expect(
+      validateEnv({ ...validEnv, NODE_ENV: 'production', INTERNAL_API_KEY: 'k'.repeat(40) })
+        .INTERNAL_API_KEY,
+    ).toBe('k'.repeat(40));
+  });
+
   it('rechaza un JWT_SECRET corto', () => {
     expect(() => validateEnv({ ...validEnv, JWT_SECRET: 'corto' })).toThrow('JWT_SECRET');
   });
@@ -49,10 +65,7 @@ describe('validateEnv', () => {
     ).toThrow('ORDER_PAYMENT_CLARIFICATION_HOURS');
   });
 
-  it('exige la carpeta y la URL pública de las imágenes', () => {
+  it('exige la carpeta de las imágenes', () => {
     expect(() => validateEnv({ ...validEnv, UPLOADS_DIR: '' })).toThrow('UPLOADS_DIR');
-    expect(() => validateEnv({ ...validEnv, PUBLIC_UPLOADS_BASE_URL: '' })).toThrow(
-      'PUBLIC_UPLOADS_BASE_URL',
-    );
   });
 });

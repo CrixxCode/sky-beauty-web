@@ -7,6 +7,7 @@ import { resolve } from 'node:path';
 import { Logger } from 'nestjs-pino';
 import type { Env } from './config/env';
 import { SESSION_COOKIE } from './modules/auth/auth.types';
+import { UPLOADS_PATH } from './shared/uploads';
 
 /** Prefijo de todas las rutas de la API. El frontend las consume a través de su proxy en /api/v1. */
 export const API_PREFIX = 'api/v1';
@@ -24,7 +25,7 @@ export function configureApp(app: NestExpressApplication): void {
   app.use(cookieParser());
   app.enableCors({ origin: config.get('CORS_ORIGINS', { infer: true }), credentials: true });
   app.useStaticAssets(resolve(config.get('UPLOADS_DIR', { infer: true })), {
-    prefix: '/uploads',
+    prefix: UPLOADS_PATH,
   });
   app.setGlobalPrefix(API_PREFIX);
   app.enableShutdownHooks();

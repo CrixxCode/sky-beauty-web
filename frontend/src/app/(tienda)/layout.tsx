@@ -7,7 +7,7 @@ import { StoreFooter } from '@/components/layout/store-footer';
 import { CartHeaderLink } from '@/features/cart/cart-header-link';
 import { CartProvider } from '@/features/cart/cart-context';
 import { StoreSearch } from '@/features/storefront/catalog-ui';
-import { fetchPublicApi } from '@/lib/api.server';
+import { fetchPublicApiOptional } from '@/lib/api.server';
 import type { PublicCategory } from '@/types/catalog';
 import type { PublicStoreInfo } from '@/types/store';
 
@@ -16,7 +16,7 @@ import type { PublicStoreInfo } from '@/types/store';
  * descripción sale de la configuración (contenido); sin ella se usa la general del sitio.
  */
 export async function generateMetadata(): Promise<Metadata> {
-  const info = await fetchPublicApi<PublicStoreInfo>('/store/info');
+  const info = await fetchPublicApiOptional<PublicStoreInfo>('/store/info');
   const storeName = info?.storeName ?? 'Sky Beauty Maquillaje';
   const description = info?.tagline ?? undefined;
   return {
@@ -33,8 +33,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function TiendaLayout({ children }: { children: ReactNode }) {
   const [info, categories] = await Promise.all([
-    fetchPublicApi<PublicStoreInfo>('/store/info'),
-    fetchPublicApi<PublicCategory[]>('/store/categories'),
+    fetchPublicApiOptional<PublicStoreInfo>('/store/info'),
+    fetchPublicApiOptional<PublicCategory[]>('/store/categories'),
   ]);
   const navCategories = (categories ?? [])
     .flatMap((category) => [category, ...category.children])

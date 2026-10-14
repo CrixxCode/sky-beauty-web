@@ -24,7 +24,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Env } from '../../../config/env';
-import { CurrentAdmin, Public } from '../../auth/auth.decorators';
+import { AdminRole } from '../../../generated/prisma/client';
+import { CurrentAdmin, Public, Roles } from '../../auth/auth.decorators';
 import { SESSION_COOKIE } from '../../auth/auth.types';
 import type { AuthenticatedAdmin } from '../../auth/auth.types';
 import {
@@ -44,6 +45,9 @@ import {
   VariantDto,
 } from './products.dto';
 import { ProductsService } from './products.service';
+
+/** Tope técnico de cada foto recibida; MAX_IMAGE_SIZE_MB fija el tamaño permitido dentro de este. */
+const MAX_UPLOAD_BYTES = 1024 * 1024 * 10;
 
 @ApiTags('Panel: catálogo')
 @ApiCookieAuth(SESSION_COOKIE)
@@ -99,6 +103,8 @@ export class AdminProductsController {
   }
 
   @Delete(':id')
+  // Eliminar es exclusivo de la propietaria; el personal crea y edita (Context/decisiones.md).
+  @Roles(AdminRole.ADMIN)
   @HttpCode(204)
   @ApiNoContentResponse()
   remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
@@ -106,7 +112,8 @@ export class AdminProductsController {
   }
 
   @Post(':productId/images')
-  @UseInterceptors(FileInterceptor('file'))
+  // El límite se aplica mientras se recibe el archivo, antes de cargarlo completo en memoria.
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 } }))
   @ApiConsumes('multipart/form-data')
   @ApiOkResponse({ type: ImageDto })
   uploadImage(
@@ -116,7 +123,7 @@ export class AdminProductsController {
       new ParseFilePipe({
         validators: [
           new MaxFileSizeValidator({
-            maxSize: 1024 * 1024 * 10,
+            maxSize: MAX_UPLOAD_BYTES,
             message: 'La imagen supera el tamaño máximo permitido.',
           }),
         ],

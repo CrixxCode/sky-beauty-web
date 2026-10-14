@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Container } from '@/components/layout/container';
 import { RichText } from '@/components/content/rich-text';
 import { StorePageHeading } from '@/features/storefront/catalog-ui';
-import { fetchPublicApi } from '@/lib/api.server';
+import { fetchPublicApi, fetchPublicApiOptional } from '@/lib/api.server';
 import { STORE_PAGE_LINKS, type StorePageSlug } from '@/types/store';
 
 interface StorePage {
@@ -17,7 +17,7 @@ const titleOf = (slug: StorePageSlug) =>
 
 /** Metadatos de una página de texto; mientras no tenga texto publicado no se indexa. */
 export async function storePageMetadata(slug: StorePageSlug): Promise<Metadata> {
-  const page = await fetchPage(slug);
+  const page = await fetchPublicApiOptional<StorePage>(`/store/content/${slug}`);
   return page
     ? { title: page.title }
     : { title: titleOf(slug), robots: { index: false, follow: false } };

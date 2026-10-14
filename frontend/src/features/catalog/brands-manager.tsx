@@ -34,7 +34,8 @@ export const BRANDS_KEY = ['admin-brands'];
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof ApiError ? error.message : fallback;
 
-export function BrandsManager() {
+/** `canDelete`: eliminar es exclusivo de la propietaria (Context/decisiones.md). */
+export function BrandsManager({ canDelete }: { canDelete: boolean }) {
   const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
@@ -109,7 +110,12 @@ export function BrandsManager() {
         {visible && visible.length > 0 && (
           <div className="grid grid-cols-2 gap-3.5 max-[768px]:grid-cols-1">
             {visible.map((brand) => (
-              <BrandCard key={brand.id} brand={brand} onEdit={() => setEditingBrand(brand)} />
+              <BrandCard
+                key={brand.id}
+                brand={brand}
+                canDelete={canDelete}
+                onEdit={() => setEditingBrand(brand)}
+              />
             ))}
           </div>
         )}
@@ -275,7 +281,15 @@ function EditBrandForm({
   );
 }
 
-function BrandCard({ brand, onEdit }: { brand: Brand; onEdit: () => void }) {
+function BrandCard({
+  brand,
+  canDelete,
+  onEdit,
+}: {
+  brand: Brand;
+  canDelete: boolean;
+  onEdit: () => void;
+}) {
   const queryClient = useQueryClient();
   const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -345,7 +359,7 @@ function BrandCard({ brand, onEdit }: { brand: Brand; onEdit: () => void }) {
           {brand.isActive ? 'Desactivar' : 'Activar'}
         </Button>
 
-        {brand.productCount === 0 ? (
+        {!canDelete ? null : brand.productCount === 0 ? (
           <Button
             variant="outline"
             size="sm"

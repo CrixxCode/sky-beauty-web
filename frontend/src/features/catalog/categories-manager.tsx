@@ -35,7 +35,8 @@ export const CATEGORIES_KEY = ['admin-categories'];
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof ApiError ? error.message : fallback;
 
-export function CategoriesManager() {
+/** `canDelete`: eliminar es exclusivo de la propietaria (Context/decisiones.md). */
+export function CategoriesManager({ canDelete }: { canDelete: boolean }) {
   const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [preselectedParentId, setPreselectedParentId] = useState<string | undefined>(undefined);
@@ -138,6 +139,7 @@ export function CategoriesManager() {
               <CategoryTreeItem
                 key={cat.id}
                 category={cat}
+                canDelete={canDelete}
                 onEdit={(c) => setEditingCategory(c)}
                 onAddSubcategory={(parentId) => handleOpenCreateWithParent(parentId)}
               />
@@ -409,10 +411,12 @@ function EditCategoryForm({
 
 function CategoryTreeItem({
   category,
+  canDelete,
   onEdit,
   onAddSubcategory,
 }: {
   category: Category;
+  canDelete: boolean;
   onEdit: (cat: Category) => void;
   onAddSubcategory: (parentId: string) => void;
 }) {
@@ -495,7 +499,7 @@ function CategoryTreeItem({
             {category.isActive ? 'Desactivar' : 'Activar'}
           </Button>
 
-          {category.children.length === 0 ? (
+          {!canDelete ? null : category.children.length === 0 ? (
             <Button
               variant="outline"
               size="sm"
@@ -556,16 +560,18 @@ function CategoryTreeItem({
                   {sub.isActive ? 'Desactivar' : 'Activar'}
                 </Button>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setDeleteTarget(sub)}
-                  disabled={deleteCategory.isPending}
-                  className="text-danger hover:border-danger hover:bg-danger-bg cursor-pointer"
-                  aria-label={`Eliminar subcategoría ${sub.name}`}
-                >
-                  <Trash2 size={12} className="mr-1" /> Eliminar
-                </Button>
+                {canDelete && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDeleteTarget(sub)}
+                    disabled={deleteCategory.isPending}
+                    className="text-danger hover:border-danger hover:bg-danger-bg cursor-pointer"
+                    aria-label={`Eliminar subcategoría ${sub.name}`}
+                  >
+                    <Trash2 size={12} className="mr-1" /> Eliminar
+                  </Button>
+                )}
               </div>
             </div>
           ))}

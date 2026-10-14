@@ -1,5 +1,8 @@
 // Las pruebas de integración se ejecutan siempre contra la base de pruebas, nunca contra la de desarrollo.
 import 'dotenv/config';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 if (!testDatabaseUrl) {
@@ -14,3 +17,6 @@ if (testDatabaseUrl === process.env.DATABASE_URL) {
 process.env.DATABASE_URL = testDatabaseUrl;
 process.env.NODE_ENV = 'test';
 process.env.LOG_LEVEL = 'silent';
+// Las fotos de las pruebas van a una carpeta temporal, nunca a la de desarrollo. Se define aquí,
+// antes de importar la aplicación: la configuración se lee al cargar los módulos.
+process.env.UPLOADS_DIR = mkdtempSync(join(tmpdir(), 'sky-beauty-uploads-'));

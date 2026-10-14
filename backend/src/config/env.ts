@@ -27,6 +27,17 @@ export const envSchema = z.object({
   TEST_DATABASE_URL: optionalUrl,
 
   JWT_SECRET: z.string().min(32, 'JWT_SECRET debe tener al menos 32 caracteres'),
+  // Secreto de los enlaces de seguimiento, separado de JWT_SECRET: cambiar el de las sesiones no
+  // debe romper los enlaces que los clientes ya recibieron por WhatsApp.
+  TRACKING_TOKEN_SECRET: z
+    .string()
+    .min(32, 'TRACKING_TOKEN_SECRET debe tener al menos 32 caracteres'),
+  // Clave con la que el servidor de Next.js se identifica ante la API. Sus peticiones no cuentan
+  // para el límite por IP: todas llegan desde la misma IP, la del servidor de Next.js.
+  INTERNAL_API_KEY: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().min(32, 'INTERNAL_API_KEY debe tener al menos 32 caracteres').optional(),
+  ),
   ADMIN_SESSION_TTL_MINUTES: positiveInt,
   LOGIN_MAX_FAILED_ATTEMPTS: positiveInt,
   LOGIN_LOCK_MINUTES: positiveInt,
@@ -39,15 +50,25 @@ export const envSchema = z.object({
   // Imágenes: se guardan en el disco del servidor (en producción, un volumen de Railway).
   // El proyecto no usa servicios de almacenamiento de pago (ver Context/decisiones.md).
   UPLOADS_DIR: z.string().min(1),
-  PUBLIC_UPLOADS_BASE_URL: z.url(),
   MAX_IMAGE_SIZE_MB: z.coerce.number().positive(),
 });
 
 export type Env = z.infer<typeof envSchema>;
 
+/** Reglas que dependen de varias variables. */
+const productionSchema = envSchema.superRefine((env, ctx) => {
+  if (env.NODE_ENV === 'production' && !env.INTERNAL_API_KEY) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['INTERNAL_API_KEY'],
+      message: 'es obligatoria en producción',
+    });
+  }
+});
+
 /** Valida las variables de entorno al arrancar. Detiene la aplicación con un mensaje claro si alguna es inválida. */
 export function validateEnv(raw: Record<string, unknown>): Env {
-  const result = envSchema.safeParse(raw);
+  const result = productionSchema.safeParse(raw);
   if (!result.success) {
     const details = result.error.issues
       .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)
