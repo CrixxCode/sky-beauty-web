@@ -216,6 +216,12 @@ Los logotipos de la entrada del 2026-10-13 siguen usándose sobre fondos claros.
 
 ---
 
+## 2026-10-14 — Crédito del desarrollo en el pie
+
+**Decisión:** la propietaria aprobó que el pie de la tienda muestre "Desarrollado por Cristian Ramirez" con su símbolo (`frontend/public/brand/cr_dev.svg`). Va en la franja inferior y enlaza a https://cristianramirez.up.railway.app en otra pestaña.
+
+---
+
 ## 2026-10-13 — Reportes de ventas y ganancia
 
 **Decisión:** la propietaria tiene reportes de ventas por período, productos más vendidos y márgenes, y puede exportar cada uno a CSV.

@@ -143,11 +143,27 @@ export function StoreFooter({ info }: { info: PublicStoreInfo | null }) {
           </div>
         )}
       </Container>
-      <Container className="mt-15.5 flex justify-between gap-4 border-t border-[#826b7f] py-5.25 text-xs text-[#e6d6e1] max-[600px]:mt-8.75 max-[600px]:flex-col">
+      <Container className="mt-15.5 flex items-center justify-between gap-4 border-t border-[#826b7f] py-5.25 text-xs text-[#e6d6e1] max-[600px]:mt-8.75 max-[600px]:flex-col max-[600px]:items-start">
         <span>
-          © {new Date().getFullYear()} {info?.storeName ?? 'Sky Beauty Maquillaje'}
+          © {new Date().getFullYear()} {info?.storeName ?? 'Sky Beauty Maquillaje'} · Colombia
         </span>
-        <span>Colombia</span>
+        {/* Crédito del desarrollo, aprobado por la propietaria. El símbolo (blanco con opacidades)
+            se usa como máscara: toma el color del texto y se aclara con él al pasar el cursor. El
+            nombre ya está en el texto, así que el símbolo es decorativo. El margen negativo da al
+            enlace el alto mínimo de toque sin agrandar la franja. */}
+        <a
+          href="https://cristianramirez.up.railway.app"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="-my-3 inline-flex min-h-11 items-center gap-2 transition-colors hover:text-white hover:underline"
+        >
+          Desarrollado por
+          <span
+            aria-hidden="true"
+            className="aspect-1154/1234 h-5 shrink-0 bg-current transition-colors mask-[url(/brand/cr_dev.svg)] mask-contain mask-center mask-no-repeat"
+          />
+          Cristian Ramirez
+        </a>
       </Container>
     </footer>
   );

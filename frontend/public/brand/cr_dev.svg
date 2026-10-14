@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="60 20 1154 1234" width="1154" height="1234">
+<title>Símbolo</title>
+
+<g id="marco">
+<path id="cara-A" fill="#FFFFFF" fill-opacity="0.42" d="M112.00 364.00 L631.50 62.00 L631.50 261.00 L286.00 461.00 Z"/>
+<path id="cara-B" fill="#FFFFFF" fill-opacity="0.42" d="M112.00 364.00 L286.00 461.00 L285.00 684.00 L111.00 788.00 Z"/>
+<path id="cara-C" fill="#FFFFFF" fill-opacity="0.42" d="M111.00 788.00 L285.00 684.00 L525.50 828.00 L524.00 1059.50 Z"/>
+<path id="cara-D" fill="#FFFFFF" fill-opacity="0.42" d="M632.50 176.00 L1090.50 442.00 L1091.00 670.50 L632.50 384.00 Z"/>
+</g>
+<g id="cinta">
+<path id="cara-E" fill="#FFFFFF" fill-opacity="1" d="M470.50 402.80 L969.00 701.80 L774.90 804.20 L470.50 614.60 Z"/>
+<path id="cara-F" fill="#FFFFFF" fill-opacity="0.78" d="M728.40 829.60 L969.00 697.50 L969.00 851.80 L866.40 910.80 Z"/>
+<path id="cara-G" fill="#FFFFFF" fill-opacity="1" d="M582.50 911.23 L728.40 829.60 L948.00 958.58 L948.00 1187.10 L582.50 951.20 Z"/>
+<path id="cara-H" fill="#FFFFFF" fill-opacity="1" d="M948.00 958.58 L1164.40 1085.20 L948.00 1210.70 Z"/>
+</g>
+</svg>
