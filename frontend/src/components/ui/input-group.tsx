@@ -40,7 +40,7 @@ function InputGroupButton({ className, ...props }: ComponentProps<typeof Button>
       variant="ghost"
       size="icon"
       className={cn(
-        'h-11.25 w-9 rounded-none text-[#a0929b] enabled:hover:translate-y-0 enabled:hover:bg-transparent enabled:hover:text-[#493a45]',
+        'h-11.25 w-9 rounded-none text-[#a0929b] not-disabled:hover:bg-transparent not-disabled:hover:text-[#493a45]',
         className,
       )}
       {...props}

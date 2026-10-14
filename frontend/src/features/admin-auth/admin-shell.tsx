@@ -75,7 +75,7 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
           <Button
             variant="ghost"
             size="icon"
-            className="absolute inset-y-0 right-6 h-auto w-auto min-h-0 p-0 text-ink enabled:hover:translate-y-0 enabled:hover:bg-transparent min-[851px]:hidden"
+            className="absolute inset-y-0 right-6 h-auto w-auto min-h-0 p-0 text-ink not-disabled:hover:bg-transparent min-[851px]:hidden"
             aria-label="Cerrar navegación"
             onClick={() => setMobileOpen(false)}
           >
@@ -122,7 +122,7 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
             variant="ghost"
             className={cn(
               sideButton,
-              'min-h-0 justify-start rounded-none font-normal tracking-normal enabled:hover:translate-y-0',
+              'min-h-0 justify-start rounded-none font-normal tracking-normal',
             )}
             onClick={logout}
             disabled={loggingOut}
@@ -144,7 +144,7 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
           <Button
             variant="ghost"
             size="icon"
-            className="h-auto w-auto min-h-0 p-0 text-ink enabled:hover:translate-y-0 enabled:hover:bg-transparent min-[851px]:hidden"
+            className="h-auto w-auto min-h-0 p-0 text-ink not-disabled:hover:bg-transparent min-[851px]:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Abrir navegación"
           >

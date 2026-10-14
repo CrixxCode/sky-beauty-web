@@ -826,7 +826,7 @@ function VariantsTab({ product, role }: { product: Product; role: AdminRole }) {
               size="icon"
               onClick={() => setIsAdding(false)}
               aria-label="Cerrar formulario de variante"
-              className="h-7 w-7 text-[#917987] enabled:hover:translate-y-0 enabled:hover:text-[#493a45]"
+              className="h-7 w-7 text-[#917987] not-disabled:hover:text-[#493a45]"
             >
               <X size={15} />
             </Button>
@@ -857,7 +857,7 @@ function VariantsTab({ product, role }: { product: Product; role: AdminRole }) {
               size="icon"
               onClick={() => setEditingVariant(null)}
               aria-label="Cerrar edición de variante"
-              className="h-7 w-7 text-[#917987] enabled:hover:translate-y-0 enabled:hover:text-[#493a45]"
+              className="h-7 w-7 text-[#917987] not-disabled:hover:text-[#493a45]"
             >
               <X size={15} />
             </Button>

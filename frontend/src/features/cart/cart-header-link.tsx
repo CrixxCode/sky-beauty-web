@@ -2,10 +2,11 @@
 
 import { ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
+import { HeaderCount } from '@/components/layout/header-count';
 import { useCart } from './cart-context';
 
 export function CartHeaderLink() {
-  const { count } = useCart();
+  const { count, ready } = useCart();
   return (
     <Link
       href="/carrito"
@@ -13,11 +14,7 @@ export function CartHeaderLink() {
       aria-label={`Bolsa de compra, ${count} ${count === 1 ? 'producto' : 'productos'}`}
     >
       <ShoppingBag size={20} strokeWidth={1.7} />
-      {count > 0 && (
-        <span className="absolute right-0 top-0 grid h-5 min-w-5 place-items-center rounded-full bg-mauve-dark px-1 text-xs leading-none tabular-nums text-white">
-          {count > 99 ? '99+' : count}
-        </span>
-      )}
+      <HeaderCount count={count} ready={ready} />
     </Link>
   );
 }

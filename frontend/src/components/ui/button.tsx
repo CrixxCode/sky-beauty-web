@@ -4,20 +4,21 @@ import { Slot } from 'radix-ui';
 import { cn } from '@/lib/utils';
 
 // Replica .btn, .btn-primary, .btn-outline y .btn-light del prototipo (src/styles.css)
-// con la arquitectura y compatibilidad oficial de shadcn/ui.
+// con la arquitectura y compatibilidad oficial de shadcn/ui. A diferencia del prototipo, no se
+// levanta al pasar el cursor: se hunde al presionar, una respuesta que también se siente en celular.
 export const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 rounded-[3px] font-semibold tracking-[.015em] transition-[background,transform,border,color] duration-200 enabled:hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 select-none cursor-pointer',
+  'inline-flex items-center justify-center gap-2 rounded-[3px] font-semibold tracking-[.015em] transition-[background-color,border-color,color,scale] duration-150 ease-out-strong not-disabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 select-none cursor-pointer',
   {
     variants: {
       variant: {
-        primary: 'border border-mauve-dark bg-mauve-dark text-white enabled:hover:bg-mauve-deep',
-        default: 'border border-mauve-dark bg-mauve-dark text-white enabled:hover:bg-mauve-deep',
-        outline: 'border border-[#ac88a9] bg-transparent text-[#5d405b] enabled:hover:bg-[#faf1fa]',
+        primary: 'border border-mauve-dark bg-mauve-dark text-white not-disabled:hover:bg-mauve-deep',
+        default: 'border border-mauve-dark bg-mauve-dark text-white not-disabled:hover:bg-mauve-deep',
+        outline: 'border border-[#ac88a9] bg-transparent text-[#5d405b] not-disabled:hover:bg-[#faf1fa]',
         light: 'bg-[#fffaf7] text-[#56365c]',
-        secondary: 'bg-[#f4ebf4] text-[#764b77] enabled:hover:bg-[#ebd9eb]',
-        ghost: 'bg-transparent text-[#5d405b] enabled:hover:bg-[#faf1fa]',
-        destructive: 'border border-danger bg-danger text-white enabled:hover:bg-[#7e3445]',
-        link: 'h-auto min-h-0 p-0 text-[#764b77] underline-offset-4 enabled:hover:translate-y-0 enabled:hover:underline',
+        secondary: 'bg-[#f4ebf4] text-[#764b77] not-disabled:hover:bg-[#ebd9eb]',
+        ghost: 'bg-transparent text-[#5d405b] not-disabled:hover:bg-[#faf1fa]',
+        destructive: 'border border-danger bg-danger text-white not-disabled:hover:bg-[#7e3445]',
+        link: 'h-auto min-h-0 p-0 text-[#764b77] underline-offset-4 not-disabled:active:scale-100 not-disabled:hover:underline',
       },
       size: {
         md: 'min-h-11.25 px-6.25 py-3 text-xs',

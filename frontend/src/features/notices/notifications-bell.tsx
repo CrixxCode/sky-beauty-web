@@ -63,7 +63,7 @@ export function NotificationsBell() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-9.5 w-9.5 text-[#5d405b] enabled:hover:translate-y-0"
+          className="relative h-9.5 w-9.5 text-[#5d405b]"
           aria-label={unread > 0 ? `Notificaciones, ${unread} sin leer` : 'Notificaciones'}
         >
           <Bell size={19} strokeWidth={1.7} />
@@ -103,7 +103,7 @@ export function NotificationsBell() {
               variant="ghost"
               onClick={() => openNotification(notification)}
               className={cn(
-                'block h-auto min-h-0 w-full rounded-none border-b border-[#f6f2f5] px-4 py-3 text-left font-normal tracking-normal enabled:hover:translate-y-0',
+                'block h-auto min-h-0 w-full rounded-none border-b border-[#f6f2f5] px-4 py-3 text-left font-normal tracking-normal',
                 !notification.read && 'bg-[#fbf5fb]',
               )}
             >

@@ -88,6 +88,7 @@ export function ProductPhoto({
   priority = false,
   eager = false,
   size = 420,
+  onLoad,
 }: {
   src: string | null;
   alt: string;
@@ -98,6 +99,7 @@ export function ProductPhoto({
   eager?: boolean;
   /** Ancho y alto de referencia (las miniaturas son cuadradas de 420 px). */
   size?: number;
+  onLoad?: () => void;
 }) {
   if (!src) {
     return (
@@ -124,6 +126,7 @@ export function ProductPhoto({
       loading={priority || eager ? 'eager' : 'lazy'}
       fetchPriority={priority ? 'high' : undefined}
       decoding="async"
+      onLoad={onLoad}
       className={cn('h-full w-full object-cover', className)}
     />
   );
@@ -221,7 +224,7 @@ export function ProductCard({
             src={productCover(product)}
             alt=""
             eager={eager}
-            className="transition-transform duration-500 ease-out group-hover:scale-[1.045]"
+            className="transition-transform duration-500 ease-out-strong motion-safe:group-hover:scale-[1.045]"
           />
           <div className="absolute left-3.25 top-3.25 flex flex-col gap-1.25">
             {percent > 0 ? (

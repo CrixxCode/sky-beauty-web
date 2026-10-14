@@ -162,7 +162,7 @@ export function HeroCarousel({
                 onClick={() => api?.scrollTo(index)}
                 aria-label={`Ver diapositiva ${index + 1} de ${total}`}
                 aria-current={index === active ? 'true' : undefined}
-                className="h-10 w-7 min-h-0 rounded-none p-0 enabled:hover:translate-y-0 enabled:hover:bg-transparent"
+                className="h-10 w-7 min-h-0 rounded-none p-0 not-disabled:hover:bg-transparent"
               >
                 <span
                   className={cn(

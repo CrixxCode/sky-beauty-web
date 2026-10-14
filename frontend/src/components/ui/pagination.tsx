@@ -31,7 +31,7 @@ function PaginationLink({ className, isActive, ...props }: PaginationLinkProps) 
       aria-current={isActive ? 'page' : undefined}
       className={cn(
         buttonVariants({ variant: isActive ? 'outline' : 'ghost', size: 'icon' }),
-        'tabular-nums enabled:hover:translate-y-0',
+        'tabular-nums',
         className,
       )}
       {...props}

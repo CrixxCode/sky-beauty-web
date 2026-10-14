@@ -13,8 +13,11 @@ interface CartContextValue {
   count: number;
   /** false mientras no se ha leído el carrito guardado en el navegador. */
   ready: boolean;
-  /** Agrega unidades sin pasar de `max` (existencias y límite por pedido) en total. */
-  addItem: (variantId: string, quantity: number, max: number) => void;
+  /**
+   * Agrega unidades sin pasar de `max` (existencias y límite por pedido) en total. Devuelve
+   * `false` si no cupo ninguna unidad más.
+   */
+  addItem: (variantId: string, quantity: number, max: number) => boolean;
   updateItem: (variantId: string, quantity: number) => void;
   removeItem: (variantId: string) => void;
   /** Devuelve a la bolsa una línea quitada (deshacer), en su posición original. */
@@ -82,7 +85,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const next = Math.min(max, current + Math.max(1, quantity));
         if (next <= current) {
           toast.error('Ya tienes en tu bolsa el máximo disponible de este producto.');
-          return;
+          return false;
         }
         setItems((list) =>
           list.some((item) => item.variantId === variantId)
@@ -97,6 +100,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             : 'Producto agregado a tu bolsa.',
           { action: { label: 'Ver bolsa', onClick: () => router.push('/carrito') } },
         );
+        return true;
       },
       updateItem: (variantId, quantity) => {
         if (!Number.isInteger(quantity) || quantity < 1) return;

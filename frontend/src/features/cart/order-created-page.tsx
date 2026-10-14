@@ -69,7 +69,6 @@ export function OrderCreatedPage({ code }: { code: string }) {
           size="icon"
           onClick={() => void copyCode()}
           aria-label="Copiar el código del pedido"
-          className="enabled:hover:translate-y-0"
         >
           <Copy size={16} />
         </Button>

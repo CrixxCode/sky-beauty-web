@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const stepButton =
-  'h-full min-h-0 w-11 rounded-none p-0 text-[#6d5868] enabled:hover:translate-y-0 enabled:hover:bg-[#faf1fa] enabled:hover:text-[#5d405b]';
+  'h-full min-h-0 w-11 rounded-none p-0 text-[#6d5868] not-disabled:hover:bg-[#faf1fa] not-disabled:hover:text-[#5d405b]';
 
 /** Selector de cantidad (replica .quantity del prototipo). Nunca baja de 1 ni pasa de `max`. */
 export function QuantityStepper({

@@ -27,7 +27,7 @@ function issueMessage(item: CartQuoteItem): string | null {
 }
 
 const removeButton =
-  'min-h-11 gap-1.75 px-2 text-xs font-normal text-[#7e6073] enabled:hover:translate-y-0 enabled:hover:bg-[#faf1fa]';
+  'min-h-11 gap-1.75 px-2 text-xs font-normal text-[#7e6073] not-disabled:hover:bg-[#faf1fa]';
 
 export function CartPage() {
   const { items, ready, updateItem, removeItem, restoreItem } = useCart();

@@ -283,7 +283,7 @@ export function CategoryShowcase({
                     <ProductPhoto
                       src={photo}
                       alt=""
-                      className="transition-transform duration-500 ease-out group-hover:scale-105"
+                      className="transition-transform duration-500 ease-out-strong motion-safe:group-hover:scale-105"
                     />
                   ) : (
                     <span className="grid h-full place-items-center text-[#9a6c98]">
@@ -651,7 +651,7 @@ export function WhatsappFloat({ number }: { number: string }) {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chatear con la tienda en WhatsApp"
-      className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-40 inline-flex h-13 items-center gap-2.5 rounded-full bg-mauve-dark pl-4.5 pr-5.5 text-xs font-semibold text-white shadow-[0_10px_30px_rgb(59_36_46/0.28)] transition-[background,transform] duration-200 hover:-translate-y-0.5 hover:bg-mauve-deep max-[600px]:right-4 max-[600px]:h-12 max-[600px]:w-12 max-[600px]:justify-center max-[600px]:px-0"
+      className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-40 inline-flex h-13 items-center gap-2.5 rounded-full bg-mauve-dark pl-4.5 pr-5.5 text-xs font-semibold text-white shadow-[0_10px_30px_rgb(59_36_46/0.28)] transition-[background-color,translate,scale] duration-200 ease-out-strong hover:-translate-y-0.5 hover:bg-mauve-deep active:scale-[0.97] max-[600px]:right-4 max-[600px]:h-12 max-[600px]:w-12 max-[600px]:justify-center max-[600px]:px-0"
     >
       <MessageCircle size={21} aria-hidden="true" />
       <span className="max-[600px]:hidden">WhatsApp</span>

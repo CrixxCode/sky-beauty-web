@@ -21,7 +21,7 @@ function SheetContent({
       <SheetPrimitive.Overlay className="fixed inset-0 z-150 bg-[#3a2c36]/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
       <SheetPrimitive.Content
         className={cn(
-          'fixed inset-y-0 z-150 flex h-full outline-none w-[min(86vw,360px)] flex-col overflow-y-auto overscroll-contain bg-paper p-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-200 data-[state=open]:duration-300',
+          'fixed inset-y-0 z-150 flex h-full outline-none w-[min(86vw,360px)] flex-col overflow-y-auto overscroll-contain bg-paper p-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-xl ease-drawer data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-200 data-[state=open]:duration-300',
           side === 'left'
             ? 'left-0 data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left'
             : 'right-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right',

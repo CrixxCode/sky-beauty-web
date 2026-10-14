@@ -2,8 +2,11 @@
 
 import { Heart } from 'lucide-react';
 import Link from 'next/link';
+import { useRef } from 'react';
 import { toast } from 'sonner';
+import { HeaderCount } from '@/components/layout/header-count';
 import { Button } from '@/components/ui/button';
+import { EASE_OUT_STRONG, prefersReducedMotion } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { MAX_FAVORITES, useFavorites } from './favorites-context';
 
@@ -24,6 +27,7 @@ export function FavoriteButton({
 }) {
   const { isFavorite, toggle, ids } = useFavorites();
   const saved = isFavorite(productId);
+  const heart = useRef<SVGSVGElement>(null);
 
   function onClick() {
     if (!saved && ids.length >= MAX_FAVORITES) {
@@ -33,12 +37,33 @@ export function FavoriteButton({
       return;
     }
     const nowSaved = toggle(productId);
+    // Guardar es un momento de gusto: el corazón late una vez. Quitar solo cambia el relleno.
+    if (nowSaved && heart.current && !prefersReducedMotion()) {
+      heart.current.animate(
+        [
+          { transform: 'scale(0.85)' },
+          { transform: 'scale(1.18)', offset: 0.4 },
+          { transform: 'scale(1)' },
+        ],
+        { duration: 380, easing: EASE_OUT_STRONG },
+      );
+    }
     toast.success(nowSaved ? 'Guardado en tus favoritos.' : 'Quitado de tus favoritos.', {
       id: `favorito-${productId}`,
     });
   }
 
-  const icon = <Heart size={19} fill={saved ? 'currentColor' : 'none'} aria-hidden="true" />;
+  // El relleno se funde con fill-opacity: de `none` a un color no hay transición posible.
+  const icon = (
+    <Heart
+      ref={heart}
+      size={19}
+      fill="currentColor"
+      style={{ fillOpacity: saved ? 1 : 0 }}
+      className="origin-center transition-[fill-opacity] duration-200 ease-out-strong"
+      aria-hidden="true"
+    />
+  );
 
   if (variant === 'outline') {
     return (
@@ -62,7 +87,7 @@ export function FavoriteButton({
       aria-pressed={saved}
       aria-label={`Guardar ${productName} en favoritos`}
       className={cn(
-        'h-10 w-10 rounded-full bg-paper/93 text-[#6d5369] shadow-[0_2px_10px_rgb(59_36_46/0.08)] enabled:hover:bg-white',
+        'h-10 w-10 rounded-full bg-paper/93 text-[#6d5369] shadow-[0_2px_10px_rgb(59_36_46/0.08)] not-disabled:hover:bg-white',
         saved && 'text-[#a15f85]',
         className,
       )}
@@ -83,11 +108,7 @@ export function FavoritesHeaderLink() {
       aria-label={`Favoritos, ${count} ${count === 1 ? 'producto' : 'productos'}`}
     >
       <Heart size={20} strokeWidth={1.7} />
-      {count > 0 && (
-        <span className="absolute right-0 top-0 grid h-5 min-w-5 place-items-center rounded-full bg-mauve-dark px-1 text-xs leading-none tabular-nums text-white">
-          {count > 99 ? '99+' : count}
-        </span>
-      )}
+      <HeaderCount count={count} ready={ready} />
     </Link>
   );
 }

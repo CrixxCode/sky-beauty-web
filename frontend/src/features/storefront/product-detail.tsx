@@ -29,6 +29,42 @@ function variantRegularPrice(product: PublicProduct, variant: PublicVariant | nu
   return variant?.regularPrice ?? product.regularPriceFrom;
 }
 
+/**
+ * Foto principal del detalle. Al cambiar de foto (miniatura o variante), la nueva se funde sobre
+ * la anterior cuando termina de cargar, con un leve desenfoque que une los dos estados en lugar de
+ * mostrar dos fotos superpuestas. La primera foto de la página aparece sin animación.
+ */
+function GalleryPhoto({ src, alt }: { src: string | null; alt: string }) {
+  const [layers, setLayers] = useState({ under: null as string | null, top: src, loaded: true });
+  if (layers.top !== src) {
+    // Si la de encima no alcanzó a cargar, la de abajo sigue siendo la última foto visible.
+    setLayers({ under: layers.loaded ? layers.top : layers.under, top: src, loaded: false });
+  }
+
+  if (!src) return <ProductPhoto src={null} alt={alt} />;
+  return (
+    <>
+      {layers.under && (
+        <ProductPhoto src={layers.under} alt="" size={1600} className="absolute inset-0" />
+      )}
+      <ProductPhoto
+        key={src}
+        src={src}
+        alt={alt}
+        priority
+        size={1600}
+        onLoad={() =>
+          setLayers((current) => (current.top === src ? { ...current, loaded: true } : current))
+        }
+        className={cn(
+          'absolute inset-0 transition-[opacity,filter] duration-300 ease-out-strong',
+          !layers.loaded && 'opacity-0 blur-[2px]',
+        )}
+      />
+    </>
+  );
+}
+
 export function ProductDetail({
   product,
   brand,
@@ -89,11 +125,9 @@ export function ProductDetail({
       <div className="grid grid-cols-[51%_1fr] gap-18.75 max-[850px]:gap-10 max-[600px]:grid-cols-1 max-[600px]:gap-5">
         <div>
           <div className="relative h-147.5 bg-[#f6f1f3] max-[850px]:h-127.5 max-[600px]:h-102.5">
-            <ProductPhoto
+            <GalleryPhoto
               src={activeImage?.url ?? activeImage?.thumbnailUrl ?? null}
               alt={activeImage?.alt || product.name}
-              priority
-              size={1600}
             />
             {/* "Agotado" ya se indica junto al nombre; aquí solo el descuento. */}
             {percent > 0 && (
@@ -111,7 +145,7 @@ export function ProductDetail({
                   size="icon"
                   onClick={() => setActiveIndex(index)}
                   className={cn(
-                    'h-20.75 w-20.75 shrink-0 rounded-none border-2 border-transparent bg-[#f7f2f5] p-0 enabled:hover:translate-y-0 max-[600px]:h-17 max-[600px]:w-17',
+                    'h-20.75 w-20.75 shrink-0 rounded-none border-2 border-transparent bg-[#f7f2f5] p-0 max-[600px]:h-17 max-[600px]:w-17',
                     activeIndex === index && 'border-[#9b6a98]',
                   )}
                   aria-label={`Ver imagen ${index + 1} de ${gallery.length}`}
@@ -170,7 +204,7 @@ export function ProductDetail({
                       setActiveIndex(0);
                     }}
                     className={cn(
-                      'rounded-none border-[#ddd1dc] bg-white px-3 font-normal text-[#493a45] enabled:hover:translate-y-0',
+                      'rounded-none border-[#ddd1dc] bg-white px-3 font-normal text-[#493a45]',
                       selectedVariant?.id === variant.id && 'border-[#765276] bg-[#f5edf4]',
                       variant.stock <= 0 && 'text-[#70666c]',
                     )}
