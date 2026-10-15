@@ -1152,6 +1152,13 @@ export class OrdersService {
     if (order.status === OrderStatus.SHIPPED || order.status === OrderStatus.DELIVERED) {
       throw new BadRequestException('No se puede cancelar un pedido despachado o entregado.');
     }
+    // Nunca debe quedar un pedido cancelado con el pago verificado: primero se registra la
+    // devolución y después se cancela (decisión del 2026-10-15, Q-05).
+    if (order.paymentStatus === PaymentStatus.PAID) {
+      throw new BadRequestException(
+        'Este pedido tiene el pago verificado. Registra primero la devolución del dinero y después cancélalo.',
+      );
+    }
     if (role !== AdminRole.ADMIN && !this.staffCanCancelRejected(order)) {
       throw new ForbiddenException(
         'El personal solo puede cancelar por pago no demostrado vencido.',

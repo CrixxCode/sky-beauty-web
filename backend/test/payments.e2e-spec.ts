@@ -159,6 +159,34 @@ describe('Pagos (integración)', () => {
     await staff.patch(`${ORDERS}/${id}/payment-received`).send({}).expect(400);
   });
 
+  it('un pedido con el pago verificado se cancela solo después de registrar la devolución', async () => {
+    const id = await confirmedOrder();
+    await staff.patch(`${ORDERS}/${id}/payment-received`).send({}).expect(200);
+    await owner.patch(`${ORDERS}/${id}/payment/verify`).send({}).expect(200);
+
+    const rejected = await owner
+      .patch(`${ORDERS}/${id}/cancel`)
+      .send({ reason: 'La clienta desistió' })
+      .expect(400);
+    expect((rejected.body as { message: string }).message).toBe(
+      'Este pedido tiene el pago verificado. Registra primero la devolución del dinero y después cancélalo.',
+    );
+    expect(await prisma.order.findUniqueOrThrow({ where: { id } })).toMatchObject({
+      status: 'CONFIRMED',
+      paymentStatus: 'PAID',
+    });
+
+    await owner
+      .patch(`${ORDERS}/${id}/payment/refund`)
+      .send({ amount: 25000, note: 'Devolución total por desistimiento' })
+      .expect(200);
+    await owner.patch(`${ORDERS}/${id}/cancel`).send({ reason: 'La clienta desistió' }).expect(200);
+    expect(await prisma.order.findUniqueOrThrow({ where: { id } })).toMatchObject({
+      status: 'CANCELLED',
+      paymentStatus: 'REFUNDED',
+    });
+  });
+
   describe('pago rechazado y plazo de aclaración', () => {
     it('al rechazar empieza el plazo; el personal cancela solo cuando vence', async () => {
       const id = await confirmedOrder();

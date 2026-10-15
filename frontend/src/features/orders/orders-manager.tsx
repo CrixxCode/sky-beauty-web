@@ -784,7 +784,13 @@ function OrderDetail({
               Pedido cancelado{order.cancelReason ? `: ${order.cancelReason}` : '.'}
             </p>
           )}
-          {canCancel && (
+          {canCancel && order.paymentStatus === 'PAID' && (
+            <p className="mt-4 border-t border-[#f0ecf0] pt-4 text-[11px] text-[#5f5660]">
+              Este pedido tiene el pago verificado. Para cancelarlo, registra primero la devolución
+              del dinero en «Gestión de pago»; después podrás cancelarlo aquí.
+            </p>
+          )}
+          {canCancel && order.paymentStatus !== 'PAID' && (
             <div className="mt-4 border-t border-[#f0ecf0] pt-4">
               <FormField id="order-cancel-reason" label="Motivo de la cancelación">
                 <Textarea
