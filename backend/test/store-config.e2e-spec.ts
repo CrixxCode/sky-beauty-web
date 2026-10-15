@@ -108,6 +108,34 @@ describe('Configuración de la tienda (integración)', () => {
     });
   });
 
+  describe('tarifas de envío por municipio', () => {
+    it('la propietaria crea, actualiza y borra una tarifa; borrar responde 204 sin cuerpo', async () => {
+      const owner = await loginAgent(app, 'duena@ejemplo.test');
+      const rates = `${SETTINGS}/shipping-rates`;
+      const created = await owner
+        .post(rates)
+        .send({ municipalityCode: '05266', amount: 7000 })
+        .expect(201);
+      await owner.post(rates).send({ municipalityCode: '05266', amount: 7500 }).expect(201);
+      const list = (await owner.get(rates).expect(200)).body as Array<{
+        id: string;
+        municipalityCode: string;
+        amount: number;
+      }>;
+      expect(list.filter((rate) => rate.municipalityCode === '05266')).toEqual([
+        expect.objectContaining({ amount: 7500 }),
+      ]);
+
+      const removed = await owner
+        .delete(`${rates}/${(created.body as { id: string }).id}`)
+        .expect(204);
+      expect(removed.text).toBe('');
+      await owner.delete(`${rates}/${(created.body as { id: string }).id}`).expect(404);
+      // Un identificador malformado se rechaza sin llegar a la base de datos.
+      await owner.delete(`${rates}/abc`).expect(400);
+    });
+  });
+
   describe('métodos de pago', () => {
     it('el personal los consulta pero no los modifica', async () => {
       const staff = await loginAgent(app, 'personal@ejemplo.test');

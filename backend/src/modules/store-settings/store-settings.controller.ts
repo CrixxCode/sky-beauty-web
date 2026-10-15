@@ -1,5 +1,15 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
-import { ApiCookieAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+} from '@nestjs/common';
+import { ApiCookieAuth, ApiNoContentResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { AdminRole } from '../../generated/prisma/client';
 import { Public, Roles } from '../auth/auth.decorators';
 import { SESSION_COOKIE } from '../auth/auth.types';
@@ -48,7 +58,9 @@ export class StoreSettingsAdminController {
 
   @Delete('shipping-rates/:id')
   @Roles(AdminRole.ADMIN)
-  deleteShippingRate(@Param('id') id: string): Promise<void> {
+  @HttpCode(204)
+  @ApiNoContentResponse()
+  deleteShippingRate(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.settings.deleteShippingRate(id);
   }
 }
