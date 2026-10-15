@@ -13,6 +13,14 @@ if (!testDatabaseUrl) {
 if (testDatabaseUrl === process.env.DATABASE_URL) {
   throw new Error('TEST_DATABASE_URL no puede ser igual a DATABASE_URL.');
 }
+// Las suites vacían la base: solo se aceptan bases cuyo nombre termina en "_test", aunque la URL
+// esté escrita distinto a DATABASE_URL (otro host o parámetros) o apunte a otra base real.
+const testDatabaseName = decodeURIComponent(new URL(testDatabaseUrl).pathname.replace(/^\//, ''));
+if (!testDatabaseName.endsWith('_test')) {
+  throw new Error(
+    `TEST_DATABASE_URL debe apuntar a una base cuyo nombre termine en "_test" (es "${testDatabaseName}").`,
+  );
+}
 
 process.env.DATABASE_URL = testDatabaseUrl;
 process.env.NODE_ENV = 'test';
