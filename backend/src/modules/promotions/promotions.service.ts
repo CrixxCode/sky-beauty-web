@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DiscountType, Prisma, PromotionScope } from '../../generated/prisma/client';
+import { DiscountType, Prisma, ProductStatus, PromotionScope } from '../../generated/prisma/client';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { StoreSettingsService } from '../store-settings/store-settings.service';
 import type {
@@ -26,6 +26,17 @@ type PromotionWithTargets = Prisma.PromotionGetPayload<{
 }>;
 
 type PromotionRevisionRecord = Prisma.PromotionRevisionGetPayload<Record<string, never>>;
+
+const copFormatter = new Intl.NumberFormat('es-CO', {
+  style: 'currency',
+  currency: 'COP',
+  maximumFractionDigits: 0,
+});
+
+/** Importe en pesos colombianos, p. ej. "$ 15.000". */
+function cop(value: number): string {
+  return copFormatter.format(value);
+}
 
 function uniqueIds(ids: string[] | undefined): string[] {
   return [...new Set(ids ?? [])];
@@ -238,9 +249,13 @@ export class PromotionsService {
     }
 
     if (dto.discountType === DiscountType.PERCENTAGE) {
+      // Un 100 % dejaría el precio final en 0, que no se permite (decisión del 2026-10-15).
+      if (dto.discountValue >= 100) {
+        throw new BadRequestException('El descuento porcentual debe ser menor que 100%.');
+      }
       const settings = await this.settings.get();
-      const max = settings.maxPercentageDiscount ?? 100;
-      if (dto.discountValue > max) {
+      const max = settings.maxPercentageDiscount;
+      if (max !== null && dto.discountValue > max) {
         throw new BadRequestException(`El descuento porcentual no puede superar ${max}%.`);
       }
     }
@@ -252,6 +267,47 @@ export class PromotionsService {
     }
 
     await this.validateTargets(targets);
+
+    if (dto.discountType === DiscountType.FIXED_AMOUNT) {
+      await this.ensureFixedDiscountLeavesPrice(dto.discountValue, targets);
+    }
+  }
+
+  /**
+   * Un descuento fijo no puede dejar en 0 o menos el precio de ningún destino (decisión del
+   * 2026-10-15). Se comparan los precios actuales de las variantes de productos no archivados;
+   * si un precio baja después, el motor de precios deja de aplicar la promoción a esa variante.
+   */
+  private async ensureFixedDiscountLeavesPrice(
+    discount: number,
+    targets: ReturnType<typeof targetIds>,
+  ): Promise<void> {
+    const variants = await this.prisma.productVariant.findMany({
+      where: {
+        product: { status: { not: ProductStatus.ARCHIVED } },
+        OR: [
+          { id: { in: targets.variantIds } },
+          { productId: { in: targets.productIds } },
+          { product: { categoryId: { in: targets.categoryIds } } },
+          { product: { category: { parentId: { in: targets.categoryIds } } } },
+        ],
+      },
+      select: { name: true, price: true, product: { select: { name: true, basePrice: true } } },
+    });
+
+    const cheapest = variants
+      .map((variant) => ({
+        label: `${variant.product.name} - ${variant.name}`,
+        price: (variant.price ?? variant.product.basePrice).toNumber(),
+      }))
+      .sort((a, b) => a.price - b.price)[0];
+
+    if (cheapest && discount >= cheapest.price) {
+      throw new BadRequestException(
+        `El descuento de ${cop(discount)} dejaría en 0 el precio de "${cheapest.label}" ` +
+          `(${cop(cheapest.price)}). Usa un descuento menor que el precio más bajo de sus destinos.`,
+      );
+    }
   }
 
   private async validateTargets(targets: ReturnType<typeof targetIds>): Promise<void> {

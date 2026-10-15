@@ -197,15 +197,18 @@ describe('Promociones y precios (integración)', () => {
         .expect(400);
     });
 
-    it('sin límite configurado solo aplica el tope técnico del 100 %', async () => {
-      await owner
+    it('sin límite configurado un porcentaje no puede llegar al 100 % (sin precio final 0)', async () => {
+      const rejected = await owner
         .post(PROMOTIONS)
         .send(body({ discountValue: 100 }))
-        .expect(201);
+        .expect(400);
+      expect((rejected.body as { message: string }).message).toBe(
+        'El descuento porcentual debe ser menor que 100%.',
+      );
       await owner
         .post(PROMOTIONS)
-        .send(body({ discountValue: 100.5 }))
-        .expect(400);
+        .send(body({ discountValue: 99.99 }))
+        .expect(201);
     });
 
     it('valida fechas, destinos y valores', async () => {
@@ -352,6 +355,76 @@ describe('Promociones y precios (integración)', () => {
       const product = await storeProduct();
       expect(product.hasDiscount).toBe(false);
       expect(product.finalPriceFrom).toBe(10000);
+    });
+  });
+
+  describe('sin precio final de 0 COP (decisión del 2026-10-15)', () => {
+    it('rechaza precios en 0 en el producto y en la variante', async () => {
+      await owner.patch(`/api/v1/admin/products/${productId}`).send({ basePrice: 0 }).expect(400);
+      await owner
+        .post(`/api/v1/admin/products/${productId}/variants`)
+        .send({ sku: 'PROMO-TEST-CERO', name: 'Cero', price: 0 })
+        .expect(400);
+      await owner
+        .patch(`/api/v1/admin/products/${productId}/variants/${variantId}`)
+        .send({ price: 0 })
+        .expect(400);
+    });
+
+    it('rechaza un descuento fijo que deje algún destino en 0 o menos', async () => {
+      await owner
+        .patch(`/api/v1/admin/products/${productId}/variants/${otherVariantId}`)
+        .send({ price: 6000 })
+        .expect(200);
+
+      for (const value of [6000, 9000]) {
+        const rejected = await owner
+          .post(PROMOTIONS)
+          .send(body({ discountType: 'FIXED_AMOUNT', discountValue: value }))
+          .expect(400);
+        expect((rejected.body as { message: string }).message).toContain(
+          '"Producto Promo Test - PROMO-TEST-2"',
+        );
+      }
+      // También por la categoría principal, que alcanza a la subcategoría del producto.
+      await owner
+        .post(PROMOTIONS)
+        .send(
+          body({
+            scope: 'CATEGORY',
+            productIds: [],
+            categoryIds: [parentId],
+            discountType: 'FIXED_AMOUNT',
+            discountValue: 6000,
+          }),
+        )
+        .expect(400);
+
+      await owner
+        .post(PROMOTIONS)
+        .send(body({ discountType: 'FIXED_AMOUNT', discountValue: 5999 }))
+        .expect(201);
+    });
+
+    it('si el precio baja después, el descuento fijo deja de aplicarse a esa variante', async () => {
+      await createPromotion({
+        name: 'Fija 6.000',
+        discountType: 'FIXED_AMOUNT',
+        discountValue: 6000,
+      });
+      await owner
+        .patch(`/api/v1/admin/products/${productId}/variants/${otherVariantId}`)
+        .send({ price: 5000 })
+        .expect(200);
+
+      const product = await storeProduct();
+      const byId = new Map(product.variants.map((v) => [v.id, v]));
+      expect(byId.get(variantId)).toMatchObject({ finalPrice: 4000, promotionName: 'Fija 6.000' });
+      expect(byId.get(otherVariantId)).toMatchObject({
+        finalPrice: 5000,
+        discountAmount: 0,
+        promotionName: null,
+      });
     });
   });
 

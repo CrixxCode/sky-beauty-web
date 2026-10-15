@@ -43,10 +43,16 @@ export interface VariantPricingContext {
   regularPrice: number;
 }
 
-/** Descuento por unidad en COP, redondeado al peso y nunca mayor que el precio. */
+/**
+ * Descuento por unidad en COP, redondeado al peso. Nunca deja el precio final en 0
+ * (decisión del 2026-10-15): si la promoción lo dejaría en 0 o menos, no aplica (devuelve 0),
+ * por ejemplo un descuento fijo que supera un precio que bajó después; si es el redondeo el que
+ * lo dejaría en 0, el descuento se limita para que el precio final quede en 1 COP.
+ */
 export function calculateDiscount(regularPrice: number, type: DiscountType, value: number): number {
   const discount = type === DiscountType.PERCENTAGE ? regularPrice * (value / 100) : value;
-  return Math.min(regularPrice, Math.max(0, Math.round(discount)));
+  if (discount <= 0 || discount >= regularPrice) return 0;
+  return Math.max(0, Math.min(regularPrice - 1, Math.round(discount)));
 }
 
 function appliesTo(promotion: PromotionSnapshot, variant: VariantPricingContext): boolean {

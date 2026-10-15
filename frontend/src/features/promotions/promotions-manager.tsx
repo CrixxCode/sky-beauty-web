@@ -106,6 +106,9 @@ function validateForm(form: FormState): string | null {
   if (!form.name.trim()) return 'Escribe un nombre para la promoción.';
   if (!form.discountValue || Number(form.discountValue) <= 0)
     return 'Indica un descuento mayor a cero.';
+  // Un 100 % dejaría el precio final en 0, que no se permite (decisión del 2026-10-15).
+  if (form.discountType === 'PERCENTAGE' && Number(form.discountValue) >= 100)
+    return 'El descuento porcentual debe ser menor que 100%.';
   if (!form.startsAt || !form.endsAt) return 'Indica fecha de inicio y fecha de fin.';
   if (new Date(form.startsAt) >= new Date(form.endsAt)) {
     return 'La fecha de inicio debe ser anterior a la fecha de fin.';

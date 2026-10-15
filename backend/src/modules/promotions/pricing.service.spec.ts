@@ -67,10 +67,17 @@ describe('calculateDiscount', () => {
     expect(calculateDiscount(10000, DiscountType.FIXED_AMOUNT, 2500)).toBe(2500);
   });
 
-  it('nunca descuenta más que el precio ni un valor negativo', () => {
-    expect(calculateDiscount(10000, DiscountType.FIXED_AMOUNT, 15000)).toBe(10000);
-    expect(calculateDiscount(10000, DiscountType.PERCENTAGE, 100)).toBe(10000);
+  it('no aplica si el descuento dejaría el precio en 0 o menos, ni con valores negativos', () => {
+    expect(calculateDiscount(10000, DiscountType.FIXED_AMOUNT, 15000)).toBe(0);
+    expect(calculateDiscount(10000, DiscountType.FIXED_AMOUNT, 10000)).toBe(0);
+    expect(calculateDiscount(10000, DiscountType.PERCENTAGE, 100)).toBe(0);
     expect(calculateDiscount(10000, DiscountType.FIXED_AMOUNT, -5)).toBe(0);
+  });
+
+  it('el redondeo nunca deja el precio final por debajo de 1 COP', () => {
+    expect(calculateDiscount(1, DiscountType.PERCENTAGE, 50)).toBe(0); // 0,5 → no alcanza
+    expect(calculateDiscount(3, DiscountType.PERCENTAGE, 90)).toBe(2); // 2,7 → 3 dejaría 0
+    expect(calculateDiscount(10000, DiscountType.FIXED_AMOUNT, 9999)).toBe(9999);
   });
 });
 
@@ -223,10 +230,23 @@ describe('priceWithPromotions', () => {
   });
 
   describe('límites del precio', () => {
-    it('un descuento fijo mayor que el precio deja el precio final en 0, nunca negativo', () => {
-      const result = priceWithPromotions(variant({ regularPrice: 3000 }), [fixed(5000)], AT);
-      expect(result.discountAmount).toBe(3000);
-      expect(result.finalPrice).toBe(0);
+    it('un descuento fijo igual o mayor que el precio no se aplica (sin precio final 0)', () => {
+      for (const amount of [3000, 5000]) {
+        const result = priceWithPromotions(variant({ regularPrice: 3000 }), [fixed(amount)], AT);
+        expect(result).toMatchObject({
+          discountAmount: 0,
+          finalPrice: 3000,
+          appliedPromotion: null,
+        });
+      }
+    });
+
+    it('si una promoción no aplica por dejar el precio en 0, puede ganar otra menor', () => {
+      const big = fixed(5000);
+      const small = pct(10);
+      const result = priceWithPromotions(variant({ regularPrice: 3000 }), [big, small], AT);
+      expect(result.appliedPromotion?.promotionId).toBe(small.promotionId);
+      expect(result.finalPrice).toBe(2700);
     });
 
     it('una promoción que no alcanza a descontar un peso no se muestra como aplicada', () => {

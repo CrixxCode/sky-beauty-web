@@ -14,9 +14,15 @@ describe('esquemas de validación de catálogo', () => {
     });
 
     it('valida formato del slug si se proporciona', () => {
-      expect(createBrandSchema.safeParse({ name: 'Vogue', slug: 'vogue-cosmetics' }).success).toBe(true);
-      expect(createBrandSchema.safeParse({ name: 'Vogue', slug: 'VOGUE COSMETICS' }).success).toBe(false);
-      expect(createBrandSchema.safeParse({ name: 'Vogue', slug: 'vogue_cosmetics' }).success).toBe(false);
+      expect(createBrandSchema.safeParse({ name: 'Vogue', slug: 'vogue-cosmetics' }).success).toBe(
+        true,
+      );
+      expect(createBrandSchema.safeParse({ name: 'Vogue', slug: 'VOGUE COSMETICS' }).success).toBe(
+        false,
+      );
+      expect(createBrandSchema.safeParse({ name: 'Vogue', slug: 'vogue_cosmetics' }).success).toBe(
+        false,
+      );
     });
   });
 
@@ -86,6 +92,19 @@ describe('esquemas de validación de catálogo', () => {
         }).success,
       ).toBe(false);
     });
+
+    it('rechaza el precio base en 0 (sin precio final 0, decisión del 2026-10-15)', () => {
+      const result = createProductSchema.safeParse({
+        name: 'Labial Mate',
+        brandId: validUuid,
+        categoryId: validUuid,
+        basePrice: '0',
+        description: 'Fórmula',
+        isFeatured: false,
+      });
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]?.message).toBe('Ingresa un precio base mayor que 0.');
+    });
   });
 
   describe('createVariantSchema', () => {
@@ -114,6 +133,18 @@ describe('esquemas de validación de catálogo', () => {
         }).success,
       ).toBe(false);
     });
+
+    it('rechaza el precio propio en 0 y acepta dejarlo vacío', () => {
+      const variant = {
+        sku: 'MAYB-01',
+        name: '15 Lover',
+        colorHex: '',
+        costPrice: '',
+        maxPerOrder: '',
+        lowStockThreshold: '',
+      };
+      expect(createVariantSchema.safeParse({ ...variant, price: '0' }).success).toBe(false);
+      expect(createVariantSchema.safeParse({ ...variant, price: '' }).success).toBe(true);
+    });
   });
 });
-

@@ -8,6 +8,7 @@ import {
   IsInt,
   IsNumber,
   IsOptional,
+  IsPositive,
   IsString,
   IsUUID,
   Matches,
@@ -60,9 +61,9 @@ export class CreateProductDto {
   @IsUUID()
   categoryId!: string;
 
-  @ApiProperty({ minimum: 0, description: 'Precio base en COP.' })
+  @ApiProperty({ minimum: 0, exclusiveMinimum: true, description: 'Precio base en COP.' })
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @IsPositive({ message: 'El precio debe ser mayor que 0.' })
   basePrice!: number;
 
   @ApiPropertyOptional({ default: false })
@@ -114,10 +115,10 @@ export class UpdateProductDto {
   @IsUUID()
   categoryId?: string;
 
-  @ApiPropertyOptional({ minimum: 0 })
+  @ApiPropertyOptional({ minimum: 0, exclusiveMinimum: true })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @IsPositive({ message: 'El precio debe ser mayor que 0.' })
   basePrice?: number;
 
   @ApiPropertyOptional()
@@ -178,12 +179,13 @@ export class CreateVariantDto {
 
   @ApiPropertyOptional({
     minimum: 0,
+    exclusiveMinimum: true,
     description: 'Precio propio de la variante en COP. null = usa el basePrice del producto.',
     nullable: true,
   })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @IsPositive({ message: 'El precio debe ser mayor que 0.' })
   price?: number | null;
 
   @ApiPropertyOptional({
@@ -228,10 +230,10 @@ export class UpdateVariantDto {
   @Matches(/^#[0-9A-Fa-f]{6}$/, { message: 'colorHex debe tener formato #RRGGBB.' })
   colorHex?: string | null;
 
-  @ApiPropertyOptional({ minimum: 0, nullable: true })
+  @ApiPropertyOptional({ minimum: 0, exclusiveMinimum: true, nullable: true })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @IsPositive({ message: 'El precio debe ser mayor que 0.' })
   price?: number | null;
 
   @ApiPropertyOptional({ minimum: 0, nullable: true, description: 'Solo ADMIN.' })
