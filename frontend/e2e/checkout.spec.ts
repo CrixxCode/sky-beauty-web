@@ -82,7 +82,7 @@ test('un cliente compra sin cuenta, las existencias quedan reservadas y WhatsApp
   const submit = page.getByRole('button', { name: 'Crear pedido' });
   await page.getByRole('checkbox', { name: 'Acepto los términos y condiciones.' }).click();
   await submit.click();
-  await expect(page.getByText('Debes marcar las dos casillas obligatorias.')).toBeVisible();
+  await expect(page.getByText('Debes autorizar el tratamiento de tus datos para continuar.')).toBeVisible();
   await page
     .getByRole('checkbox', { name: /Autorizo el tratamiento de mis datos personales/ })
     .click();

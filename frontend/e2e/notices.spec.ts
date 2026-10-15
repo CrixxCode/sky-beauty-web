@@ -69,7 +69,7 @@ test('aviso antes de cancelar, cancelación automática, bandeja de avisos y not
   advanceOrder(order.code, 47.5);
 
   await page.goto(`/seguimiento/${order.publicToken}`);
-  await expect(page.getByRole('alert').filter({ hasText: 'se cancelará el' })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'se cancelará el' })).toBeVisible();
 
   // El personal recibe la notificación y envía el aviso desde la bandeja.
   await login(page, staff.email, staff.password);

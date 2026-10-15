@@ -10,7 +10,7 @@ const PIXEL_PNG = Buffer.from(
 
 /** Busca en la tienda con el buscador visible (el del encabezado cambia entre celular y escritorio). */
 async function searchStore(page: Page, text: string) {
-  const input = page.getByRole('textbox', { name: 'Buscar productos' }).locator('visible=true').first();
+  const input = page.getByRole('searchbox', { name: 'Buscar productos' }).locator('visible=true').first();
   await input.fill(text);
   await input.press('Enter');
 }
@@ -84,6 +84,9 @@ test('la propietaria publica un producto con variante y foto, y el cliente lo en
 
   // ...por marca...
   await page.goto('/productos');
+  // En celular los filtros están en el panel "Filtros".
+  const filters = page.getByRole('button', { name: 'Filtros' });
+  if (await filters.isVisible()) await filters.click();
   await page.getByRole('link', { name: brand, exact: true }).locator('visible=true').first().click();
   await expect(page.getByRole('heading', { name: product })).toBeVisible();
 
@@ -94,7 +97,7 @@ test('la propietaria publica un producto con variante y foto, y el cliente lo en
   await expect(page.getByText('1 producto encontrado')).toBeVisible();
 
   // Detalle: variante, foto y "Agotado" (aún no tiene existencias).
-  await page.getByRole('heading', { name: product }).click();
+  await page.getByRole('link', { name: product, exact: true }).first().click();
   await expect(page.getByRole('heading', { name: product, level: 1 })).toBeVisible();
   await expect(page.getByRole('button', { name: /Tono Ficticio/ })).toBeVisible();
   const photo = page.getByRole('img', { name: product }).first();

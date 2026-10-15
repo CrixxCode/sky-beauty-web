@@ -150,7 +150,7 @@ test('el personal crea una transportadora, despacha con guía y entrega; el clie
   await page.goto(`/seguimiento/${order.publicToken}`);
   await expect(page.getByText(guide)).toBeVisible();
   await expect(page.getByText(carrier)).toBeVisible();
-  await expect(page.getByRole('link', { name: /Abrir rastreo/ })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: /Rastrear en la transportadora/ })).toHaveAttribute(
     'href',
     `https://rastreo.ejemplo.test/${guide}`,
   );
