@@ -35,6 +35,19 @@ export async function captureAdmin() {
   const browser = await launch(DESKTOP);
   const state = await adminStorageState(browser);
   const ctx = await newContext(browser, DESKTOP, { storageState: state });
+  // Privacidad: en las tablas del panel solo se leen los clientes de prueba. Cualquier otro
+  // nombre (pedidos reales hechos durante el desarrollo) se difumina en la grabación.
+  await ctx.addInitScript(() => {
+    const TEST = /Demo|Ficticio|Prueba/i;
+    setInterval(() => {
+      for (const row of document.querySelectorAll('tbody tr')) {
+        const cell = row.cells?.[1];
+        if (cell && /^SB-/.test(row.cells[0]?.innerText ?? '') && !TEST.test(cell.innerText)) {
+          cell.setAttribute('data-vid-private', '');
+        }
+      }
+    }, 150);
+  });
   const rec = new Recorder(ctx, { name: 'admin', dir: path.join(ROOT, 'recordings') });
   const page = await rec.open('/admin');
   const nav = (name) => page.getByRole('link', { name, exact: true }).first();

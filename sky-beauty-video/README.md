@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Duración | ~2:53 (se recalcula si se vuelve a grabar) |
+| Duración | ~2:54 (se recalcula si se vuelve a grabar) |
 | Formato | MP4 · H.264 (High) · 1920×1080 · 16:9 · 30 fps · `yuv420p` |
 | Audio | AAC 192 kbps, 48 kHz, estéreo, normalizado a −16 LUFS |
 | Idioma | Español |
@@ -23,6 +23,7 @@ El guion completo, escena por escena, está en [`storyboard.md`](storyboard.md).
 8. **Panel administrativo:** acceso, resumen con pendientes y ventas de 30 días, pedidos (se confirma el pedido recién creado), productos con variantes, fotos e información, inventario con stock bajo, promociones y reportes.
 9. **Responsive:** la misma tienda en escritorio y en un celular de 390×844 (grabación real con pantalla táctil).
 10. **Cierre:** logotipo para fondo oscuro y "Belleza a un clic de distancia".
+11. **Crédito:** imagen "Desarrollado por Cristian Ramirez" (`frontend/public/brand/desarrollado-por-cristian-ramirez-morado.png`) a pantalla completa hasta el final.
 
 ## Lo que el video no muestra (y por qué)
 
@@ -44,7 +45,7 @@ Las secciones del panel que existen pero no entran en el video por tiempo: Aviso
 - **Lo que la grabación modifica, y cómo se revierte:**
   - Crea un pedido de prueba (cliente "Clienta Demo Video", teléfono 300 000 0099, "Calle Ficticia 12 # 34-56") y el panel lo confirma. Cada nueva grabación cancela el pedido de la grabación anterior (con motivo y liberando existencias). `npm run db:demo:clean` los borra junto con el resto de los datos de demostración.
   - Durante la grabación de la tienda, los productos que no son de demostración (hoy, "Prueba") se pausan y al final se reactivan; reactivar conserva su fecha de publicación. Se configura con `HIDE_SLUGS`.
-- **Privacidad:** una capa visual inyectada durante la captura difumina correos, números de 7 o más dígitos (por eso no se ven el número de Nequi y el titular configurados en las instrucciones de pago, ni teléfonos de clientes) y el enlace privado de seguimiento del panel. La barra de dirección del montaje oculta el token de seguimiento y abrevia los identificadores. Las credenciales del panel se leen de `backend/.env` y nunca se escriben en pantalla: la escena de acceso muestra el formulario vacío.
+- **Privacidad:** una capa visual inyectada durante la captura difumina correos, números de 7 o más dígitos (por eso no se ven el número de Nequi y el titular configurados en las instrucciones de pago, ni teléfonos de clientes) y el enlace privado de seguimiento del panel. En las tablas de pedidos del panel se difumina el nombre de cualquier cliente que no sea de prueba ("Demo", "Ficticio" o "Prueba"), por si hay pedidos reales hechos durante el desarrollo. La barra de dirección del montaje oculta el token de seguimiento y abrevia los identificadores. Las credenciales del panel se leen de `backend/.env` y nunca se escriben en pantalla: la escena de acceso muestra el formulario vacío.
 
 ## Audio
 
@@ -122,6 +123,5 @@ sky-beauty-video/
 ## Limitaciones conocidas
 
 - Algunos tramos están acelerados entre 1,05x y 2x (el checkout es el más rápido) para que el video dure menos de 3 minutos; las interacciones son las reales.
-- En esta versión del video, la lista de productos del panel muestra durante menos de un segundo el producto "Prueba" como "Inactivo", porque el panel se grabó mientras seguía pausado. `scripts/capture.mjs` ya lo reactiva antes de grabar el panel, así que la próxima grabación lo mostrará en su estado real.
 - Los productos son ilustraciones de demostración, no fotografías: las fotografías autorizadas siguen pendientes (`Context/decisiones.md`).
 - El dominio de la tienda no está decidido: la barra de la ventana muestra "Sky Beauty" y la ruta, sin dominio.

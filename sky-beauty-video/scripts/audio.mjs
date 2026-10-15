@@ -275,6 +275,7 @@ const fx = {
   },
   success(t0) { this.bell(t0, 88, 0.05, 1.6, 0.45); this.bell(t0 + 0.11, 95, 0.045, 1.8, 0.55); },
   logo(t0) { [84, 88, 91, 96].forEach((m, k) => this.bell(t0 + k * 0.16, m, 0.07, 2.6, 0.3 + k * 0.13)); this.whoosh(t0 + 0.2, 1.6, 0.6); },
+  credit(t0) { [84, 91].forEach((m, k) => this.bell(t0 + k * 0.14, m, 0.045, 2.8, 0.4 + k * 0.2)); },
   outro(t0) { [77, 81, 84, 88, 91].forEach((m, k) => this.bell(t0 + k * 0.09, m, 0.07, 3.5, 0.3 + k * 0.1)); },
 };
 

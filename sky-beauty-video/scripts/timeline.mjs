@@ -162,8 +162,12 @@ export function buildTimeline() {
 
   // ── 10 · Cierre ──────────────────────────────────────────────────────
   const OUTRO = T;
-  const DURATION = OUTRO + 7.2;
   sfx.push({ T: OUTRO + 1.1, kind: 'outro' });
+
+  // ── 11 · Crédito del desarrollo (imagen oficial a pantalla completa) ──
+  const CREDIT = OUTRO + 5.6; // entra cuando el logotipo y el lema ya se leyeron
+  const DURATION = CREDIT + 5.0;
+  sfx.push({ T: CREDIT + 0.7, kind: 'credit' });
 
   // Clics reales de las grabaciones → sonido de clic suave.
   for (const s of [...shots, ...phoneShots]) {
@@ -200,6 +204,7 @@ export function buildTimeline() {
     introOut: INTRO_OUT,
     responsive: { R0, R1 },
     outro: OUTRO,
+    credit: CREDIT,
     shots,
     phoneShots,
     captions,
@@ -225,5 +230,5 @@ if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) {
   console.log(`Duración: ${fmt(tl.duration)} (${tl.duration.toFixed(1)} s)`);
   for (const s of [...tl.shots, ...tl.phoneShots]) console.log(`  toma ${s.id.padEnd(9)} ${fmt(s.t0)} → ${fmt(s.t1)}`);
   for (const c of tl.captions) console.log(`  ${fmt(c.T0)}–${fmt(c.T1)}  ${c.title}`);
-  console.log(`  Responsive ${fmt(tl.responsive.R0)} · Cierre ${fmt(tl.outro)} · ${tl.sfx.length} sonidos`);
+  console.log(`  Responsive ${fmt(tl.responsive.R0)} · Cierre ${fmt(tl.outro)} · Crédito ${fmt(tl.credit)} · ${tl.sfx.length} sonidos`);
 }

@@ -80,6 +80,8 @@
   #ologo { width: 600px; left: 660px; top: 300px; }
   #otag { left: 0; right: 0; top: 690px; text-align: center; font-family: 'Playfair Display', serif; font-style: italic;
     font-size: 44px; color: #f5f1eb; }
+  /* Crédito del desarrollo: imagen oficial (16:9) a pantalla completa, sobre el cierre */
+  #credit { position: absolute; inset: 0; width: 1920px; height: 1080px; object-fit: cover; will-change: opacity, transform; }
   #orule { left: 930px; top: 662px; width: 60px; height: 1px; background: rgb(245 241 235 / .55); }
 </style>
 </head>
@@ -115,6 +117,8 @@
     <div id="orule" class="abs"></div>
     <div id="otag" class="abs">Belleza a un clic de distancia</div>
   </div>
+
+  <img id="credit" src="../assets/brand/desarrollado-por-cristian-ramirez-morado.png" alt="Desarrollado por Cristian Ramirez">
 </div>
 
 <script>
@@ -295,6 +299,12 @@ window.renderFrame = async function (T) {
   css($('ologo'), { opacity: olK, transform: `translateY(${((1 - olK) * 18).toFixed(2)}px) scale(${(0.96 + 0.04 * olK).toFixed(4)})`, filter: `blur(${((1 - olK) * 10).toFixed(2)}px)` });
   css($('orule'), { opacity: otK * 0.9, transform: `scaleX(${otK.toFixed(3)})` });
   css($('otag'), { opacity: otK, transform: `translateY(${((1 - otK) * 14).toFixed(2)}px)`, letterSpacing: `${(0.05 - otK * 0.04).toFixed(4)}em` });
+
+  // 11 · Crédito: primero sale el logotipo de la tienda, luego entra la imagen (sin mezclarse)
+  const leaveK = easeInOut(prog(T, TL.credit - 0.1, TL.credit + 0.6));
+  ['ologo', 'otag', 'orule'].forEach((id) => { $(id).style.opacity = parseFloat($(id).style.opacity || 1) * (1 - leaveK); });
+  const cK = easeInOut(prog(T, TL.credit + 0.5, TL.credit + 1.6));
+  css($('credit'), { display: cK > 0 ? 'block' : 'none', opacity: cK, transform: `scale(${(1.025 - 0.025 * easeOut(prog(T, TL.credit + 0.5, TL.credit + 2.7))).toFixed(4)})` });
 
   // Entrada y salida del video desde el color de fondo
   $('stage').style.opacity = 1;

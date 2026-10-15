@@ -9,6 +9,7 @@ Fuente: `Context/decisiones.md` (identidad visual confirmada) y los archivos ofi
 | Ícono oficial (SB) | `assets/brand/favicon.svg` | Primer elemento de la introducción |
 | Logotipo vertical | `assets/brand/vertical_logo.svg` | Introducción, sobre fondo claro |
 | Logotipo vertical para fondo oscuro | `assets/brand/logo_vertical_dark.svg` | Cierre, sobre fondo morado |
+| Crédito del desarrollo | `assets/brand/desarrollado-por-cristian-ramirez-morado.png` | Última escena, a pantalla completa (pedido por la persona usuaria el 2026-10-14) |
 | Interfaz real | Grabaciones de `recordings/` | Escenas 2 a 9 |
 
 Los logotipos se copian sin cambios (`assets/brand/` es una copia de `frontend/public/brand/`). En el video solo se animan su opacidad, escala y una máscara de aparición; no se recolorean ni se deforman.

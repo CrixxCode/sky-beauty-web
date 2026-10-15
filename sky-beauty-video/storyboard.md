@@ -1,6 +1,6 @@
 # Guion visual (storyboard)
 
-Construido sobre las pantallas reales. Los tiempos son los del render actual (2:53) y se recalculan solos desde las marcas de cada grabación (`scripts/timeline.mjs`). La velocidad indica cuánto se aceleró la grabación real en ese tramo.
+Construido sobre las pantallas reales. Los tiempos son los del render actual (2:54) y se recalculan solos desde las marcas de cada grabación (`scripts/timeline.mjs`). La velocidad indica cuánto se aceleró la grabación real en ese tramo.
 
 | # | Tiempo | Escena | Qué se ve (real) | Texto en pantalla | Cámara | Sonido |
 |---|---|---|---|---|---|---|
@@ -12,8 +12,9 @@ Construido sobre las pantallas reales. Los tiempos son los del render actual (2:
 | 6 | 1:15–1:41 | Checkout | Datos ficticios (Clienta Demo Video, 300 000 0099), La Guajira → Riohacha (envío de 5.000 calculado), Nequi (instrucciones difuminadas), dos casillas, "Crear pedido" → pedido registrado con botón de WhatsApp | "Compra de manera sencilla" · "El pedido continúa por WhatsApp" | 1,22x al formulario; 1,32x al pedido creado | Campanita al crear el pedido |
 | 7 | 1:41–1:47 | Seguimiento sin cuenta | Página privada de seguimiento: avance, pago, envío y productos | "Sigue tu pedido con un enlace privado" | 1,18x | — |
 | 8 | 1:47–2:31 | Panel | Pantalla de acceso (sin escribir credenciales) → Resumen → Pedidos: abre el pedido recién creado y lo confirma → Productos: busca "Labial", gestiona variantes, fotos e información → Inventario: filtro "Stock bajo" → Promociones: abre la edición → Reportes: "Más vendidos" | "Control total de tu negocio" · "Gestiona todos tus pedidos" · "Productos con variantes y fotos" · "Existencias por variante" · "Descuentos con fecha de inicio y fin" · "Ventas, más vendidos y márgenes" | 1,12x–1,2x a diálogos y tablas | Barridos en los cambios de sección |
-| 9 | 2:31–2:46 | Responsive | La ventana se encoge a la izquierda y entra un teléfono con la grabación real en 390×844: menú, categorías, destacados, detalle y "Agregar a la bolsa" | "Una experiencia para cada pantalla" | Fija | Toques suaves |
-| 10 | 2:46–2:53 | Cierre | El morado profundo de la marca se abre desde el centro; logotipo vertical para fondo oscuro y lema; termina con el logotipo centrado | "Belleza a un clic de distancia" | Fija | Acorde final y desvanecimiento |
+| 9 | 2:30–2:44 | Responsive | La ventana se encoge a la izquierda y entra un teléfono con la grabación real en 390×844: menú, categorías, destacados, detalle y "Agregar a la bolsa" | "Una experiencia para cada pantalla" | Fija | Toques suaves |
+| 10 | 2:44–2:49 | Cierre | El morado profundo de la marca se abre desde el centro; logotipo vertical para fondo oscuro y lema | "Belleza a un clic de distancia" | Fija | Acorde final |
+| 11 | 2:49–2:54 | Crédito | Sale el logotipo y entra, con un fundido y un acercamiento muy leve, la imagen "Desarrollado por Cristian Ramirez" a pantalla completa; queda hasta el último cuadro | (en la imagen) | Fija | Dos campanas suaves y desvanecimiento |
 
 ## Reglas de cámara aplicadas (Huashu Design, `ui-demo-animation.md`)
 
