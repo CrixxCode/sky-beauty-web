@@ -123,6 +123,15 @@ describe('Gestión de pedidos (integración)', () => {
     (await prisma.order.findUniqueOrThrow({ where: { id } })).status;
 
   describe('bandeja y detalle', () => {
+    it('rechaza con 400 filtros de estado o de pago inexistentes', async () => {
+      const status = await owner.get(`${ORDERS}?status=NO_EXISTE`).expect(400);
+      expect((status.body as { message: string[] }).message).toContain(
+        'El estado del pedido no es válido.',
+      );
+      await owner.get(`${ORDERS}?paymentStatus=NO_EXISTE`).expect(400);
+      await owner.get(`${ORDERS}?status=CONFIRMED&paymentStatus=PAID`).expect(200);
+    });
+
     it('lista con filtros por estado y búsqueda por código, cliente o teléfono', async () => {
       const a = await createOrder();
       await createOrder({ customerName: 'Otra Persona', customerPhone: '3109998877' });

@@ -275,12 +275,12 @@ export class ListOrdersQueryDto {
 
   @ApiPropertyOptional({ enum: OrderStatus })
   @IsOptional()
-  @IsString()
+  @IsEnum(OrderStatus, { message: 'El estado del pedido no es válido.' })
   status?: OrderStatus;
 
   @ApiPropertyOptional({ enum: PaymentStatus })
   @IsOptional()
-  @IsString()
+  @IsEnum(PaymentStatus, { message: 'El estado del pago no es válido.' })
   paymentStatus?: PaymentStatus;
 
   @ApiPropertyOptional({ description: 'Búsqueda por código, cliente o teléfono.' })

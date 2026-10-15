@@ -798,23 +798,40 @@ export class ProductsService {
     const absoluteImagePath = join(uploadsDir, storageKey);
     const absoluteThumbPath = join(uploadsDir, thumbnailKey);
 
-    const image = sharp(file.buffer).rotate();
-    const metadata = await image.metadata();
-    if (!metadata.width || !metadata.height) {
-      throw new BadRequestException('El archivo no parece ser una imagen válida.');
+    let imageInfo: sharp.OutputInfo;
+    try {
+      const image = sharp(file.buffer).rotate();
+      const metadata = await image.metadata();
+      if (!metadata.width || !metadata.height) {
+        throw new BadRequestException('El archivo no parece ser una imagen válida.');
+      }
+
+      imageInfo = await image
+        .clone()
+        .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 86 })
+        .toFile(absoluteImagePath);
+
+      await image
+        .clone()
+        .resize({ width: 420, height: 420, fit: 'cover' })
+        .webp({ quality: 78 })
+        .toFile(absoluteThumbPath);
+    } catch (error) {
+      // Un archivo dañado, que no es imagen o con dimensiones excesivas (por ejemplo, una
+      // "bomba de descompresión") es un error del archivo enviado, no del servidor.
+      await Promise.allSettled([
+        rm(absoluteImagePath, { force: true }),
+        rm(absoluteThumbPath, { force: true }),
+      ]);
+      if (error instanceof BadRequestException) throw error;
+      const message = error instanceof Error ? error.message : '';
+      throw new BadRequestException(
+        /pixel limit/i.test(message)
+          ? 'La imagen tiene dimensiones demasiado grandes. Usa una de menos de 16.000 píxeles por lado.'
+          : 'El archivo no parece ser una imagen válida.',
+      );
     }
-
-    const imageInfo = await image
-      .clone()
-      .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 86 })
-      .toFile(absoluteImagePath);
-
-    await image
-      .clone()
-      .resize({ width: 420, height: 420, fit: 'cover' })
-      .webp({ quality: 78 })
-      .toFile(absoluteThumbPath);
 
     const saved = await this.prisma.productImage.create({
       data: {

@@ -308,6 +308,48 @@ describe('Catálogo (integración)', () => {
     );
   });
 
+  it('rechaza con 400 un archivo que no es imagen o una imagen con dimensiones excesivas', async () => {
+    const { productId } = await createProduct('Foto Inválida Test', { status: 'DRAFT' });
+    const notImage = await owner
+      .post(`${ADMIN}/products/${productId}/images`)
+      .attach('file', Buffer.from('esto no es una imagen'), {
+        filename: 'falsa.png',
+        contentType: 'image/png',
+      })
+      .expect(400);
+    expect((notImage.body as { message: string }).message).toBe(
+      'El archivo no parece ser una imagen válida.',
+    );
+
+    // PNG de 20.000 × 20.000 px que comprime a pocos KB ("bomba de descompresión").
+    const { deflateSync, crc32 } = await import('node:zlib');
+    const chunk = (type: string, data: Buffer) => {
+      const length = Buffer.alloc(4);
+      length.writeUInt32BE(data.length);
+      const body = Buffer.concat([Buffer.from(type), data]);
+      const crc = Buffer.alloc(4);
+      crc.writeUInt32BE(crc32(body));
+      return Buffer.concat([length, body, crc]);
+    };
+    const size = 20_000;
+    const header = Buffer.alloc(13);
+    header.writeUInt32BE(size, 0);
+    header.writeUInt32BE(size, 4);
+    header[8] = 1; // 1 bit por píxel
+    const png = Buffer.concat([
+      Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+      chunk('IHDR', header),
+      chunk('IDAT', deflateSync(Buffer.alloc(size * (1 + size / 8)))),
+      chunk('IEND', Buffer.alloc(0)),
+    ]);
+    const bomb = await owner
+      .post(`${ADMIN}/products/${productId}/images`)
+      .attach('file', png, { filename: 'bomba.png', contentType: 'image/png' })
+      .expect(400);
+    expect((bomb.body as { message: string }).message).toMatch(/dimensiones demasiado grandes/);
+    expect(await prisma.productImage.count({ where: { productId } })).toBe(0);
+  });
+
   it('registra el historial de precios en cada cambio del precio efectivo', async () => {
     const { productId, variantId } = await createProduct('Historial Test');
 

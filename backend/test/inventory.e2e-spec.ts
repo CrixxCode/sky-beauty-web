@@ -128,6 +128,14 @@ describe('Inventario (integración)', () => {
       .expect(409);
   });
 
+  it('una cantidad fuera de rango responde 400, no 500', async () => {
+    const owner = await loginAgent(app, 'duena@ejemplo.test');
+    await owner
+      .post(`${INVENTORY}/movements`)
+      .send({ variantId, type: 'PURCHASE', quantity: 3_000_000_000 })
+      .expect(400);
+  });
+
   it('lista existencias por variante y filtra alertas de stock bajo', async () => {
     const staff = await loginAgent(app, 'personal@ejemplo.test');
 

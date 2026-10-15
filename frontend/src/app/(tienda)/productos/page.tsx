@@ -37,11 +37,19 @@ type ProductosPageProps = {
   }>;
 };
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function validId(value: string | undefined): string | undefined {
+  return value && UUID_PATTERN.test(value) ? value : undefined;
+}
+
 export default async function ProductosPage({ searchParams }: ProductosPageProps) {
   const { pagina, ...rest } = await searchParams;
+  // Un identificador mal formado en la URL (enlace roto o editado a mano) se ignora como filtro:
+  // la API lo rechazaría y la página mostraría un error en lugar del catálogo.
   const params: CatalogParams = {
-    categoria: rest.categoria || undefined,
-    marca: rest.marca || undefined,
+    categoria: validId(rest.categoria),
+    marca: validId(rest.marca),
     q: rest.q?.trim() || undefined,
     ofertas: rest.ofertas === '1' ? '1' : undefined,
   };

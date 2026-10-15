@@ -21,3 +21,16 @@ test('las páginas envían los encabezados de seguridad', async ({ page }) => {
   expect(headers['x-content-type-options']).toBe('nosniff');
   expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
 });
+
+test('un filtro mal formado en la URL del catálogo se ignora en lugar de mostrar un error', async ({
+  page,
+}) => {
+  const response = await page.goto(
+    '/productos?categoria=abc&marca=%3Cscript%3Ealert(1)%3C%2Fscript%3E',
+  );
+  expect(response?.status()).toBe(200);
+  await expect(
+    page.getByRole('heading', { name: 'Productos disponibles', level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByText('No pudimos cargar esta página')).toHaveCount(0);
+});
