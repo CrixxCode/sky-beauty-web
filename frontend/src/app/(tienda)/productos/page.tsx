@@ -21,6 +21,7 @@ import {
 } from '@/features/storefront/catalog-ui';
 import { MobileFiltersSheet } from '@/features/storefront/mobile-filters-sheet';
 import { fetchPublicApi } from '@/lib/api.server';
+import { pageList } from '@/lib/pagination';
 import type { PaginatedPublicProducts, PublicBrand, PublicCategory } from '@/types/catalog';
 
 /** Productos por página: llena filas completas con 4 columnas (escritorio) y 2 (celular). */
@@ -35,15 +36,6 @@ type ProductosPageProps = {
     pagina?: string;
   }>;
 };
-
-/** Números de página a mostrar: la primera, la última y las vecinas de la actual. */
-function pageList(current: number, total: number): Array<number | 'gap'> {
-  const pages = new Set([1, total, current - 1, current, current + 1]);
-  const sorted = [...pages].filter((page) => page >= 1 && page <= total).sort((a, b) => a - b);
-  return sorted.flatMap((page, index) =>
-    index > 0 && page - sorted[index - 1] > 1 ? (['gap', page] as const) : [page],
-  );
-}
 
 export default async function ProductosPage({ searchParams }: ProductosPageProps) {
   const { pagina, ...rest } = await searchParams;

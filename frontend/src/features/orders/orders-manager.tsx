@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Copy, CreditCard, Edit2, Eye, PackageCheck, Search, Truck, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { ListPagination } from '@/components/layout/list-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FormError, FormField } from '@/components/ui/form-field';
@@ -30,6 +31,7 @@ import { AdminPanel, AdminPanelTitle, AdminStatus } from '@/features/admin-auth/
 import { ApiError, apiFetch } from '@/lib/api';
 import { QuantityStepper } from '@/features/cart/quantity-stepper';
 import { formatCOP, formatDateTime } from '@/lib/format';
+import { ADMIN_PAGE_SIZE, fetchAllPages, pageCount } from '@/lib/pagination';
 import type { AdminRole } from '@/types/admin';
 import type { PaginatedProducts, Product } from '@/types/catalog';
 import type { AdminOrder, AdminOrderItem, PaginatedAdminOrders } from '@/types/orders';
@@ -103,18 +105,31 @@ export function OrdersManager({
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | ''>(initialPaymentStatus);
+  const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  // Cada cambio de búsqueda o filtro vuelve a la primera página.
+  function updateFilter<T>(set: (value: T) => void) {
+    return (value: T) => {
+      set(value);
+      setPage(1);
+    };
+  }
+  const changeSearch = updateFilter(setSearch);
+  const changeStatus = updateFilter(setStatus);
+  const changePaymentStatus = updateFilter(setPaymentStatus);
+
   const ordersQuery = useQuery({
-    queryKey: [...ORDERS_KEY, search, status, paymentStatus],
+    queryKey: [...ORDERS_KEY, search, status, paymentStatus, page],
     queryFn: () => {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ page: String(page), limit: String(ADMIN_PAGE_SIZE) });
       if (search.trim()) params.set('q', search.trim());
       if (status) params.set('status', status);
       if (paymentStatus) params.set('paymentStatus', paymentStatus);
       const qs = params.toString();
-      return apiFetch<PaginatedAdminOrders>(`/admin/orders${qs ? `?${qs}` : ''}`);
+      return apiFetch<PaginatedAdminOrders>(`/admin/orders?${qs}`);
     },
+    placeholderData: (previous) => previous,
   });
 
   const detailQuery = useQuery({
@@ -147,18 +162,18 @@ export function OrdersManager({
             </InputGroupAddon>
             <InputGroupInput
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => changeSearch(event.target.value)}
               placeholder="Buscar pedido, cliente o teléfono..."
               aria-label="Buscar pedido"
               className="min-w-0"
             />
             {search && (
-              <InputGroupButton onClick={() => setSearch('')} aria-label="Limpiar búsqueda">
+              <InputGroupButton onClick={() => changeSearch('')} aria-label="Limpiar búsqueda">
                 <X size={14} />
               </InputGroupButton>
             )}
           </InputGroup>
-          <Select value={status} onChange={(event) => setStatus(event.target.value)}>
+          <Select value={status} onChange={(event) => changeStatus(event.target.value)}>
             <option value="">Todos los estados</option>
             {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (
               <option key={value} value={value}>
@@ -168,7 +183,7 @@ export function OrdersManager({
           </Select>
           <Select
             value={paymentStatus}
-            onChange={(event) => setPaymentStatus(event.target.value as PaymentStatus | '')}
+            onChange={(event) => changePaymentStatus(event.target.value as PaymentStatus | '')}
           >
             <option value="">Todos los pagos</option>
             {Object.entries(PAYMENT_STATUS_LABELS).map(([value, label]) => (
@@ -235,6 +250,12 @@ export function OrdersManager({
             </TableBody>
           </Table>
         )}
+        <ListPagination
+          className="mt-5"
+          page={page}
+          totalPages={pageCount(ordersQuery.data?.total ?? 0, ADMIN_PAGE_SIZE)}
+          onPageChange={setPage}
+        />
       </AdminPanel>
 
       <Modal
@@ -1000,7 +1021,11 @@ function EditItemsForm({ order, onSaved }: { order: AdminOrder; onSaved: () => P
 
   const productsQuery = useQuery({
     queryKey: ['admin-products', 'orders-edit'],
-    queryFn: () => apiFetch<PaginatedProducts>('/admin/products?status=ACTIVE&limit=100'),
+    // Todos los productos activos, no solo los primeros 100 que entrega una página de la API.
+    queryFn: () =>
+      fetchAllPages((page, limit) =>
+        apiFetch<PaginatedProducts>(`/admin/products?status=ACTIVE&page=${page}&limit=${limit}`),
+      ),
   });
   const productQuery = useQuery({
     queryKey: ['admin-products', productId, 'orders-edit'],
@@ -1088,7 +1113,7 @@ function EditItemsForm({ order, onSaved }: { order: AdminOrder; onSaved: () => P
             }}
           >
             <option value="">Selecciona producto</option>
-            {(productsQuery.data?.items ?? []).map((product) => (
+            {(productsQuery.data ?? []).map((product) => (
               <option key={product.id} value={product.id}>
                 {product.name}
               </option>

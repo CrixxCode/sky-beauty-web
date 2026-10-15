@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BadgePercent, CalendarClock, Edit2, History, Search, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { ListPagination } from '@/components/layout/list-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +31,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { AdminPanel, AdminPanelTitle, AdminStatus } from '@/features/admin-auth/admin-ui';
 import { ApiError, apiFetch } from '@/lib/api';
 import { formatCOP } from '@/lib/format';
+import { ADMIN_PAGE_SIZE, fetchAllPages, pageCount } from '@/lib/pagination';
 import type { Category, PaginatedProducts, Product } from '@/types/catalog';
 import type {
   DiscountType,
@@ -148,22 +150,39 @@ export function PromotionsManager() {
   const [editing, setEditing] = useState<Promotion | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [revisionsFor, setRevisionsFor] = useState<Promotion | null>(null);
+  const [page, setPage] = useState(1);
+
+  // Cada cambio de búsqueda o filtro vuelve a la primera página.
+  function updateFilter(set: (value: string) => void) {
+    return (value: string) => {
+      set(value);
+      setPage(1);
+    };
+  }
+  const changeSearch = updateFilter(setSearch);
+  const changeScope = updateFilter(setScopeFilter);
+  const changeStatus = updateFilter(setStatusFilter);
 
   const promotionsQuery = useQuery({
-    queryKey: [...PROMOTIONS_KEY, search, scopeFilter, statusFilter],
+    queryKey: [...PROMOTIONS_KEY, search, scopeFilter, statusFilter, page],
     queryFn: () => {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ page: String(page), limit: String(ADMIN_PAGE_SIZE) });
       if (search.trim()) params.set('q', search.trim());
       if (scopeFilter) params.set('scope', scopeFilter);
       if (statusFilter) params.set('isActive', statusFilter);
       const qs = params.toString();
-      return apiFetch<PaginatedPromotions>(`/admin/promotions${qs ? `?${qs}` : ''}`);
+      return apiFetch<PaginatedPromotions>(`/admin/promotions?${qs}`);
     },
+    placeholderData: (previous) => previous,
   });
 
   const productsQuery = useQuery({
     queryKey: ['admin-products', 'promotion-targets'],
-    queryFn: () => apiFetch<PaginatedProducts>('/admin/products?limit=100'),
+    // Todos los productos, no solo los primeros 100 que entrega una página de la API.
+    queryFn: () =>
+      fetchAllPages((page, limit) =>
+        apiFetch<PaginatedProducts>(`/admin/products?page=${page}&limit=${limit}`),
+      ),
   });
 
   const categoriesQuery = useQuery({
@@ -206,7 +225,7 @@ export function PromotionsManager() {
     onError: (error) => toast.error(errorMessage(error, 'No se pudo guardar la promoción.')),
   });
 
-  const products = productsQuery.data?.items ?? [];
+  const products = productsQuery.data ?? [];
   const categories = useMemo(() => {
     const items: { id: string; name: string }[] = [];
     categoriesQuery.data?.forEach((category) => {
@@ -265,24 +284,24 @@ export function PromotionsManager() {
             </InputGroupAddon>
             <InputGroupInput
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => changeSearch(event.target.value)}
               placeholder="Buscar promoción..."
               aria-label="Buscar promoción"
               className="min-w-0"
             />
             {search && (
-              <InputGroupButton onClick={() => setSearch('')} aria-label="Limpiar búsqueda">
+              <InputGroupButton onClick={() => changeSearch('')} aria-label="Limpiar búsqueda">
                 <X size={14} />
               </InputGroupButton>
             )}
           </InputGroup>
-          <Select value={scopeFilter} onChange={(event) => setScopeFilter(event.target.value)}>
+          <Select value={scopeFilter} onChange={(event) => changeScope(event.target.value)}>
             <option value="">Todos los destinos</option>
             <option value="VARIANT">Variantes</option>
             <option value="PRODUCT">Productos</option>
             <option value="CATEGORY">Categorías</option>
           </Select>
-          <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+          <Select value={statusFilter} onChange={(event) => changeStatus(event.target.value)}>
             <option value="">Todos los estados</option>
             <option value="true">Activas</option>
             <option value="false">Inactivas</option>
@@ -354,6 +373,12 @@ export function PromotionsManager() {
             </TableBody>
           </Table>
         )}
+        <ListPagination
+          className="mt-5"
+          page={page}
+          totalPages={pageCount(promotionsQuery.data?.total ?? 0, ADMIN_PAGE_SIZE)}
+          onPageChange={setPage}
+        />
       </AdminPanel>
 
       <Modal

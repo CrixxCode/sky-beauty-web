@@ -22,6 +22,7 @@ import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
+import { ListPagination } from '@/components/layout/list-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
@@ -48,6 +49,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { AdminPanel, AdminPanelTitle, AdminStatus } from '@/features/admin-auth/admin-ui';
 import { ApiError, apiFetch } from '@/lib/api';
 import { formatCOP } from '@/lib/format';
+import { ADMIN_PAGE_SIZE, pageCount } from '@/lib/pagination';
 import {
   createProductSchema,
   createVariantSchema,
@@ -80,6 +82,18 @@ export function ProductsManager({ role }: { role: AdminRole }) {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [page, setPage] = useState(1);
+
+  // Cada cambio de búsqueda o filtro vuelve a la primera página.
+  function updateFilter(set: (value: string) => void) {
+    return (value: string) => {
+      set(value);
+      setPage(1);
+    };
+  }
+  const changeSearch = updateFilter(setSearch);
+  const changeCategory = updateFilter(setCategoryFilter);
+  const changeStatus = updateFilter(setStatusFilter);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
@@ -118,15 +132,16 @@ export function ProductsManager({ role }: { role: AdminRole }) {
     isPending,
     isError,
   } = useQuery({
-    queryKey: [...PRODUCTS_KEY, search, categoryFilter, statusFilter],
+    queryKey: [...PRODUCTS_KEY, search, categoryFilter, statusFilter, page],
     queryFn: () => {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ page: String(page), limit: String(ADMIN_PAGE_SIZE) });
       if (search.trim()) params.set('q', search.trim());
       if (categoryFilter) params.set('categoryId', categoryFilter);
       if (statusFilter) params.set('status', statusFilter);
       const qStr = params.toString();
-      return apiFetch<PaginatedProducts>(`/admin/products${qStr ? `?${qStr}` : ''}`);
+      return apiFetch<PaginatedProducts>(`/admin/products?${qStr}`);
     },
+    placeholderData: (previous) => previous,
   });
 
   const brandMap = new Map(brands?.map((b) => [b.id, b.name]) ?? []);
@@ -160,13 +175,13 @@ export function ProductsManager({ role }: { role: AdminRole }) {
               </InputGroupAddon>
               <InputGroupInput
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => changeSearch(e.target.value)}
                 placeholder="Buscar por nombre..."
                 aria-label="Buscar producto"
                 className="w-44 flex-none max-[600px]:w-full max-[600px]:flex-1"
               />
               {search && (
-                <InputGroupButton onClick={() => setSearch('')} aria-label="Limpiar búsqueda">
+                <InputGroupButton onClick={() => changeSearch('')} aria-label="Limpiar búsqueda">
                   <X size={14} />
                 </InputGroupButton>
               )}
@@ -175,7 +190,7 @@ export function ProductsManager({ role }: { role: AdminRole }) {
             {/* Filtro de Categoría */}
             <Select
               value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
+              onChange={(e) => changeCategory(e.target.value)}
               aria-label="Filtrar por categoría"
               className="min-h-11.25 w-auto min-w-44 border border-[#e8dfe6] bg-white px-3 py-0 text-[11px] text-[#493a45] outline-none focus:border-[#936591] max-[600px]:w-full"
             >
@@ -190,7 +205,7 @@ export function ProductsManager({ role }: { role: AdminRole }) {
             {/* Filtro de Estado */}
             <Select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => changeStatus(e.target.value)}
               aria-label="Filtrar por estado"
               className="min-h-11.25 w-auto min-w-44 border border-[#e8dfe6] bg-white px-3 py-0 text-[11px] text-[#493a45] outline-none focus:border-[#936591] max-[600px]:w-full"
             >
@@ -295,6 +310,12 @@ export function ProductsManager({ role }: { role: AdminRole }) {
             </TableBody>
           </Table>
         )}
+        <ListPagination
+          className="mt-5"
+          page={page}
+          totalPages={pageCount(productsData?.total ?? 0, ADMIN_PAGE_SIZE)}
+          onPageChange={setPage}
+        />
       </AdminPanel>
 
       {/* Modal para Crear Producto */}
