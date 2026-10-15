@@ -146,10 +146,11 @@ export class InventoryService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const variant = await tx.productVariant.findUnique({
-        where: { id: dto.variantId },
-        select: { id: true },
-      });
+      // Bloquea la fila de la variante hasta el final de la transacción: los movimientos de una
+      // misma variante se procesan de a uno. Sin esto, dos "existencias iniciales" simultáneas
+      // contaban cero movimientos y ambas se registraban.
+      const [variant] = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "ProductVariant" WHERE id = ${dto.variantId}::uuid FOR UPDATE`;
       if (!variant) {
         throw new NotFoundException(`Variante con id '${dto.variantId}' no encontrada.`);
       }

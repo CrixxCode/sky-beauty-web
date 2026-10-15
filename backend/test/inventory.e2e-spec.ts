@@ -214,6 +214,23 @@ describe('Inventario (integración)', () => {
     });
   });
 
+  it('dos existencias iniciales simultáneas: solo una se registra', async () => {
+    const owner = await loginAgent(app, 'duena@ejemplo.test');
+    const results = await Promise.all(
+      [4, 6].map((quantity) =>
+        owner.post(`${INVENTORY}/movements`).send({ variantId, type: 'INITIAL', quantity }),
+      ),
+    );
+    expect(results.map((res) => res.status).sort()).toEqual([201, 409]);
+
+    const initial = await prisma.inventoryMovement.findMany({
+      where: { variantId, type: 'INITIAL' },
+    });
+    expect(initial).toHaveLength(1);
+    const variant = await prisma.productVariant.findUniqueOrThrow({ where: { id: variantId } });
+    expect(variant.stock).toBe(initial[0].quantity);
+  });
+
   it('movimientos simultáneos no se pisan y nunca dejan existencias negativas', async () => {
     const owner = await loginAgent(app, 'duena@ejemplo.test');
     await owner
