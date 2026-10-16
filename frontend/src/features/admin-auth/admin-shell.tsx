@@ -4,9 +4,9 @@ import { ArrowLeft, ChevronRight, LogOut, Menu, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { ApiError, apiFetch } from '@/lib/api';
+import { ADMIN_SESSION_EXPIRED_EVENT, ApiError, apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ROLE_LABELS, type AdminProfile } from '@/types/admin';
@@ -20,6 +20,17 @@ const isActive = (href: string, pathname: string) =>
 export function AdminShell({ admin, children }: { admin: AdminProfile; children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+
+  // Sesión vencida o revocada durante una acción: se avisa y se vuelve al inicio de sesión.
+  useEffect(() => {
+    function onExpired() {
+      toast.error('Tu sesión terminó. Vuelve a iniciar sesión.', { id: 'sesion-vencida' });
+      router.replace('/admin/login');
+      router.refresh();
+    }
+    window.addEventListener(ADMIN_SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(ADMIN_SESSION_EXPIRED_EVENT, onExpired);
+  }, [router]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 

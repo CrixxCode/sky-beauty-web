@@ -1,4 +1,4 @@
-import { ApiError, apiFetch } from './api';
+import { ADMIN_SESSION_EXPIRED_EVENT, ApiError, apiFetch } from './api';
 
 function mockFetchResponse(status: number, body: unknown) {
   const fetchMock = jest.fn().mockResolvedValue({
@@ -6,6 +6,7 @@ function mockFetchResponse(status: number, body: unknown) {
     status,
     json: () =>
       body === undefined ? Promise.reject(new Error('sin cuerpo')) : Promise.resolve(body),
+    text: () => Promise.resolve(body === undefined ? '' : JSON.stringify(body)),
   });
   global.fetch = fetchMock as unknown as typeof fetch;
   return fetchMock;
@@ -48,5 +49,26 @@ describe('apiFetch', () => {
     mockFetchResponse(502, undefined);
 
     await expect(apiFetch('/health')).rejects.toMatchObject({ status: 502, message: 'Error 502' });
+  });
+
+  it('una respuesta exitosa sin cuerpo no es un error (204 o 200 vacío)', async () => {
+    mockFetchResponse(200, undefined);
+    await expect(apiFetch('/admin/settings/shipping-rates/1', { method: 'DELETE' })).resolves.toBe(
+      undefined,
+    );
+  });
+
+  it('avisa que la sesión del panel terminó con un 401, salvo en el inicio de sesión', async () => {
+    const onExpired = jest.fn();
+    window.addEventListener(ADMIN_SESSION_EXPIRED_EVENT, onExpired);
+    mockFetchResponse(401, undefined);
+
+    await expect(apiFetch('/admin/orders')).rejects.toMatchObject({ status: 401 });
+    await expect(apiFetch('/admin/auth/login', { method: 'POST' })).rejects.toMatchObject({
+      status: 401,
+    });
+    await expect(apiFetch('/store/products')).rejects.toMatchObject({ status: 401 });
+    expect(onExpired).toHaveBeenCalledTimes(1);
+    window.removeEventListener(ADMIN_SESSION_EXPIRED_EVENT, onExpired);
   });
 });
