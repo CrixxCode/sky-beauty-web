@@ -128,6 +128,51 @@ Prioridad de cálculo en checkout:
 
 ---
 
+## 2026-10-15 — Existencias exactas en la API pública
+
+**Decisión:** la API pública puede seguir enviando la cantidad exacta en existencia de cada variante (`stock` en el catálogo y `maxQuantity` en la cotización). Completa la decisión "Disponibilidad de variantes en la tienda" (2026-10-13): la restricción de no mostrar la cantidad aplica solo a lo que el cliente ve en la tienda, que sigue indicando únicamente si la variante está disponible o agotada.
+
+---
+
+## 2026-10-15 — Sin precio final de 0 COP
+
+**Decisión:** ningún producto puede quedar con un precio final de 0 COP en la tienda, la bolsa, el checkout ni en un pedido. Aplica a todas las vías:
+
+- precio base del producto o precio propio de la variante en 0;
+- promoción porcentual del 100 %;
+- promoción de importe fijo igual o mayor que el precio;
+- redondeo del descuento.
+
+Esto ajusta lo dicho en "Cifras configurables sin valor inicial": sin límite configurado, una promoción porcentual tampoco puede llegar al 100 %.
+
+**Cómo se impide (confirmado el 2026-10-15):**
+
+- Se rechazan el precio base y el precio propio de una variante en 0.
+- Se rechaza una promoción porcentual del 100 %.
+- Al guardar una promoción de importe fijo, se rechaza si deja algún destino en 0 o menos.
+- Si después baja el precio de una variante hasta el descuento fijo de una promoción vigente o por debajo, esa promoción no se le aplica.
+- El redondeo del descuento nunca deja el precio final por debajo de 1 COP.
+
+---
+
+## 2026-10-15 — Costo de envío modificable después del pago
+
+**Decisión:** la tienda puede cambiar el costo de envío de un pedido después de confirmarlo e incluso después de verificar el pago, mientras no esté entregado ni cancelado. El total del pedido se recalcula y el cambio queda en su historial.
+
+**Pendiente:** si el envío sube después de verificado el pago, si el pedido sigue como pagado o queda una diferencia por cobrar.
+
+---
+
+## 2026-10-15 — Cancelar un pedido pagado exige la devolución
+
+**Decisión:** un pedido con el pago verificado no se puede cancelar sin registrar la devolución del dinero. Nunca debe quedar un pedido cancelado con el pago como verificado.
+
+**Procedimiento (confirmado el 2026-10-15):** primero se registra la devolución total del dinero y después se cancela el pedido. Mientras el pago siga verificado, el panel no permite cancelarlo y explica que falta registrar la devolución.
+
+**Pendiente:** qué hacer cuando el monto verificado no coincide con el total y cómo registrar devoluciones parciales. Hay una recomendación en `docs/testing/PLAN_PRUEBAS_BACKEND.md` (§D.3), aún sin confirmar.
+
+---
+
 ## 2026-10-14 — Tope general de unidades por producto
 
 **Decisión:** la tienda tiene un tope general de unidades de un mismo producto (variante) por pedido, para todos los productos. Se combina con el máximo propio de cada variante: aplica el menor de los dos.
@@ -377,7 +422,7 @@ Mientras no se configuren:
 
 - No hay envío gratis.
 - Las variantes nuevas no proponen umbral de stock bajo.
-- El descuento porcentual solo está limitado por el tope técnico del 100 %.
+- El descuento porcentual solo está limitado por el tope técnico del 100 %. (Ajustado el 2026-10-15: no puede llegar al 100 %, ver "Sin precio final de 0 COP".)
 - El contra entrega no se ofrece en ningún municipio.
 - El contra entrega no tiene monto máximo.
 
@@ -573,7 +618,9 @@ Estado al 2026-10-13. Migraciones en `backend/prisma/migrations/`:
 - **Texto mínimo de la tienda:** el layout de la tienda marca su área con `data-area="store"` y `globals.css` define la variante `store:`, que sube a 12 px los componentes compartidos con el panel solo dentro de la tienda.
 - **Favoritos:** en el navegador (`localStorage`, clave `sky-beauty-favorites`), en `frontend/src/features/favorites/`. La página `/favoritos` consulta `GET /store/products?ids=...` (máximo 100 ids; solo devuelve productos publicados) y no se indexa en buscadores.
 - **Testimonios:** tabla `Testimonial` (migración `20261014040000_testimonios`, con la valoración restringida a 1–5 en la base de datos). Panel: `/admin/testimonios` (`/admin/testimonials`: escritura solo `ADMIN`). Tienda: `GET /store/testimonials` (publicados, máximo 6, nombre con la inicial del apellido).
-- **Ofertas y destacados:** `GET /store/products` acepta `featured=true` y `onSale=true`; este último se filtra después de calcular los precios con el motor de promociones y se ordena por descuento. El catálogo lo usa con `?ofertas=1`.
+- **Ofertas y destacados:** `GET /store/products` acepta `featured=true` y `onSale=true`. Para las ofertas, primero se toman los productos que alcanza alguna promoción vigente; luego se calculan sus precios con el motor de promociones, se dejan solo los que tienen descuento y se ordenan por descuento. El catálogo lo usa con `?ofertas=1`.
+- **Sin precio final de 0 COP (2026-10-15):** los DTO exigen precios mayores que 0 (`@IsPositive`). `PromotionsService` rechaza los porcentajes de 100 o más y los descuentos fijos que dejarían algún destino en 0 o menos. `calculateDiscount` no aplica un descuento que iguale o supere el precio y limita el redondeo para que el precio final quede en al menos 1 COP.
+- **Cancelar un pedido pagado (2026-10-15):** `OrdersService.cancel` rechaza un pedido con `paymentStatus = PAID`; el panel muestra la explicación en lugar del formulario de cancelación.
 
 ### Pendiente en el código
 
