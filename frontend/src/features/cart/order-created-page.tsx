@@ -31,7 +31,13 @@ function parseOrder(raw: string | null): CreatedOrder | null {
   }
 }
 
-export function OrderCreatedPage({ code }: { code: string }) {
+export function OrderCreatedPage({
+  code,
+  contact,
+}: {
+  code: string;
+  contact: { email: string | null; phone: string | null };
+}) {
   const raw = useSyncExternalStore(
     subscribe,
     () => readRaw(code),
@@ -40,6 +46,8 @@ export function OrderCreatedPage({ code }: { code: string }) {
   const loaded = raw !== undefined;
   const order = useMemo(() => parseOrder(raw ?? null), [raw]);
   const summary = order?.summary;
+  // Sin número de WhatsApp el pedido no se puede enviar por ese medio: no se pide hacerlo.
+  const withoutWhatsapp = Boolean(order && !order.whatsappUrl);
 
   async function copyCode() {
     try {
@@ -57,7 +65,9 @@ export function OrderCreatedPage({ code }: { code: string }) {
         Pedido registrado
       </p>
       <h1 className="mx-auto mb-5 mt-1.5 text-balance font-serif text-[45px] leading-[1.2] max-[600px]:text-[32px]">
-        Envía tu pedido por WhatsApp para continuar
+        {withoutWhatsapp
+          ? 'Guarda tu código de pedido'
+          : 'Envía tu pedido por WhatsApp para continuar'}
       </h1>
       <div className="mx-auto mb-3 flex flex-wrap items-center justify-center gap-2 text-sm">
         <span>Tu código de pedido es</span>
@@ -133,10 +143,28 @@ export function OrderCreatedPage({ code }: { code: string }) {
           <Link href="/productos">Volver al catálogo</Link>
         </Button>
       </div>
-      {order && !order.whatsappUrl && (
-        <p className="mt-6 text-xs text-[#6f666c]">
-          La tienda aún no tiene un número de WhatsApp configurado. Guarda tu código de pedido.
-        </p>
+      {withoutWhatsapp && (
+        <div className="mt-6 text-xs text-[#6f666c]">
+          <p>
+            La tienda aún no tiene un número de WhatsApp configurado. Guarda tu código de pedido.
+          </p>
+          {(contact.email || contact.phone) && (
+            <p className="mt-2">
+              Contacto de la tienda:{' '}
+              {contact.email && (
+                <a className="font-medium underline" href={`mailto:${contact.email}`}>
+                  {contact.email}
+                </a>
+              )}
+              {contact.email && contact.phone && ' · '}
+              {contact.phone && (
+                <a className="font-medium underline" href={`tel:${contact.phone}`}>
+                  {contact.phone}
+                </a>
+              )}
+            </p>
+          )}
+        </div>
       )}
       {order && (
         <p className="mt-6 text-xs text-[#6f666c]">
