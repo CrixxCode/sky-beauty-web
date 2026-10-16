@@ -300,7 +300,11 @@ function BrandCard({
         body: JSON.stringify({ isActive: !brand.isActive }),
       }),
     onSuccess: async () => {
-      toast.success(brand.isActive ? 'Marca desactivada.' : 'Marca activada.');
+      toast.success(
+        brand.isActive
+          ? 'Marca desactivada. Sus productos dejan de mostrarse en la tienda.'
+          : 'Marca activada.',
+      );
       await queryClient.invalidateQueries({ queryKey: BRANDS_KEY });
     },
     onError: (error) => toast.error(errorMessage(error, 'No se pudo actualizar la marca.')),

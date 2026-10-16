@@ -18,6 +18,7 @@ import { uploadUrl } from '../../../shared/uploads';
 import { PricingService, type PriceCalculation } from '../../promotions/pricing.service';
 import { escapeLike } from '../../../shared/text';
 import { StoreSettingsService } from '../../store-settings/store-settings.service';
+import { publicProductWhere } from './public-visibility';
 import type {
   ChangeProductStatusDto,
   CreateProductDto,
@@ -391,7 +392,7 @@ export class ProductsService {
     const limit = query.limit ?? 20;
     const skip = (page - 1) * limit;
 
-    const where: Prisma.ProductWhereInput = { status: 'ACTIVE' };
+    const where: Prisma.ProductWhereInput = { ...publicProductWhere };
 
     if (query.brandId) where.brandId = query.brandId;
     if (query.featured) where.isFeatured = true;
@@ -533,7 +534,7 @@ export class ProductsService {
   private async findPublicByIds(ids: string[]): Promise<PrismaProduct[]> {
     if (ids.length === 0) return [];
     const products = await this.prisma.product.findMany({
-      where: { id: { in: ids }, status: 'ACTIVE' },
+      where: { ...publicProductWhere, id: { in: ids } },
       include: productInclude,
     });
     const byId = new Map(products.map((product) => [product.id, product]));
@@ -553,7 +554,7 @@ export class ProductsService {
 
   async findOnePublicBySlug(slug: string): Promise<PublicProductDto> {
     const p = await this.prisma.product.findFirst({
-      where: { slug, status: 'ACTIVE' },
+      where: { ...publicProductWhere, slug },
       include: productInclude,
     });
     if (!p) throw new NotFoundException(`Producto '${slug}' no encontrado.`);
@@ -609,8 +610,9 @@ export class ProductsService {
       await this.validateCategoryForProduct(dto.categoryId);
     }
 
-    const slug =
-      dto.slug !== undefined ? dto.slug : dto.name !== undefined ? slugify(dto.name) : undefined;
+    // Renombrar no cambia el enlace (decisión del 2026-10-16, Q-07): los enlaces ya compartidos por
+    // WhatsApp o redes siguen funcionando. Solo cambia si se envía un slug nuevo.
+    const slug = dto.slug;
 
     try {
       const p = await this.prisma.$transaction(async (tx) => {
@@ -659,6 +661,19 @@ export class ProductsService {
     role: AdminRole,
   ): Promise<ProductDto> {
     const existing = await this.findProductOrThrow(id);
+
+    // Un producto sin variantes activas no se puede comprar: no se publica (decisión del
+    // 2026-10-16, Q-18).
+    if (dto.status === 'ACTIVE') {
+      const activeVariants = await this.prisma.productVariant.count({
+        where: { productId: id, isActive: true },
+      });
+      if (activeVariants === 0) {
+        throw new BadRequestException(
+          'Para publicar el producto agrega al menos una variante activa.',
+        );
+      }
+    }
 
     const now = new Date();
     const data: Prisma.ProductUpdateInput = { status: dto.status };

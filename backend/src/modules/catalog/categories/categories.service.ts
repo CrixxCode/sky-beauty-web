@@ -101,7 +101,7 @@ export class CategoriesService {
         children: {
           where: {
             isActive: true,
-            products: { some: { status: 'ACTIVE' } },
+            products: { some: { status: 'ACTIVE', brand: { isActive: true } } },
           },
           select: {
             id: true,
@@ -120,7 +120,7 @@ export class CategoriesService {
     for (const cat of categories) {
       const hasDirectProducts =
         (await this.prisma.product.count({
-          where: { categoryId: cat.id, status: 'ACTIVE' },
+          where: { categoryId: cat.id, status: 'ACTIVE', brand: { isActive: true } },
         })) > 0;
       if (cat.children.length > 0 || hasDirectProducts) {
         result.push({

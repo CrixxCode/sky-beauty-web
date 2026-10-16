@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../shared/prisma/prisma.service';
+import { publicProductWhere } from '../catalog/products/public-visibility';
 import type {
   CreateTestimonialDto,
   PublicTestimonialDto,
@@ -60,13 +61,23 @@ export class TestimonialsService {
       orderBy: { createdAt: 'desc' },
       take: PUBLIC_LIMIT,
     });
+    // El producto se menciona solo si la tienda lo muestra (publicado, con marca y categoría activas).
+    const mentioned = rows.flatMap((row) => (row.productId ? [row.productId] : []));
+    const visible = new Set(
+      (
+        await this.prisma.product.findMany({
+          where: { ...publicProductWhere, id: { in: mentioned } },
+          select: { id: true },
+        })
+      ).map((product) => product.id),
+    );
     return rows.map((row) => ({
       id: row.id,
       authorName: `${row.firstName} ${row.lastInitial}.`,
       rating: row.rating,
       comment: row.comment,
       product:
-        row.product?.status === 'ACTIVE'
+        row.product && row.productId && visible.has(row.productId)
           ? { name: row.product.name, slug: row.product.slug }
           : null,
     }));

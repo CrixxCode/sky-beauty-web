@@ -443,7 +443,11 @@ function CategoryTreeItem({
         body: JSON.stringify({ isActive: !cat.isActive }),
       }),
     onSuccess: async (_, variables) => {
-      toast.success(variables.isActive ? 'Categoría desactivada.' : 'Categoría activada.');
+      toast.success(
+        variables.isActive
+          ? 'Categoría desactivada. Sus productos dejan de mostrarse en la tienda.'
+          : 'Categoría activada.',
+      );
       await queryClient.invalidateQueries({ queryKey: CATEGORIES_KEY });
     },
     onError: (error) => toast.error(errorMessage(error, 'No se pudo actualizar la categoría.')),

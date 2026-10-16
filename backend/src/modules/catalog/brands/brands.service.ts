@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
 import { sortByName } from '../../../shared/text';
+import { visibleCategoryWhere } from '../products/public-visibility';
 import type { BrandDto, CreateBrandDto, PublicBrandDto, UpdateBrandDto } from './brands.dto';
 
 /** Genera un slug a partir de un texto (minúsculas, sin acentos, guiones). */
@@ -52,7 +53,7 @@ export class BrandsService {
       where: {
         isActive: true,
         products: {
-          some: { status: 'ACTIVE' },
+          some: { status: 'ACTIVE', category: visibleCategoryWhere },
         },
       },
       select: { id: true, name: true, slug: true },

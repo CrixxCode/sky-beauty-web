@@ -22,6 +22,7 @@ import {
   ShippingMethod,
   ShippingStatus,
 } from '../../generated/prisma/client';
+import { publicProductWhere } from '../catalog/products/public-visibility';
 import { normalizeWhatsappNumber, WHATSAPP_NUMBER_PATTERN } from '../../shared/phone';
 import { effectiveMaxPerOrder } from '../../shared/max-per-order';
 import { uploadUrl } from '../../shared/uploads';
@@ -240,7 +241,7 @@ export class OrdersService {
       where: {
         id: { in: items.map((item) => item.variantId) },
         isActive: true,
-        product: { status: 'ACTIVE' },
+        product: publicProductWhere,
       },
       include: {
         images: { orderBy: { position: 'asc' } },
@@ -1019,11 +1020,11 @@ export class OrdersService {
 
       for (const desired of desiredItems) {
         if (existingByVariant.has(desired.variantId)) continue;
-        const variant = await tx.productVariant.findUnique({
-          where: { id: desired.variantId },
+        const variant = await tx.productVariant.findFirst({
+          where: { id: desired.variantId, isActive: true, product: publicProductWhere },
           include: { product: true },
         });
-        if (!variant || !variant.isActive || variant.product.status !== 'ACTIVE') {
+        if (!variant) {
           throw new BadRequestException('Uno o más productos agregados no están disponibles.');
         }
         const max = effectiveMaxPerOrder(variant.maxPerOrder, maxUnitsPerProduct);

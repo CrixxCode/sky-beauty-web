@@ -212,6 +212,228 @@ describe('Catálogo (integración)', () => {
       .expect((res) => expect([400, 409]).toContain(res.status));
   });
 
+  it('renombrar un producto mantiene su enlace; solo cambia si se envía un enlace nuevo (Q-07)', async () => {
+    const { productId } = await createProduct('Gloss Original Test');
+    const server = app.getHttpServer();
+
+    await owner
+      .patch(`${ADMIN}/products/${productId}`)
+      .send({ name: 'Gloss Renombrado Test' })
+      .expect(200)
+      .expect((res) => expect((res.body as { slug: string }).slug).toBe('gloss-original-test'));
+    await request(server).get(`${STORE}/products/gloss-original-test`).expect(200);
+    await request(server).get(`${STORE}/products/gloss-renombrado-test`).expect(404);
+
+    // Elegir un enlace nuevo sí es posible, de forma explícita.
+    await owner
+      .patch(`${ADMIN}/products/${productId}`)
+      .send({ slug: 'gloss-nuevo-test' })
+      .expect(200);
+    await request(server).get(`${STORE}/products/gloss-nuevo-test`).expect(200);
+  });
+
+  it('no se publica un producto sin variantes activas (Q-18)', async () => {
+    const productId = idOf(
+      await owner
+        .post(`${ADMIN}/products`)
+        .send({
+          name: 'Sin Variantes Test',
+          description: 'Producto ficticio.',
+          brandId,
+          categoryId: subcategoryId,
+          basePrice: 10000,
+        })
+        .expect(201),
+    );
+    const publish = () =>
+      owner.patch(`${ADMIN}/products/${productId}/status`).send({ status: 'ACTIVE' });
+
+    // Sin variantes.
+    await publish()
+      .expect(400)
+      .expect((res) =>
+        expect((res.body as { message: string }).message).toBe(
+          'Para publicar el producto agrega al menos una variante activa.',
+        ),
+      );
+
+    // Con una variante, pero desactivada.
+    const variantId = idOf(
+      await owner
+        .post(`${ADMIN}/products/${productId}/variants`)
+        .send({ sku: 'SKU-SIN-VARIANTES', name: 'Tono prueba' })
+        .expect(201),
+    );
+    await owner
+      .patch(`${ADMIN}/products/${productId}/variants/${variantId}`)
+      .send({ isActive: false })
+      .expect(200);
+    await publish().expect(400);
+    expect((await prisma.product.findUniqueOrThrow({ where: { id: productId } })).status).toBe(
+      'DRAFT',
+    );
+
+    // Con una variante activa se publica.
+    await owner
+      .patch(`${ADMIN}/products/${productId}/variants/${variantId}`)
+      .send({ isActive: true })
+      .expect(200);
+    await publish().expect(200);
+
+    // Despublicar o archivar no exige variantes.
+    await owner
+      .patch(`${ADMIN}/products/${productId}/status`)
+      .send({ status: 'INACTIVE' })
+      .expect(200);
+  });
+
+  describe('categoría o marca desactivada (Q-09)', () => {
+    let rootCategoryId: string;
+    let childCategoryId: string;
+    let hiddenFlowers: { productId: string; variantId: string };
+
+    beforeEach(async () => {
+      rootCategoryId = idOf(
+        await owner.post(`${ADMIN}/categories`).send({ name: 'Raíz Visible Test' }).expect(201),
+      );
+      childCategoryId = idOf(
+        await owner
+          .post(`${ADMIN}/categories`)
+          .send({ name: 'Hija Visible Test', parentId: rootCategoryId })
+          .expect(201),
+      );
+      hiddenFlowers = await createProduct('Producto Oculto Test', { category: childCategoryId });
+      await createProduct('Producto Siempre Visible Test');
+    });
+
+    const server = () => app.getHttpServer();
+    const quote = (variantId: string) =>
+      request(server())
+        .post(`${STORE}/orders/quote`)
+        .send({ items: [{ variantId, quantity: 1 }] })
+        .expect(201);
+
+    async function expectHidden(hidden: boolean) {
+      const list = await request(server()).get(`${STORE}/products`).expect(200);
+      const slugs = slugsOf(list);
+      expect(slugs.includes('producto-oculto-test')).toBe(!hidden);
+      expect(slugs).toContain('producto-siempre-visible-test');
+      await request(server())
+        .get(`${STORE}/products/producto-oculto-test`)
+        .expect(hidden ? 404 : 200);
+      const found = await request(server())
+        .get(`${STORE}/products`)
+        .query({ ids: hiddenFlowers.productId })
+        .expect(200);
+      expect(slugsOf(found)).toEqual(hidden ? [] : ['producto-oculto-test']);
+      const q = (await quote(hiddenFlowers.variantId)).body as {
+        unavailableVariantIds: string[];
+        canCheckout: boolean;
+      };
+      expect(q.unavailableVariantIds).toEqual(hidden ? [hiddenFlowers.variantId] : []);
+      // Visible o no, esta variante no tiene existencias; lo que cambia es si la tienda la conoce.
+      if (hidden) expect(q.canCheckout).toBe(false);
+    }
+
+    it('al desactivar la subcategoría, sus productos desaparecen de la tienda y no se pueden comprar', async () => {
+      await expectHidden(false);
+      await owner
+        .patch(`${ADMIN}/categories/${childCategoryId}`)
+        .send({ isActive: false })
+        .expect(200);
+      await expectHidden(true);
+      await owner
+        .patch(`${ADMIN}/categories/${childCategoryId}`)
+        .send({ isActive: true })
+        .expect(200);
+      await expectHidden(false);
+    });
+
+    it('al desactivar la categoría padre, también se ocultan los productos de sus subcategorías', async () => {
+      await owner
+        .patch(`${ADMIN}/categories/${rootCategoryId}`)
+        .send({ isActive: false })
+        .expect(200);
+      await expectHidden(true);
+      // La búsqueda y la oferta tampoco los devuelven.
+      const search = await request(server())
+        .get(`${STORE}/products`)
+        .query({ q: 'oculto' })
+        .expect(200);
+      expect(slugsOf(search)).toEqual([]);
+    });
+
+    it('al desactivar la marca, sus productos desaparecen y la marca sale del listado', async () => {
+      const hiddenBrandId = idOf(
+        await owner.post(`${ADMIN}/brands`).send({ name: 'Marca Oculta Test' }).expect(201),
+      );
+      await owner
+        .patch(`${ADMIN}/products/${hiddenFlowers.productId}`)
+        .send({ brandId: hiddenBrandId })
+        .expect(200);
+      const brandSlugs = async () =>
+        ((await request(server()).get(`${STORE}/brands`).expect(200)).body as Array<{ id: string }>)
+          .map((b) => b.id)
+          .sort();
+      expect(await brandSlugs()).toContain(hiddenBrandId);
+
+      await owner.patch(`${ADMIN}/brands/${hiddenBrandId}`).send({ isActive: false }).expect(200);
+      expect(await brandSlugs()).not.toContain(hiddenBrandId);
+      await expectHidden(true);
+
+      await owner.patch(`${ADMIN}/brands/${hiddenBrandId}`).send({ isActive: true }).expect(200);
+      await expectHidden(false);
+    });
+
+    it('una categoría con productos solo de una marca desactivada no aparece en el árbol', async () => {
+      const treeIds = async () =>
+        (
+          (await request(server()).get(`${STORE}/categories`).expect(200)).body as Array<{
+            id: string;
+            children: Array<{ id: string }>;
+          }>
+        ).flatMap((c) => [c.id, ...c.children.map((child) => child.id)]);
+      expect(await treeIds()).toContain(childCategoryId);
+
+      const soloBrand = idOf(
+        await owner.post(`${ADMIN}/brands`).send({ name: 'Marca Única Test' }).expect(201),
+      );
+      await owner
+        .patch(`${ADMIN}/products/${hiddenFlowers.productId}`)
+        .send({ brandId: soloBrand })
+        .expect(200);
+      await owner.patch(`${ADMIN}/brands/${soloBrand}`).send({ isActive: false }).expect(200);
+      expect(await treeIds()).not.toContain(childCategoryId);
+    });
+
+    it('un testimonio no enlaza un producto que la tienda oculta', async () => {
+      await owner
+        .post(`${ADMIN}/testimonials`)
+        .send({
+          firstName: 'María',
+          lastInitial: 'G',
+          rating: 5,
+          comment: 'Comentario ficticio de prueba.',
+          productId: hiddenFlowers.productId,
+          isPublished: true,
+        })
+        .expect(201);
+      const product = async () =>
+        (
+          (await request(server()).get(`${STORE}/testimonials`).expect(200)).body as Array<{
+            product: { slug: string } | null;
+          }>
+        )[0].product;
+      expect(await product()).toEqual(expect.objectContaining({ slug: 'producto-oculto-test' }));
+
+      await owner
+        .patch(`${ADMIN}/categories/${childCategoryId}`)
+        .send({ isActive: false })
+        .expect(200);
+      expect(await product()).toBeNull();
+    });
+  });
+
   it('el personal crea productos, pero no ve ni fija el costo de compra', async () => {
     const staff = await loginAgent(app, 'personal@ejemplo.test');
     const productId = idOf(

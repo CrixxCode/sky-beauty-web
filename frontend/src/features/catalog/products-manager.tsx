@@ -1407,7 +1407,12 @@ function ProductInfoTab({
           />
         </FormField>
 
-        <FormField id="ep-slug" label="Slug URL" error={errors.slug?.message}>
+        <FormField
+          id="ep-slug"
+          label="Slug URL"
+          description="Cambiar el nombre no cambia el enlace. Si lo editas aquí, los enlaces ya compartidos dejan de funcionar."
+          error={errors.slug?.message}
+        >
           <Input {...fieldA11y('ep-slug', errors.slug?.message)} {...register('slug')} />
         </FormField>
 
