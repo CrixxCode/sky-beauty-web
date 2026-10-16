@@ -409,4 +409,68 @@ describe('Catálogo (integración)', () => {
     expect(slugsOf(byIds)).toEqual(['sin-oferta-test']);
     await request(server).get(`${STORE}/products?ids=no-es-un-id`).expect(400);
   });
+
+  it('las ofertas incluyen cada alcance de promoción y solo los productos con descuento real', async () => {
+    const otherCategoryId = idOf(
+      await owner.post(`${ADMIN}/categories`).send({ name: 'Otra Categoría Test' }).expect(201),
+    );
+    // Productos en la subcategoría (la promoción de la categoría principal los alcanza) y fuera.
+    await createProduct('Rubor Categoria Test');
+    const byVariant = await createProduct('Sombra Variante Test', { category: otherCategoryId });
+    const inactive = await createProduct('Base Inactiva Test', { category: otherCategoryId });
+    const fixed = await createProduct('Polvo Fijo Test', { category: otherCategoryId });
+    await createProduct('Sin Promocion Test', { category: otherCategoryId });
+
+    const period = {
+      startsAt: new Date(Date.now() - 60_000).toISOString(),
+      endsAt: new Date(Date.now() + 86_400_000).toISOString(),
+    };
+    const promotions = [
+      { discountValue: 10, scope: 'CATEGORY', categoryIds: [parentId] },
+      { discountValue: 20, scope: 'VARIANT', variantIds: [byVariant.variantId] },
+      { discountValue: 40, scope: 'PRODUCT', productIds: [inactive.productId], isActive: false },
+      {
+        discountType: 'FIXED_AMOUNT',
+        discountValue: 5000,
+        scope: 'PRODUCT',
+        productIds: [fixed.productId],
+      },
+    ];
+    for (const [i, promotion] of promotions.entries()) {
+      await owner
+        .post(`${ADMIN}/promotions`)
+        .send({
+          name: `Promoción ficticia ${i}`,
+          discountType: 'PERCENTAGE',
+          ...period,
+          ...promotion,
+        })
+        .expect(201);
+    }
+    // El precio baja al valor del descuento fijo: la promoción sigue vigente pero ya no aplica.
+    await owner
+      .patch(`${ADMIN}/products/${fixed.productId}/variants/${fixed.variantId}`)
+      .send({ price: 5000 })
+      .expect(200);
+
+    const server = app.getHttpServer();
+    const onSale = await request(server).get(`${STORE}/products?onSale=true`).expect(200);
+    expect(slugsOf(onSale)).toEqual(['sombra-variante-test', 'rubor-categoria-test']);
+    expect((onSale.body as PublicList).total).toBe(2);
+    expect(
+      (onSale.body as { items: Array<{ finalPriceFrom: number }> }).items[0].finalPriceFrom,
+    ).toBe(8000);
+
+    // Ofertas y búsqueda a la vez.
+    const both = await request(server).get(`${STORE}/products`).query({ onSale: true, q: 'rubor' });
+    expect(slugsOf(both)).toEqual(['rubor-categoria-test']);
+
+    // La búsqueda pagina en el orden del catálogo (lo publicado más reciente primero).
+    const page2 = await request(server)
+      .get(`${STORE}/products`)
+      .query({ q: 'TEST', limit: 2, page: 2 })
+      .expect(200);
+    expect(slugsOf(page2)).toEqual(['base-inactiva-test', 'sombra-variante-test']);
+    expect((page2.body as PublicList).total).toBe(5);
+  });
 });

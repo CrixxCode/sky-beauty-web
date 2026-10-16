@@ -191,10 +191,53 @@ export class PricingService {
     );
   }
 
-  /** Versión vigente en `at` de cada promoción creada hasta esa fecha. */
+  /**
+   * Destinos de las promociones que pueden aplicar en `at`. Un producto que no está en ninguno no
+   * tiene descuento en esa fecha; los que sí están pueden no tenerlo (p. ej. un descuento fijo que
+   * supera el precio), así que el precio exacto lo sigue decidiendo `priceVariantsAt`.
+   */
+  async promotionTargetsAt(
+    at = new Date(),
+  ): Promise<{ variantIds: string[]; productIds: string[]; categoryIds: string[] }> {
+    const targets = {
+      variantIds: new Set<string>(),
+      productIds: new Set<string>(),
+      categoryIds: new Set<string>(),
+    };
+    for (const promotion of await this.promotionSnapshotsAt(at)) {
+      if (!promotion.isActive || promotion.startsAt > at || promotion.endsAt < at) continue;
+      const [set, ids] =
+        promotion.scope === PromotionScope.VARIANT
+          ? [targets.variantIds, promotion.variantIds]
+          : promotion.scope === PromotionScope.PRODUCT
+            ? [targets.productIds, promotion.productIds]
+            : [targets.categoryIds, promotion.categoryIds];
+      ids.forEach((id) => set.add(id));
+    }
+    return {
+      variantIds: [...targets.variantIds],
+      productIds: [...targets.productIds],
+      categoryIds: [...targets.categoryIds],
+    };
+  }
+
+  /**
+   * Versión vigente en `at` de cada promoción creada hasta esa fecha. Solo se cargan las que
+   * tienen alguna versión activa que cubra `at`: las demás no pueden aplicar en esa fecha.
+   */
   private async promotionSnapshotsAt(at: Date): Promise<PromotionSnapshot[]> {
     const promotions = await this.prisma.promotion.findMany({
-      where: { createdAt: { lte: at } },
+      where: {
+        createdAt: { lte: at },
+        revisions: {
+          some: {
+            validFrom: { lte: at },
+            isActive: true,
+            startsAt: { lte: at },
+            endsAt: { gte: at },
+          },
+        },
+      },
       select: {
         id: true,
         createdAt: true,

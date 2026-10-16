@@ -230,10 +230,46 @@ function toProductDto(p: PrismaProduct, role: AdminRole): ProductDto {
   };
 }
 
+type PriceFrom = Pick<PublicProductDto, 'regularPriceFrom' | 'finalPriceFrom' | 'hasDiscount'>;
+
 /** Descuento del precio "desde" respecto de su precio regular (0 si no tiene). */
-function discountRatio(product: PublicProductDto): number {
+function discountRatio(product: PriceFrom): number {
   if (product.regularPriceFrom <= 0) return 0;
   return (product.regularPriceFrom - product.finalPriceFrom) / product.regularPriceFrom;
+}
+
+/** Precio de una variante según el motor; si no lo calculó, su precio efectivo sin descuento. */
+function variantPrice(
+  variant: { id: string; price: Prisma.Decimal | null },
+  basePrice: Prisma.Decimal,
+  priceMap: Map<string, PriceCalculation>,
+): PriceCalculation {
+  const fallbackPrice = (variant.price ?? basePrice).toNumber();
+  return (
+    priceMap.get(variant.id) ?? {
+      regularPrice: fallbackPrice,
+      discountAmount: 0,
+      finalPrice: fallbackPrice,
+      appliedPromotion: null,
+    }
+  );
+}
+
+/**
+ * Precio "desde" de un producto a partir de los precios de sus variantes activas. El precio y su
+ * precio regular salen de la misma variante (la de menor precio final), para no mostrar tachado
+ * un precio de otra variante.
+ */
+function priceFrom(prices: PriceCalculation[], basePrice: number): PriceFrom {
+  const cheapest = prices.reduce<PriceCalculation | null>(
+    (best, price) => (!best || price.finalPrice < best.finalPrice ? price : best),
+    null,
+  );
+  return {
+    regularPriceFrom: cheapest?.regularPrice ?? basePrice,
+    finalPriceFrom: cheapest?.finalPrice ?? basePrice,
+    hasDiscount: prices.some((price) => price.discountAmount > 0),
+  };
 }
 
 function toPublicProductDto(
@@ -242,26 +278,10 @@ function toPublicProductDto(
   generalMax: number | null,
 ): PublicProductDto {
   const activeVariants = p.variants.filter((v) => v.isActive);
-  const pricedVariants = activeVariants.map((variant) => {
-    const fallbackPrice = (variant.price ?? p.basePrice).toNumber();
-    return toPublicVariantDto(
-      variant,
-      priceMap.get(variant.id) ?? {
-        regularPrice: fallbackPrice,
-        discountAmount: 0,
-        finalPrice: fallbackPrice,
-        appliedPromotion: null,
-      },
-      generalMax,
-    );
-  });
-  // El precio "desde" y su precio regular salen de la misma variante (la de menor precio final),
-  // para no mostrar tachado un precio de otra variante.
-  const cheapest = pricedVariants.reduce<PublicVariantDto | null>(
-    (best, variant) => (!best || variant.finalPrice < best.finalPrice ? variant : best),
-    null,
+  const prices = activeVariants.map((variant) => variantPrice(variant, p.basePrice, priceMap));
+  const pricedVariants = activeVariants.map((variant, i) =>
+    toPublicVariantDto(variant, prices[i], generalMax),
   );
-  const basePrice = p.basePrice.toNumber();
 
   return {
     id: p.id,
@@ -277,9 +297,7 @@ function toPublicProductDto(
     publishedAt: p.publishedAt,
     variants: pricedVariants,
     images: p.images.map(toImageDto),
-    regularPriceFrom: cheapest?.regularPrice ?? basePrice,
-    finalPriceFrom: cheapest?.finalPrice ?? basePrice,
-    hasDiscount: pricedVariants.some((variant) => variant.discountAmount > 0),
+    ...priceFrom(prices, p.basePrice.toNumber()),
   };
 }
 
@@ -393,50 +411,43 @@ export class ProductsService {
       }
     }
 
-    const include = {
-      variants: {
-        include: variantInclude,
-        orderBy: { position: 'asc' as const },
-      },
-      images: { where: { variantId: null }, orderBy: { position: 'asc' as const } },
-    };
+    if (query.onSale) {
+      // Solo puede estar en oferta un producto que alcanza alguna promoción vigente.
+      const targets = await this.pricing.promotionTargetsAt();
+      const reach: Prisma.ProductWhereInput[] = [];
+      if (targets.productIds.length > 0) reach.push({ id: { in: targets.productIds } });
+      if (targets.variantIds.length > 0) {
+        reach.push({ variants: { some: { id: { in: targets.variantIds } } } });
+      }
+      if (targets.categoryIds.length > 0) {
+        reach.push(
+          { categoryId: { in: targets.categoryIds } },
+          { category: { parentId: { in: targets.categoryIds } } },
+        );
+      }
+      if (reach.length === 0) return { items: [], total: 0 };
+      where.AND = [{ OR: reach }];
+    }
 
     if (query.q || query.onSale) {
-      const candidates = await this.prisma.product.findMany({
-        where,
-        include,
-        orderBy: { publishedAt: 'desc' },
-      });
-      const needle = query.q ? normalizeSearchText(query.q) : null;
-      const matches = needle
-        ? candidates.filter((product) => normalizeSearchText(product.name).includes(needle))
-        : candidates;
-
-      // Saber si un producto está en oferta exige calcular sus precios con las promociones
-      // vigentes, así que se filtra después de calcularlos. Primero el mayor descuento.
-      if (query.onSale) {
-        const priceMap = await this.priceProducts(matches);
-        const generalMax = await this.generalMaxPerOrder();
-        const onSale = matches
-          .map((p) => toPublicProductDto(p, priceMap, generalMax))
-          .filter((p) => p.hasDiscount)
-          .sort((a, b) => discountRatio(b) - discountRatio(a));
-        return { items: onSale.slice(skip, skip + limit), total: onSale.length };
-      }
-
-      const page = matches.slice(skip, skip + limit);
-      const priceMap = await this.priceProducts(page);
+      // Primero se decide qué productos coinciden y en qué orden, con datos mínimos; el detalle
+      // completo se carga solo para la página pedida.
+      const ids = query.onSale
+        ? await this.onSaleIds(where, query.q)
+        : await this.searchIds(where, query.q ?? '');
+      const items = await this.findPublicByIds(ids.slice(skip, skip + limit));
+      const priceMap = await this.priceProducts(items);
       const generalMax = await this.generalMaxPerOrder();
       return {
-        items: page.map((p) => toPublicProductDto(p, priceMap, generalMax)),
-        total: matches.length,
+        items: items.map((p) => toPublicProductDto(p, priceMap, generalMax)),
+        total: ids.length,
       };
     }
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.product.findMany({
         where,
-        include,
+        include: productInclude,
         orderBy: { publishedAt: 'desc' },
         skip,
         take: limit,
@@ -450,6 +461,70 @@ export class ProductsService {
       items: items.map((p) => toPublicProductDto(p as PrismaProduct, priceMap, generalMax)),
       total,
     };
+  }
+
+  /**
+   * Productos cuyo nombre contiene el texto buscado, sin distinguir mayúsculas ni tildes. Se
+   * compara en memoria (la base no ignora tildes), pero solo con el id y el nombre.
+   */
+  private async searchIds(where: Prisma.ProductWhereInput, q: string): Promise<string[]> {
+    const needle = normalizeSearchText(q);
+    const candidates = await this.prisma.product.findMany({
+      where,
+      select: { id: true, name: true },
+      orderBy: { publishedAt: 'desc' },
+    });
+    return candidates
+      .filter((product) => normalizeSearchText(product.name).includes(needle))
+      .map((product) => product.id);
+  }
+
+  /**
+   * Productos con descuento, primero el mayor. Saber si un producto está en oferta exige calcular
+   * sus precios con las promociones vigentes, así que se calculan con lo mínimo de cada variante.
+   */
+  private async onSaleIds(where: Prisma.ProductWhereInput, q?: string): Promise<string[]> {
+    const needle = q ? normalizeSearchText(q) : null;
+    const candidates = (
+      await this.prisma.product.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          basePrice: true,
+          variants: {
+            where: { isActive: true },
+            orderBy: { position: 'asc' },
+            select: { id: true, price: true, isActive: true },
+          },
+        },
+        orderBy: { publishedAt: 'desc' },
+      })
+    ).filter((product) => !needle || normalizeSearchText(product.name).includes(needle));
+
+    const priceMap = await this.priceProducts(candidates);
+    return candidates
+      .map((product) => ({
+        id: product.id,
+        ...priceFrom(
+          product.variants.map((variant) => variantPrice(variant, product.basePrice, priceMap)),
+          product.basePrice.toNumber(),
+        ),
+      }))
+      .filter((product) => product.hasDiscount)
+      .sort((a, b) => discountRatio(b) - discountRatio(a))
+      .map((product) => product.id);
+  }
+
+  /** Productos activos con su detalle público, en el orden de `ids`. */
+  private async findPublicByIds(ids: string[]): Promise<PrismaProduct[]> {
+    if (ids.length === 0) return [];
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: ids }, status: 'ACTIVE' },
+      include: productInclude,
+    });
+    const byId = new Map(products.map((product) => [product.id, product]));
+    return ids.flatMap((id) => byId.get(id) ?? []);
   }
 
   /** Precios vigentes de las variantes activas de varios productos, en una sola consulta al motor. */
@@ -466,10 +541,7 @@ export class ProductsService {
   async findOnePublicBySlug(slug: string): Promise<PublicProductDto> {
     const p = await this.prisma.product.findFirst({
       where: { slug, status: 'ACTIVE' },
-      include: {
-        variants: { include: variantInclude, orderBy: { position: 'asc' } },
-        images: { where: { variantId: null }, orderBy: { position: 'asc' } },
-      },
+      include: productInclude,
     });
     if (!p) throw new NotFoundException(`Producto '${slug}' no encontrado.`);
     return toPublicProductDto(p, await this.priceProducts([p]), await this.generalMaxPerOrder());
