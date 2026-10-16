@@ -51,7 +51,9 @@ export function CartPage() {
 
   if (!ready || (items.length > 0 && !quote && quoteQuery.isPending)) {
     return (
-      <p role="status" className="text-xs text-muted">
+      // Reserva el alto del contenido que viene (bolsa vacía o formulario) para que el pie no
+      // salte al terminar de cargar (CLS).
+      <p role="status" className="min-h-75 text-xs text-muted">
         Cargando tu bolsa…
       </p>
     );
