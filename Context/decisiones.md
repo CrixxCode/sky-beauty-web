@@ -159,7 +159,7 @@ Esto ajusta lo dicho en "Cifras configurables sin valor inicial": sin límite co
 
 **Decisión:** la tienda puede cambiar el costo de envío de un pedido después de confirmarlo e incluso después de verificar el pago, mientras no esté entregado ni cancelado. El total del pedido se recalcula y el cambio queda en su historial.
 
-**Pendiente:** si el envío sube después de verificado el pago, si el pedido sigue como pagado o queda una diferencia por cobrar.
+**Pendiente:** ~~si el envío sube después de verificado el pago, si el pedido sigue como pagado o queda una diferencia por cobrar.~~ Resuelto el 2026-10-16: ver "El envío no sube mientras el pedido está pagado".
 
 ---
 
@@ -169,7 +169,96 @@ Esto ajusta lo dicho en "Cifras configurables sin valor inicial": sin límite co
 
 **Procedimiento (confirmado el 2026-10-15):** primero se registra la devolución total del dinero y después se cancela el pedido. Mientras el pago siga verificado, el panel no permite cancelarlo y explica que falta registrar la devolución.
 
-**Pendiente:** qué hacer cuando el monto verificado no coincide con el total y cómo registrar devoluciones parciales. Hay una recomendación en `docs/testing/PLAN_PRUEBAS_BACKEND.md` (§D.3), aún sin confirmar.
+**Pendiente:** ~~qué hacer cuando el monto verificado no coincide con el total y cómo registrar devoluciones parciales.~~ Resuelto el 2026-10-16: ver "Monto verificado distinto del total y devoluciones totales".
+
+---
+
+## 2026-10-16 — Monto verificado distinto del total y devoluciones totales
+
+**Decisión (Q-04):** al verificar un pago por transferencia, Nequi o Daviplata:
+
+- **Monto menor que el total:** no se marca como pagado. Se registra como pago incompleto y queda rechazado, lo que abre el plazo de aclaración de 8 horas que ya existe (ver "Cancelación automática de pedidos confirmados sin pago").
+- **Monto mayor que el total:** se marca como pagado por el total del pedido y la nota es obligatoria. Queda registrado el excedente por devolver, que se devuelve a mano. No se suma como ingreso del pedido ni hay una gestión automática de excedentes.
+- **Devoluciones:** solo se aceptan devoluciones **totales** del monto verificado. Las parciales no se registran. Para cancelar un pedido pagado, primero se registra la devolución total (ver "Cancelar un pedido pagado exige la devolución").
+
+---
+
+## 2026-10-16 — El envío no sube mientras el pedido está pagado
+
+**Decisión (Q-21):** completa "Costo de envío modificable después del pago". Mientras el pedido tenga el pago verificado, **no se puede aumentar** su costo de envío: la API lo rechaza y el panel bloquea el guardado explicando el motivo. Así el pedido nunca queda como pagado con un total mayor al pagado.
+
+El resto de esa decisión no cambia.
+
+---
+
+## 2026-10-16 — Textos legales aprobados
+
+**Decisión:** la propietaria aprobó los cuatro textos legales (términos y condiciones, tratamiento de datos personales, cambios y garantías, y envíos) y están cargados en la base de la tienda, sin marcadores `[PENDIENTE]`. Reemplaza el pendiente de aprobación de "Políticas y términos para clientes" (2026-10-09).
+
+**Sin revisión legal:** no se validaron con asesoría legal. La propietaria asume ese riesgo y lo confirmó.
+
+**Pendiente:** cargar los mismos textos en la base de Railway cuando se despliegue; el despliegue no copia la base local.
+
+---
+
+## 2026-10-16 — Integración continua con GitHub Actions
+
+**Decisión (Q-12):** se autoriza GitHub Actions en su plan gratuito. El flujo `QA` (`.github/workflows/qa.yml`) corre las pruebas en cada push a `dev` y `main` y en cada solicitud de cambios, y construye las imágenes de producción. **No despliega automáticamente** y no lleva credenciales reales.
+
+---
+
+## 2026-10-16 — Copias de seguridad manuales
+
+**Decisión:** las copias de la base de datos y de las fotos se hacen **a mano, una vez por semana y antes de cada despliegue**, conservando las **dos últimas en el computador** de la persona usuaria. No se contrata almacenamiento externo, no hay programación periódica ni borrado automático. Procedimiento en `docs/deployment/BACKUPS.md`.
+
+Resuelve el pendiente de copias de seguridad de "Infraestructura sin servicios de pago".
+
+---
+
+## 2026-10-16 — Metas de rendimiento iniciales
+
+**Decisión (Q-15):** para el inicio del emprendimiento, el percentil 95 de respuesta debe ser de **1,5 s o menos** en búsqueda y ofertas con 20 conexiones simultáneas, y de **1 s o menos** en el catálogo con 50 conexiones. Cumplidas en pruebas locales con 2.000 productos.
+
+**Pendiente:** comprobarlas en Railway antes de abrir ventas.
+
+---
+
+## 2026-10-16 — Validación en producción y aceptación final
+
+**Decisiones:**
+
+- **Sin entorno de pruebas aparte (Q-14):** la validación previa a abrir ventas se hace en el único entorno de Railway, con datos ficticios evidentes que se borran antes de abrir. No se crea un segundo entorno.
+- **Aceptación final (Q-16):** el desarrollador ejecuta las pruebas manuales en el entorno desplegado y la propietaria da el visto bueno final, incluido un pedido de prueba enviado por WhatsApp desde su celular.
+
+**Pendiente:** confirmar que el volumen persistente de Railway para las fotos entra dentro del gasto permitido (ver "Infraestructura sin servicios de pago").
+
+---
+
+## 2026-10-16 — El enlace del producto no cambia al renombrarlo
+
+**Decisión (Q-07):** cambiar el nombre de un producto no cambia su enlace (`slug`), para que los enlaces ya compartidos por WhatsApp o redes sigan funcionando. El enlace solo cambia si se edita de forma explícita en el campo del enlace.
+
+---
+
+## 2026-10-16 — Publicar un producto exige una variante activa
+
+**Decisión (Q-18):** un producto no se puede publicar (pasar a activo) si no tiene al menos una variante activa. La API responde 400 y el panel muestra el motivo.
+
+Solo cubre el momento de publicar: no cambia qué ocurre si después se desactivan o eliminan sus variantes.
+
+---
+
+## 2026-10-16 — Categoría o marca inactiva oculta sus productos
+
+**Decisión (Q-09):** un producto no se muestra ni se puede comprar si su marca está inactiva, si su categoría está inactiva o si es de una subcategoría cuya categoría padre está inactiva. Aplica al listado, la búsqueda, las ofertas, los favoritos, el detalle (por enlace directo), la bolsa y el checkout, la edición de pedidos sin confirmar, los testimonios que lo mencionan y el menú de categorías y marcas (una categoría o marca sin productos visibles no aparece). Al reactivarlas, los productos vuelven.
+
+No cambia los pedidos ya hechos, que conservan su información.
+
+---
+
+## 2026-10-16 — Pedido en preparación sin comprobante
+
+**Decisión (Q-19):** un pedido en preparación que sigue sin comprobante de pago a las 24 horas de confirmado también se cancela automáticamente, igual que uno confirmado (ver "Cancelación automática de pedidos confirmados sin pago"). No aplica al contra entrega.
 
 ---
 
@@ -439,7 +528,7 @@ Mientras no se configuren:
 
 **Pendiente:**
 
-- Revisión y aprobación de la propietaria, y validación con asesoría legal. Hasta entonces son **borradores**: no se deben tratar como políticas vigentes ni publicar.
+- ~~Revisión y aprobación de la propietaria, y validación con asesoría legal. Hasta entonces son **borradores**: no se deben tratar como políticas vigentes ni publicar.~~ Actualizado el 2026-10-16: la propietaria los aprobó, sin validación legal (ver "Textos legales aprobados"). Los archivos de `politicas/` siguen siendo los borradores originales; los textos vigentes son los cargados en la base.
 - Completar los datos marcados `[PENDIENTE: ...]`: responsable, identificación, contacto, fechas, si los precios incluyen IVA, cobertura y tiempos de envío.
 - Confirmar lo que propuso el agente:
   - En cambios: reporte en 48 horas, cambios en 5 días hábiles y reembolso en 15 días hábiles.
@@ -559,7 +648,7 @@ No se usan S3 ni otros almacenamientos en la nube, CDN, servicios de correo o SM
 **Pendiente:**
 
 - Confirmar que el volumen persistente de Railway para las imágenes entra dentro del gasto de Railway permitido.
-- Cómo se harán las copias de seguridad de la base de datos y de las imágenes.
+- ~~Cómo se harán las copias de seguridad de la base de datos y de las imágenes.~~ Resuelto el 2026-10-16: ver "Copias de seguridad manuales".
 
 ---
 
@@ -621,6 +710,9 @@ Estado al 2026-10-13. Migraciones en `backend/prisma/migrations/`:
 - **Ofertas y destacados:** `GET /store/products` acepta `featured=true` y `onSale=true`. Para las ofertas, primero se toman los productos que alcanza alguna promoción vigente; luego se calculan sus precios con el motor de promociones, se dejan solo los que tienen descuento y se ordenan por descuento. El catálogo lo usa con `?ofertas=1`.
 - **Sin precio final de 0 COP (2026-10-15):** los DTO exigen precios mayores que 0 (`@IsPositive`). `PromotionsService` rechaza los porcentajes de 100 o más y los descuentos fijos que dejarían algún destino en 0 o menos. `calculateDiscount` no aplica un descuento que iguale o supere el precio y limita el redondeo para que el precio final quede en al menos 1 COP.
 - **Cancelar un pedido pagado (2026-10-15):** `OrdersService.cancel` rechaza un pedido con `paymentStatus = PAID`; el panel muestra la explicación en lugar del formulario de cancelación.
+- **Pagos y envío (2026-10-16):** `OrdersService.verifyPayment` rechaza como pago incompleto un monto menor (abre `paymentRejectedAt`) y exige nota ante un excedente; `refundPayment` solo acepta la devolución total; `quoteShipping` no permite subir el envío con el pago verificado.
+- **Visibilidad en la tienda (2026-10-16):** `backend/src/modules/catalog/products/public-visibility.ts` define en un solo lugar qué producto se muestra y se puede comprar (`publicProductWhere`: publicado, marca activa, categoría visible). Lo usan el listado, la búsqueda, las ofertas, los favoritos, el detalle, la cotización del carrito, la edición de pedidos, los testimonios y los listados públicos de categorías y marcas.
+- **Enlace y publicación (2026-10-16):** `ProductsService.update` ya no regenera el `slug` al cambiar el nombre; `changeStatus` rechaza publicar sin una variante activa.
 
 ### Pendiente en el código
 
