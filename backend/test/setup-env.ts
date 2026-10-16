@@ -27,6 +27,9 @@ if (!testDatabaseName.endsWith('_test')) {
 process.env.DATABASE_URL = testDatabaseUrl;
 process.env.NODE_ENV = 'test';
 process.env.LOG_LEVEL = 'silent';
+// Las pruebas comparan el enlace de seguimiento con esta dirección; no deben depender del .env
+// ni del entorno del CI.
+process.env.PUBLIC_SITE_URL = 'http://localhost:3000';
 // Las fotos de las pruebas van a una carpeta temporal, nunca a la de desarrollo. Se define aquí,
 // antes de importar la aplicación: la configuración se lee al cargar los módulos.
 process.env.UPLOADS_DIR = mkdtempSync(join(tmpdir(), 'sky-beauty-uploads-'));
