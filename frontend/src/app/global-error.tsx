@@ -11,7 +11,7 @@ export default function GlobalError({ reset }: { error: Error; reset: () => void
         <div className="max-w-140 bg-[#faf6f8] px-6 py-15 text-center">
           <h1 className="mb-3 font-serif text-[38px] leading-[1.2]">Algo salió mal</h1>
           <p className="mb-6 text-xs leading-[1.8] text-[#88777e]">
-            Tuvimos un problema al cargar la tienda. Intenta de nuevo en unos segundos.
+            Tuvimos un problema al cargar esta página. Intenta de nuevo en unos segundos.
           </p>
           <Button onClick={reset}>Intentar de nuevo</Button>
         </div>
