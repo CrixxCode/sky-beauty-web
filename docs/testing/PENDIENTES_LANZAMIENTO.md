@@ -87,5 +87,4 @@ No requieren cambios de código. Sin ellos la tienda funciona, pero incompleta.
 - Imagen de vista previa general para redes (necesita el logotipo en PNG; hoy el inicio no tiene `og:image`).
 - Logotipo monocromo.
 - Información adicional del producto.
-- `ubuntu-latest` pasa a Ubuntu 26 el 2026-10-19: vigilar que el flujo `QA` siga en verde.
 - Vulnerabilidades solo en herramientas de desarrollo (Jest, lint, generación), sin versión corregida publicada al revisar.

@@ -64,7 +64,9 @@ En backend, completar todas las variables de `backend/.env.example`:
 - `UPLOADS_DIR=/app/uploads`, `MAX_IMAGE_SIZE_MB=5`.
 - Plazos confirmados: `ORDER_PENDING_TTL_HOURS=48`, `ORDER_UNPAID_TTL_HOURS=24`,
   `ORDER_PAYMENT_CLARIFICATION_HOURS=8`.
-- Sesiones e intentos según `.env.example`.
+- Sesiones e intentos según `.env.example`. Ninguna variable numérica puede quedar
+  en blanco: el backend se detiene al arrancar y nombra la variable (un plazo en
+  blanco ya no se lee como 0). Para desactivar un plazo hay que escribir `0`.
 - `TRUST_PROXY_HOPS`: verificar la cadena Railway → Next.js → API. Para esa
   cadena se parte de 2; comprobar en el entorno real que dos conexiones distintas
   no comparten el límite de intentos. No exponer directamente el backend.

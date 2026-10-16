@@ -2,8 +2,17 @@ import { z } from 'zod';
 
 /** Convierte cadenas vacías en undefined para que los campos opcionales del .env funcionen. */
 const optionalUrl = z.preprocess((v) => (v === '' ? undefined : v), z.url().optional());
-const positiveInt = z.coerce.number().int().positive();
-const nonNegativeInt = z.coerce.number().int().min(0);
+/**
+ * Un valor numérico en blanco (`ORDER_PENDING_TTL_HOURS=`) es un error, no un 0: `z.coerce` lo
+ * leería como 0 y, por ejemplo, desactivaría en silencio las cancelaciones automáticas. Una
+ * variable ausente sigue usando su valor por defecto, si lo tiene.
+ */
+const numberFromEnv = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() === '' ? NaN : v),
+  z.coerce.number({ error: 'debe ser un número, no estar vacía' }),
+);
+const positiveInt = numberFromEnv.pipe(z.number().int().positive());
+const nonNegativeInt = numberFromEnv.pipe(z.number().int().min(0));
 
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -50,7 +59,7 @@ export const envSchema = z.object({
   // Imágenes: se guardan en el disco del servidor (en producción, un volumen de Railway).
   // El proyecto no usa servicios de almacenamiento de pago (ver Context/decisiones.md).
   UPLOADS_DIR: z.string().min(1),
-  MAX_IMAGE_SIZE_MB: z.coerce.number().positive(),
+  MAX_IMAGE_SIZE_MB: numberFromEnv.pipe(z.number().positive()),
 });
 
 export type Env = z.infer<typeof envSchema>;

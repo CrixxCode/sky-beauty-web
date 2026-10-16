@@ -65,6 +65,33 @@ describe('validateEnv', () => {
     ).toThrow('ORDER_PAYMENT_CLARIFICATION_HOURS');
   });
 
+  it('un valor numérico en blanco es un error, no un 0', () => {
+    for (const name of [
+      'ORDER_PENDING_TTL_HOURS',
+      'ORDER_UNPAID_TTL_HOURS',
+      'ORDER_PAYMENT_CLARIFICATION_HOURS',
+      'TRUST_PROXY_HOPS',
+      'PORT',
+      'ADMIN_SESSION_TTL_MINUTES',
+      'MAX_IMAGE_SIZE_MB',
+    ]) {
+      expect(() => validateEnv({ ...validEnv, [name]: '' })).toThrow(name);
+      expect(() => validateEnv({ ...validEnv, [name]: '   ' })).toThrow(name);
+    }
+  });
+
+  it('el 0 explícito desactiva un plazo y una variable ausente usa su valor por defecto', () => {
+    const env = validateEnv({
+      ...validEnv,
+      ORDER_PENDING_TTL_HOURS: '0',
+      TRUST_PROXY_HOPS: undefined,
+      PORT: undefined,
+    });
+    expect(env.ORDER_PENDING_TTL_HOURS).toBe(0);
+    expect(env.TRUST_PROXY_HOPS).toBe(0);
+    expect(env.PORT).toBe(4000);
+  });
+
   it('exige la carpeta de las imágenes', () => {
     expect(() => validateEnv({ ...validEnv, UPLOADS_DIR: '' })).toThrow('UPLOADS_DIR');
   });
