@@ -34,7 +34,7 @@ export default async function AdminLoginPage() {
           priority
           className="mb-6.25 block h-auto w-45"
         />
-        <p className="mb-6.25 text-[11px] leading-loose text-[#82747e]">
+        <p className="mb-6.25 text-[11px] leading-loose text-[#6f636b]">
           Ingresa con tu cuenta del panel.
         </p>
         <div className="w-full text-left">

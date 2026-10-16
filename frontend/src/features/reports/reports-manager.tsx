@@ -79,7 +79,7 @@ export function ReportsManager() {
             </Select>
           </FormField>
         </div>
-        <p className="mt-3 text-[10px] text-[#8b7f87]">
+        <p className="mt-3 text-[10px] text-[#6d646a]">
           Cuentan como venta los pedidos con el pago verificado (incluido el contra entrega pagado
           al entregarse), en la fecha en que se verificó el pago. No cuentan los cancelados ni los
           devueltos.
@@ -243,7 +243,7 @@ function TopProductsTab({ qs, range }: { qs: string; range: Range }) {
                 <TableCell>{index + 1}</TableCell>
                 <TableCell>
                   <strong className="block text-[11px] text-[#493a45]">{row.productName}</strong>
-                  <span className="text-[10px] text-[#8b7f87]">{row.variantName}</span>
+                  <span className="text-[10px] text-[#6d646a]">{row.variantName}</span>
                 </TableCell>
                 <TableCell className="font-mono text-[10px]">{row.sku}</TableCell>
                 <TableCell className="text-right">{row.units}</TableCell>
@@ -352,7 +352,7 @@ function MarginsTab({ qs, range }: { qs: string; range: Range }) {
                 <TableRow key={row.sku}>
                   <TableCell>
                     <strong className="block text-[11px] text-[#493a45]">{row.productName}</strong>
-                    <span className="text-[10px] text-[#8b7f87]">
+                    <span className="text-[10px] text-[#6d646a]">
                       {row.variantName} · {row.sku}
                     </span>
                   </TableCell>
@@ -385,5 +385,5 @@ function ExportButton({ onClick, disabled }: { onClick: () => void; disabled?: b
 
 const Loading = () => <p className="text-[11px] text-muted">Cargando reporte...</p>;
 const Empty = () => (
-  <p className="py-6 text-center text-[11px] text-[#8b7f87]">No hay ventas en este rango.</p>
+  <p className="py-6 text-center text-[11px] text-[#6d646a]">No hay ventas en este rango.</p>
 );

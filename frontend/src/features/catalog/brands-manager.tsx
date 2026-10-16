@@ -328,7 +328,7 @@ function BrandCard({
             </div>
             <div>
               <span className="text-xs font-semibold text-[#493a45]">{brand.name}</span>
-              <small className="block font-mono text-[9px] text-[#a0929b]">/{brand.slug}</small>
+              <small className="block font-mono text-[9px] text-[#6d646a]">/{brand.slug}</small>
             </div>
           </div>
           <AdminStatus tone={brand.isActive ? 'ok' : 'out'}>

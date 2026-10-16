@@ -11,7 +11,7 @@ export function AdminHeading({ title, description }: { title: string; descriptio
       <h1 className={cn(serifClass, 'mb-2.5 mt-1 text-[43px] leading-normal max-[600px]:text-4xl')}>
         {title}
       </h1>
-      {description && <p className="text-[11px] text-[#8b7f87]">{description}</p>}
+      {description && <p className="text-[11px] text-[#6d646a]">{description}</p>}
     </div>
   );
 }
@@ -82,9 +82,9 @@ export function AdminStat({
       <span className="mb-4.75 grid h-10 w-10 place-items-center bg-[#f3e8f3] text-[#936591]">
         {icon}
       </span>
-      <small className="text-[10px] text-[#8b7e88]">{label}</small>
+      <small className="text-[10px] text-[#6e646c]">{label}</small>
       <strong className="my-2 max-w-full truncate text-[25px] max-[600px]:text-lg">{value}</strong>
-      <span className="text-[9px] text-[#a48c9c]">{detail}</span>
+      <span className="text-[9px] text-[#73626e]">{detail}</span>
     </>
   );
   return href ? (

@@ -173,7 +173,11 @@ export function OrdersManager({
               </InputGroupButton>
             )}
           </InputGroup>
-          <Select value={status} onChange={(event) => changeStatus(event.target.value)}>
+          <Select
+            aria-label="Filtrar por estado del pedido"
+            value={status}
+            onChange={(event) => changeStatus(event.target.value)}
+          >
             <option value="">Todos los estados</option>
             {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (
               <option key={value} value={value}>
@@ -182,6 +186,7 @@ export function OrdersManager({
             ))}
           </Select>
           <Select
+            aria-label="Filtrar por estado del pago"
             value={paymentStatus}
             onChange={(event) => changePaymentStatus(event.target.value as PaymentStatus | '')}
           >
@@ -217,13 +222,13 @@ export function OrdersManager({
                 <TableRow key={order.id}>
                   <TableCell>
                     <strong className="block text-[11px] text-[#493a45]">{order.code}</strong>
-                    <span className="text-[10px] text-[#8b7f87]">
+                    <span className="text-[10px] text-[#6d646a]">
                       {order.itemCount} producto(s)
                     </span>
                   </TableCell>
                   <TableCell>
                     <span className="block text-[11px]">{order.customerName}</span>
-                    <span className="text-[10px] text-[#8b7f87]">
+                    <span className="text-[10px] text-[#6d646a]">
                       {order.city}, {order.department}
                     </span>
                   </TableCell>
@@ -480,7 +485,7 @@ function OrderDetail({
                         ? (ORDER_STATUS_LABELS[event.toStatus as OrderStatus] ?? event.toStatus)
                         : (ORDER_EVENT_LABELS[event.type] ?? event.type)}
                 </strong>
-                <span className="ml-2 text-[#8b7f87]">{formatDate(event.createdAt)}</span>
+                <span className="ml-2 text-[#6d646a]">{formatDate(event.createdAt)}</span>
                 {event.note && <p className="mt-1 text-[#6f606a]">{event.note}</p>}
               </div>
             ))}
@@ -490,7 +495,7 @@ function OrderDetail({
         <section className="border border-[#eee8ed] p-4.5">
           <h3 className="mb-3 text-xs font-semibold text-[#493a45]">Pagos</h3>
           {order.paymentRecords.length === 0 && (
-            <p className="text-[11px] text-[#8b7f87]">Todavía no hay registros de pago.</p>
+            <p className="text-[11px] text-[#6d646a]">Todavía no hay registros de pago.</p>
           )}
           <div className="space-y-2.5">
             {order.paymentRecords.map((record) => (
@@ -499,7 +504,7 @@ function OrderDetail({
                   <AdminStatus tone={paymentTone(record.status)}>
                     {PAYMENT_STATUS_LABELS[record.status]}
                   </AdminStatus>
-                  <span className="text-[#8b7f87]">{formatDate(record.createdAt)}</span>
+                  <span className="text-[#6d646a]">{formatDate(record.createdAt)}</span>
                 </div>
                 <p className="mt-1">
                   Monto: <strong>{formatCOP(record.amount)}</strong>
@@ -618,7 +623,7 @@ function OrderDetail({
             </a>
           )}
           {order.status === 'CANCELLED' ? (
-            <p className="text-[11px] text-[#8b7f87]">El pedido está cancelado.</p>
+            <p className="text-[11px] text-[#6d646a]">El pedido está cancelado.</p>
           ) : (
             <div className="grid gap-x-2">
               <fieldset className="mb-3.5">
@@ -723,7 +728,7 @@ function OrderDetail({
                   onChange={(event) => setShippingNotes(event.target.value)}
                 />
               </FormField>
-              <p className="mb-3 text-[10px] text-[#8b7f87]">
+              <p className="mb-3 text-[10px] text-[#6d646a]">
                 {shippingMethod === 'CARRIER'
                   ? 'Para despachar registra transportadora y guía. '
                   : 'La entrega local no lleva transportadora ni guía. '}
@@ -754,14 +759,14 @@ function OrderDetail({
                 Confirmar pedido
               </Button>
               {!canConfirm && (
-                <p className="mt-2 text-[10px] text-[#8b7f87]">
+                <p className="mt-2 text-[10px] text-[#6d646a]">
                   Registra primero el costo del envío cotizado.
                 </p>
               )}
             </div>
           )}
           {(order.status === 'CONFIRMED' || order.status === 'PREPARING') && (
-            <p className="mb-3 text-[10px] text-[#8b7f87]">
+            <p className="mb-3 text-[10px] text-[#6d646a]">
               El despacho y la entrega se registran en la sección de envío.
             </p>
           )}
@@ -798,10 +803,10 @@ function OrderDetail({
             </div>
           )}
           {order.status === 'DELIVERED' && (
-            <p className="text-[11px] text-[#8b7f87]">El pedido fue entregado.</p>
+            <p className="text-[11px] text-[#6d646a]">El pedido fue entregado.</p>
           )}
           {order.status === 'CANCELLED' && (
-            <p className="text-[11px] text-[#8b7f87]">
+            <p className="text-[11px] text-[#6d646a]">
               Pedido cancelado{order.cancelReason ? `: ${order.cancelReason}` : '.'}
             </p>
           )}
@@ -830,7 +835,7 @@ function OrderDetail({
                 Cancelar pedido y liberar existencias
               </Button>
               {role !== 'ADMIN' && (
-                <p className="mt-2 text-[10px] text-[#8b7f87]">
+                <p className="mt-2 text-[10px] text-[#6d646a]">
                   El personal solo puede cancelar cuando el pago no se demostró y venció el plazo de
                   aclaración.
                 </p>
@@ -849,7 +854,7 @@ function OrderDetail({
             </p>
           )}
           {!requiresVerification && (
-            <p className="text-[11px] text-[#8b7f87]">
+            <p className="text-[11px] text-[#6d646a]">
               El contra entrega queda pagado al marcar el pedido como entregado.
             </p>
           )}
@@ -970,7 +975,7 @@ function OrderItemRow({ item, role }: { item: AdminOrderItem; role: AdminRole })
     <div className="flex items-start justify-between gap-3 border-b border-[#f0ecf0] pb-3 text-[11px]">
       <div>
         <strong className="block text-[#493a45]">{item.productName}</strong>
-        <span className="text-[#8b7f87]">
+        <span className="text-[#6d646a]">
           {item.variantName} - {item.sku}
         </span>
         {item.promotionName && <span className="ml-2 text-[#7a5178]">{item.promotionName}</span>}

@@ -266,7 +266,7 @@ function AccountRow({ user, onResetPassword }: { user: AdminUser; onResetPasswor
       <TableCell>
         <span className="block min-w-37.5 font-medium text-[#493a45]">
           {user.name}
-          <small className="mt-0.5 block text-[9px] text-[#a4979e]">{user.email}</small>
+          <small className="mt-0.5 block text-[9px] text-[#6d6469]">{user.email}</small>
         </span>
       </TableCell>
       <TableCell>

@@ -128,7 +128,7 @@ export function ShippingManager() {
               className="min-w-0"
             />
           </InputGroup>
-          <div className="flex min-h-11.25 items-center text-[11px] text-[#8b7f87]">
+          <div className="flex min-h-11.25 items-center text-[11px] text-[#6d646a]">
             La URL de rastreo usa el marcador {'{tracking}'}.
           </div>
         </div>
@@ -180,7 +180,7 @@ export function ShippingManager() {
           !carriersQuery.isPending && (
             <div className="border border-dashed border-[#e5dce3] p-6 text-center">
               <PackagePlus className="mx-auto mb-2 h-5 w-5 text-[#9b7c99]" />
-              <p className="text-[11px] text-[#8b7f87]">No hay transportadoras para mostrar.</p>
+              <p className="text-[11px] text-[#6d646a]">No hay transportadoras para mostrar.</p>
             </div>
           )
         )}

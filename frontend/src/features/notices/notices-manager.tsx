@@ -64,7 +64,7 @@ function NoticeList({ status }: { status: 'PENDING' | 'SENT' }) {
   if (query.data.length === 0) {
     return (
       <AdminPanel>
-        <p className="py-6 text-center text-[11px] text-[#8b7f87]">
+        <p className="py-6 text-center text-[11px] text-[#6d646a]">
           {status === 'PENDING' ? 'No hay avisos por enviar.' : 'Todavía no hay avisos enviados.'}
         </p>
       </AdminPanel>
@@ -84,7 +84,7 @@ function NoticeList({ status }: { status: 'PENDING' | 'SENT' }) {
                 </Badge>
                 <Badge variant="neutral">{notice.caseName}</Badge>
               </div>
-              <span className="text-[10px] text-[#8b7f87]">
+              <span className="text-[10px] text-[#6d646a]">
                 {notice.stage === 'BEFORE'
                   ? `Se cancela el ${formatDateTime(notice.deadlineAt)}`
                   : `Creado el ${formatDateTime(notice.createdAt)}`}
@@ -113,7 +113,7 @@ function NoticeList({ status }: { status: 'PENDING' | 'SENT' }) {
                 </Button>
               </div>
             ) : (
-              <p className="text-[10px] text-[#8b7f87]">
+              <p className="text-[10px] text-[#6d646a]">
                 Enviado el {notice.sentAt ? formatDateTime(notice.sentAt) : '-'}
                 {notice.sentByName && ` por ${notice.sentByName}`}
               </p>

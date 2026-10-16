@@ -81,7 +81,7 @@ export function DashboardSales() {
         <p className="text-[11px] text-danger">No se pudieron cargar las ventas.</p>
       ) : (
         <>
-          <dl className="mb-2 grid grid-cols-3 gap-3 text-[10px] text-[#8b7e88]">
+          <dl className="mb-2 grid grid-cols-3 gap-3 text-[10px] text-[#6e646c]">
             <div>
               <dt>Total vendido</dt>
               <dd className="mt-1 text-base font-semibold text-[#493a45] max-[600px]:text-xs">
@@ -116,7 +116,7 @@ export function DashboardSales() {
               </div>
             ))}
           </div>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[10px] text-[#8b7e88]">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[10px] text-[#6e646c]">
             <span>
               {data && data.summary.orders === 0
                 ? 'Aún no hay ventas en este período.'

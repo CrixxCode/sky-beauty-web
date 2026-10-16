@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/carousel';
 import { cn } from '@/lib/utils';
 
-const controlClass = 'static size-10 translate-y-0 rounded-full bg-paper/90';
+const controlClass = 'static size-11 translate-y-0 rounded-full bg-paper/90';
 
 const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
 
@@ -153,7 +153,7 @@ export function HeroCarousel({
             {paused ? <Play size={16} /> : <Pause size={16} />}
           </Button>
           <CarouselPrevious variant="light" className={cn(controlClass, 'max-[600px]:hidden')} />
-          <div className="flex h-10 items-center rounded-full bg-paper/90 px-1">
+          <div className="flex h-11 items-center rounded-full bg-paper/90 px-1">
             {slides.map((_, index) => (
               <Button
                 key={index}

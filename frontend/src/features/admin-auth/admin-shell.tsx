@@ -130,7 +130,7 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
             <LogOut size={17} /> Cerrar sesión
           </Button>
           <small
-            className="mx-3 mt-2.5 block truncate text-[9px] text-[#9b9198]"
+            className="mx-3 mt-2.5 block truncate text-[9px] text-[#6c656a]"
             title={`${admin.name} · ${admin.email}`}
           >
             {admin.name} · {admin.email}
@@ -155,7 +155,7 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
           </span>
           <div className="flex items-center gap-3">
             <NotificationsBell />
-            <span className="rounded-[3px] bg-[#f1e4f0] px-2.5 py-1.75 text-[9px] font-semibold uppercase tracking-[.09em] text-[#8a5886]">
+            <span className="rounded-[3px] bg-[#f1e4f0] px-2.5 py-1.75 text-[9px] font-semibold uppercase tracking-[.09em] text-[#875683]">
               {ROLE_LABELS[admin.role]}
             </span>
           </div>

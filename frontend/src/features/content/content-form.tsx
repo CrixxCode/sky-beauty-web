@@ -84,7 +84,7 @@ function ContentEditor({ initial, canEdit }: { initial: StoreContent; canEdit: b
   return (
     <div className="grid gap-5">
       {!canEdit && (
-        <p className="text-[11px] text-[#8b7f87]">
+        <p className="text-[11px] text-[#6d646a]">
           Solo la propietaria puede modificar el contenido.
         </p>
       )}
@@ -125,7 +125,7 @@ function ContentEditor({ initial, canEdit }: { initial: StoreContent; canEdit: b
           Publica solo textos aprobados por la propietaria y revisados legalmente. Una página vacía
           no aparece en la tienda.
         </p>
-        <p className="mb-4 text-[10px] leading-relaxed text-[#8b7f87]">
+        <p className="mb-4 text-[10px] leading-relaxed text-[#6d646a]">
           Formato: <code># Título</code>, <code>## Subtítulo</code>, <code>- elemento</code> para
           listas, <code>**negrita**</code> y una línea en blanco entre párrafos.
         </p>

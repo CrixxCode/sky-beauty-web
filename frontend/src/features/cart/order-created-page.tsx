@@ -53,7 +53,7 @@ export function OrderCreatedPage({ code }: { code: string }) {
   return (
     <div className="mx-auto my-10 max-w-165 bg-[#faf5fa] px-6 py-15 text-center max-[600px]:my-4 max-[600px]:px-4.5 max-[600px]:py-10">
       <CheckCircle2 size={55} className="mx-auto mb-5 text-[#7f5d7d]" />
-      <p className="text-xs font-bold uppercase tracking-[.22em] text-[#815d7f]">
+      <p className="text-xs font-bold uppercase tracking-[.22em] text-[#7e5b7c]">
         Pedido registrado
       </p>
       <h1 className="mx-auto mb-5 mt-1.5 text-balance font-serif text-[45px] leading-[1.2] max-[600px]:text-[32px]">

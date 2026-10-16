@@ -93,7 +93,7 @@ export function NotificationsBell() {
             <p className="px-4 py-6 text-center text-[11px] text-muted">Cargando...</p>
           )}
           {query.data && query.data.items.length === 0 && (
-            <p className="px-4 py-6 text-center text-[11px] text-[#8b7f87]">
+            <p className="px-4 py-6 text-center text-[11px] text-[#6d646a]">
               No hay notificaciones.
             </p>
           )}
@@ -121,7 +121,7 @@ export function NotificationsBell() {
                   <span className="mt-0.5 block whitespace-normal text-[10px] leading-relaxed text-[#6f606a]">
                     {notification.body}
                   </span>
-                  <span className="mt-1 block text-[9px] text-[#a0929b]">
+                  <span className="mt-1 block text-[9px] text-[#6d646a]">
                     {formatDateTime(notification.createdAt)}
                   </span>
                 </span>

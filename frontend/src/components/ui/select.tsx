@@ -49,6 +49,9 @@ const Select = React.forwardRef<HTMLSelectElement, NativeSelectProps>(
       onBlur,
       'aria-invalid': ariaInvalid,
       'aria-describedby': ariaDescribedBy,
+      // El nombre accesible va en el botón visible; el <select> nativo está oculto (aria-hidden).
+      'aria-label': ariaLabel,
+      'aria-labelledby': ariaLabelledBy,
       contentClassName,
       ...props
     },
@@ -97,6 +100,8 @@ const Select = React.forwardRef<HTMLSelectElement, NativeSelectProps>(
             id={id}
             aria-invalid={ariaInvalid}
             aria-describedby={ariaDescribedBy}
+            aria-label={ariaLabel}
+            aria-labelledby={ariaLabelledBy}
             className={cn(
               'flex min-h-11.25 w-full items-center justify-between gap-2 rounded-none border border-field-border bg-white px-3.5 py-3.25 text-left text-[11px] text-ink outline-offset-2 max-[600px]:text-base store:min-[601px]:text-xs transition-colors focus:border-field-focus disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-danger-border',
               className,

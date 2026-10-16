@@ -183,7 +183,7 @@ export function InventoryManager() {
                         <strong className="block text-[11px] text-[#493a45]">
                           {variant.productName}
                         </strong>
-                        <span className="text-[10px] text-[#8b7f87]">{variant.variantName}</span>
+                        <span className="text-[10px] text-[#6d646a]">{variant.variantName}</span>
                       </span>
                     </div>
                   </TableCell>
@@ -272,7 +272,7 @@ export function InventoryManager() {
               />
             </FormField>
             {selectedVariant && (
-              <p className="text-[10px] text-[#8b7f87]">
+              <p className="text-[10px] text-[#6d646a]">
                 Stock actual: <strong>{selectedVariant.stock} unidades</strong>
               </p>
             )}
@@ -313,16 +313,16 @@ export function InventoryManager() {
                 {!selectedVariantId && (
                   <p className="mt-1 text-[10px] text-[#493a45]">
                     {movement.productName} · {movement.variantName}{' '}
-                    <span className="font-mono text-[#a0929b]">{movement.sku}</span>
+                    <span className="font-mono text-[#6d646a]">{movement.sku}</span>
                   </p>
                 )}
-                <p className="mt-1 text-[10px] text-[#8b7f87]">
+                <p className="mt-1 text-[10px] text-[#6d646a]">
                   {movement.stockBefore} {'→'} {movement.stockAfter} un.
                 </p>
                 {movement.reason && (
                   <p className="mt-1 text-[10px] text-[#625760]">{movement.reason}</p>
                 )}
-                <p className="mt-1 text-[9px] text-[#a0929b]">
+                <p className="mt-1 text-[9px] text-[#6d646a]">
                   {formatDateTime(movement.createdAt)}
                   {movement.createdByName && ` · ${movement.createdByName}`}
                 </p>

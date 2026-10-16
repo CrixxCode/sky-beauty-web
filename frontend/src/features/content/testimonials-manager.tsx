@@ -34,7 +34,11 @@ const errorMessage = (error: unknown, fallback: string) =>
 /** Valoración con estrellas llenas y vacías. */
 function Stars({ rating }: { rating: number }) {
   return (
-    <span className="inline-flex items-center gap-0.5" aria-label={`${rating} de 5 estrellas`}>
+    <span
+      role="img"
+      className="inline-flex items-center gap-0.5"
+      aria-label={`${rating} de 5 estrellas`}
+    >
       {[1, 2, 3, 4, 5].map((value) => (
         <Star
           key={value}
@@ -346,7 +350,7 @@ function TestimonialCard({
           “{testimonial.comment}”
         </p>
         {testimonial.productName && (
-          <p className="mt-2 text-[10px] text-[#8a7c86]">Producto: {testimonial.productName}</p>
+          <p className="mt-2 text-[10px] text-[#6f636b]">Producto: {testimonial.productName}</p>
         )}
       </CardContent>
       {canEdit && (

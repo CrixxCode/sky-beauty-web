@@ -295,13 +295,21 @@ export function PromotionsManager() {
               </InputGroupButton>
             )}
           </InputGroup>
-          <Select value={scopeFilter} onChange={(event) => changeScope(event.target.value)}>
+          <Select
+            aria-label="Filtrar por alcance"
+            value={scopeFilter}
+            onChange={(event) => changeScope(event.target.value)}
+          >
             <option value="">Todos los destinos</option>
             <option value="VARIANT">Variantes</option>
             <option value="PRODUCT">Productos</option>
             <option value="CATEGORY">Categorías</option>
           </Select>
-          <Select value={statusFilter} onChange={(event) => changeStatus(event.target.value)}>
+          <Select
+            aria-label="Filtrar por estado"
+            value={statusFilter}
+            onChange={(event) => changeStatus(event.target.value)}
+          >
             <option value="">Todos los estados</option>
             <option value="true">Activas</option>
             <option value="false">Inactivas</option>
@@ -332,7 +340,7 @@ export function PromotionsManager() {
                 <TableRow key={promotion.id}>
                   <TableCell>
                     <strong className="block text-[11px] text-[#493a45]">{promotion.name}</strong>
-                    <span className="text-[10px] text-[#8b7f87]">
+                    <span className="text-[10px] text-[#6d646a]">
                       {promotion.revisionCount}{' '}
                       {promotion.revisionCount === 1 ? 'versión' : 'versiones'}
                     </span>
@@ -345,7 +353,7 @@ export function PromotionsManager() {
                   <TableCell>{PROMOTION_SCOPE_LABELS[promotion.scope]}</TableCell>
                   <TableCell>
                     <span className="block text-[10px]">{formatDate(promotion.startsAt)}</span>
-                    <span className="block text-[10px] text-[#8b7f87]">
+                    <span className="block text-[10px] text-[#6d646a]">
                       {formatDate(promotion.endsAt)}
                     </span>
                   </TableCell>
@@ -578,7 +586,7 @@ export function PromotionsManager() {
           <div key={revision.id} className="mb-3 border border-[#eee5eb] p-3.5 text-[11px]">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <strong>Versión {revision.revision}</strong>
-              <span className="text-[#8b7f87]">{formatDate(revision.validFrom)}</span>
+              <span className="text-[#6d646a]">{formatDate(revision.validFrom)}</span>
             </div>
             <p className="mt-1.5 text-[#6d5f67]">
               {DISCOUNT_TYPE_LABELS[revision.discountType]} -{' '}
@@ -621,7 +629,7 @@ function TargetList({
 
   if (items.length === 0) {
     return (
-      <p className="px-3.5 py-6 text-center text-[11px] text-[#8b7f87]">
+      <p className="px-3.5 py-6 text-center text-[11px] text-[#6d646a]">
         {scope === 'VARIANT'
           ? 'Selecciona un producto para ver sus variantes.'
           : 'No hay destinos disponibles.'}

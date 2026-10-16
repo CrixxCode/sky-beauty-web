@@ -107,7 +107,12 @@ export function CartPage() {
               <AlertCircle size={16} className="shrink-0" /> Un producto de tu bolsa ya no está
               disponible.
             </span>
-            <Button variant="ghost" onClick={() => removeItem(variantId)} className={removeButton}>
+            <Button
+              variant="ghost"
+              onClick={() => removeItem(variantId)}
+              className={removeButton}
+              aria-label="Quitar de la bolsa el producto no disponible"
+            >
               <Trash2 size={16} /> Quitar
             </Button>
           </div>
@@ -169,7 +174,12 @@ export function CartPage() {
                     onChange={(next) => updateItem(item.variantId, next)}
                     label={item.productName}
                   />
-                  <Button variant="ghost" onClick={() => remove(item)} className={removeButton}>
+                  <Button
+                    variant="ghost"
+                    onClick={() => remove(item)}
+                    className={removeButton}
+                    aria-label={`Eliminar ${item.productName} de la bolsa`}
+                  >
                     <Trash2 size={16} /> Eliminar
                   </Button>
                 </div>

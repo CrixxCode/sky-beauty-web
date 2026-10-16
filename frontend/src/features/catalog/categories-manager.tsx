@@ -109,7 +109,7 @@ export function CategoriesManager({ canDelete }: { canDelete: boolean }) {
           </div>
         </div>
 
-        <p className="mb-4 text-[11px] text-[#8b7f87]">
+        <p className="mb-4 text-[11px] text-[#6d646a]">
           Organización de hasta 2 niveles (Categoría principal → Subcategoría). Los productos solo
           pueden asignarse a subcategorías o a categorías principales que no tengan hijos.
         </p>
@@ -476,8 +476,8 @@ function CategoryTreeItem({
                 {category.isActive ? 'Activa' : 'Inactiva'}
               </AdminStatus>
             </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-[#8b7f87]">
-              <span className="font-mono text-[9px] text-[#a0929b]">/{category.slug}</span>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-[#6d646a]">
+              <span className="font-mono text-[9px] text-[#6d646a]">/{category.slug}</span>
               <span>·</span>
               <span>Orden: {category.position}</span>
               <span>·</span>
@@ -543,7 +543,7 @@ function CategoryTreeItem({
               className="flex flex-wrap items-center justify-between gap-3 rounded border border-[#eee8ed] bg-white px-3.5 py-2.5 transition-colors hover:border-[#e2d5df]"
             >
               <div className="flex items-center gap-2.5">
-                <CornerDownRight size={14} className="text-[#a4979e] shrink-0" />
+                <CornerDownRight size={14} className="text-[#6d6469] shrink-0" />
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-[#493a45]">{sub.name}</span>
@@ -551,8 +551,8 @@ function CategoryTreeItem({
                       {sub.isActive ? 'Activa' : 'Inactiva'}
                     </AdminStatus>
                   </div>
-                  <div className="mt-0.5 flex items-center gap-2 text-[9px] text-[#8b7f87]">
-                    <span className="font-mono text-[#a0929b]">/{sub.slug}</span>
+                  <div className="mt-0.5 flex items-center gap-2 text-[9px] text-[#6d646a]">
+                    <span className="font-mono text-[#6d646a]">/{sub.slug}</span>
                     <span>·</span>
                     <span>Orden: {sub.position}</span>
                   </div>
@@ -590,7 +590,7 @@ function CategoryTreeItem({
           ))}
         </div>
       ) : (
-        <div className="px-4 py-3 bg-[#faf7f9] text-[10px] text-[#8b7f87] flex items-center justify-between">
+        <div className="px-4 py-3 bg-[#faf7f9] text-[10px] text-[#6d646a] flex items-center justify-between">
           <span>Esta categoría no tiene subcategorías (puede recibir productos directamente).</span>
           <Button
             variant="link"

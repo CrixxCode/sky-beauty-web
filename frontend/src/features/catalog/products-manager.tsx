@@ -189,9 +189,9 @@ export function ProductsManager({ role }: { role: AdminRole }) {
 
             {/* Filtro de Categoría */}
             <Select
+              aria-label="Filtrar por categoría"
               value={categoryFilter}
               onChange={(e) => changeCategory(e.target.value)}
-              aria-label="Filtrar por categoría"
               className="min-h-11.25 w-auto min-w-44 border border-[#e8dfe6] bg-white px-3 py-0 text-[11px] text-[#493a45] outline-none focus:border-[#936591] max-[600px]:w-full"
             >
               <option value="">Todas las categorías</option>
@@ -204,9 +204,9 @@ export function ProductsManager({ role }: { role: AdminRole }) {
 
             {/* Filtro de Estado */}
             <Select
+              aria-label="Filtrar por estado"
               value={statusFilter}
               onChange={(e) => changeStatus(e.target.value)}
-              aria-label="Filtrar por estado"
               className="min-h-11.25 w-auto min-w-44 border border-[#e8dfe6] bg-white px-3 py-0 text-[11px] text-[#493a45] outline-none focus:border-[#936591] max-[600px]:w-full"
             >
               <option value="">Todos los estados</option>
@@ -265,7 +265,7 @@ export function ProductsManager({ role }: { role: AdminRole }) {
                         <span className="block font-medium text-[#493a45] leading-tight">
                           {product.name}
                         </span>
-                        <span className="mt-0.5 block text-[9px] text-[#a4979e]">
+                        <span className="mt-0.5 block text-[9px] text-[#6d6469]">
                           {categoryMap.get(product.categoryId) ?? 'Sin categoría'}
                         </span>
                       </div>
@@ -578,13 +578,13 @@ function ProductDetailModalContent({
             <h3 className="text-sm font-semibold text-[#493a45]">{product.name}</h3>
             <ProductStatusBadge status={product.status} />
           </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-[#8b7f87]">
+          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-[#6d646a]">
             <span>
               Precio base:{' '}
               <strong className="text-[#493a45]">{formatCOP(product.basePrice)}</strong>
             </span>
             <span>·</span>
-            <span className="font-mono text-[#a0929b]">/{product.slug}</span>
+            <span className="font-mono text-[#6d646a]">/{product.slug}</span>
             <span>·</span>
             <span>
               {product.variants.length} {product.variants.length === 1 ? 'variante' : 'variantes'}
@@ -955,12 +955,12 @@ function VariantsTab({ product, role }: { product: Product; role: AdminRole }) {
                     {v.price !== null ? (
                       <div>
                         <strong className="text-[#493a45]">{formatCOP(v.price)}</strong>
-                        <span className="block text-[8px] text-[#a0929b]">Precio propio</span>
+                        <span className="block text-[8px] text-[#6d646a]">Precio propio</span>
                       </div>
                     ) : (
                       <div>
                         <span>{formatCOP(product.basePrice)}</span>
-                        <span className="block text-[8px] text-[#a0929b]">Hereda precio base</span>
+                        <span className="block text-[8px] text-[#6d646a]">Hereda precio base</span>
                       </div>
                     )}
                   </TableCell>
@@ -969,7 +969,7 @@ function VariantsTab({ product, role }: { product: Product; role: AdminRole }) {
                       {v.costPrice !== null && v.costPrice !== undefined ? (
                         formatCOP(v.costPrice)
                       ) : (
-                        <span className="text-[#a0929b]">—</span>
+                        <span className="text-[#6d646a]">—</span>
                       )}
                     </TableCell>
                   )}

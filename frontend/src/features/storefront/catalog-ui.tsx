@@ -254,8 +254,12 @@ export function ProductCard({
             )}
           </p>
         )}
-        <h3 className="min-h-9.5 text-xs font-medium leading-[1.65] text-[#3f333c] max-[600px]:min-h-11 max-[600px]:text-[13px]">
-          <Link href={href} className="line-clamp-2 wrap-break-word hover:text-[#70436f]">
+        <h3 className="text-xs font-medium leading-[1.65] text-[#3f333c] max-[600px]:text-[13px]">
+          {/* La altura mínima va en el enlace: toda la zona del título abre el producto. */}
+          <Link
+            href={href}
+            className="line-clamp-2 min-h-9.5 wrap-break-word hover:text-[#70436f] max-[600px]:min-h-11"
+          >
             {product.name}
           </Link>
         </h3>
@@ -385,7 +389,7 @@ export function StoreSearch({
         aria-label="Buscar productos"
         enterKeyHint="search"
         autoComplete="off"
-        className="min-h-0 min-w-0 flex-1 border-0 bg-transparent p-0 focus:border-0 focus-visible:outline-none!"
+        className="min-h-0 min-w-0 flex-1 self-stretch border-0 bg-transparent p-0 focus:border-0 focus-visible:outline-none!"
       />
       <Button type="submit" variant="secondary" size="sm" className="min-h-8.5 px-3.5 text-xs">
         Buscar

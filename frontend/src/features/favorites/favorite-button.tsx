@@ -87,7 +87,7 @@ export function FavoriteButton({
       aria-pressed={saved}
       aria-label={`Guardar ${productName} en favoritos`}
       className={cn(
-        'h-10 w-10 rounded-full bg-paper/93 text-[#6d5369] shadow-[0_2px_10px_rgb(59_36_46/0.08)] not-disabled:hover:bg-white',
+        'h-11 w-11 rounded-full bg-paper/93 text-[#6d5369] shadow-[0_2px_10px_rgb(59_36_46/0.08)] not-disabled:hover:bg-white',
         saved && 'text-[#a15f85]',
         className,
       )}

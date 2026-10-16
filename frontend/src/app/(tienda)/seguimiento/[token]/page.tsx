@@ -88,7 +88,7 @@ export default async function SeguimientoPage({ params }: SeguimientoPageProps) 
   return (
     <Container className="py-11.25">
       <div className="mb-9 max-w-185">
-        <p className="text-xs font-bold uppercase tracking-[.22em] text-[#815d7f]">
+        <p className="text-xs font-bold uppercase tracking-[.22em] text-[#7e5b7c]">
           Enlace privado
         </p>
         <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
@@ -277,7 +277,7 @@ function InvalidTracking() {
     <Container className="py-11.25">
       <div className="mx-auto max-w-150 bg-[#faf6f8] px-6 py-15 text-center">
         <Clock3 size={44} className="mx-auto mb-4 text-[#7f5d7d]" />
-        <p className="text-xs font-bold uppercase tracking-[.22em] text-[#815d7f]">
+        <p className="text-xs font-bold uppercase tracking-[.22em] text-[#7e5b7c]">
           Enlace privado
         </p>
         <h1 className="font-serif mb-4 mt-2 text-[42px] leading-tight">
