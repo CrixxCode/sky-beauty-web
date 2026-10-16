@@ -22,6 +22,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Playwright usa next start con una carpeta propia; la imagen usa el servidor standalone.
+  output: process.env.NEXT_DIST_DIR ? undefined : 'standalone',
   // Las pruebas de punta a punta compilan en una carpeta aparte para no interferir con `next dev`.
   distDir: process.env.NEXT_DIST_DIR || '.next',
   // El navegador llama siempre a /api/v1 en el mismo dominio; Next.js lo reenvía al backend.

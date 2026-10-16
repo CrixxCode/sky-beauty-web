@@ -1,5 +1,8 @@
 # Pruebas fallidas — ejecución del 2026-10-15
 
+Seguimiento posterior: [preparación del despliegue y verificaciones del 2026-10-16](PREPARACION_DESPLIEGUE_2026-10-16.md).
+Las tablas de esta ejecución conservan la evidencia histórica del 15 de octubre.
+
 Casos con resultado **Fallido** en la ejecución del plan de QA. En total son 32: 22 del backend y 10 del frontend; los escenarios E2E y los smoke no tuvieron fallas.
 
 Los casos están ordenados por la prioridad que les asigna el plan (P0 primero) y, dentro de cada prioridad, agrupados por defecto. La columna "Defecto" remite a la sección 3 de [`RESULTADOS_EJECUCION_2026-10-15.md`](RESULTADOS_EJECUCION_2026-10-15.md), donde está el detalle y la evidencia completa de cada caso.

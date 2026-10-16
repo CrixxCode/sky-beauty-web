@@ -6,15 +6,14 @@
  */
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
+import { assertTestDatabaseUrl } from '../src/shared/security/test-database-url';
 
 async function main(): Promise<void> {
   const [code, hoursArg] = process.argv.slice(2);
   const hours = Number(hoursArg);
   const { DATABASE_URL } = process.env;
   if (!code || !Number.isFinite(hours)) throw new Error('Uso: e2e-advance-order <código> <horas>');
-  if (!DATABASE_URL?.includes('_test')) {
-    throw new Error('Por seguridad, este script solo se ejecuta en una base *_test.');
-  }
+  assertTestDatabaseUrl(DATABASE_URL);
 
   const prisma = new PrismaClient({ adapter: new PrismaPg(DATABASE_URL) });
   try {

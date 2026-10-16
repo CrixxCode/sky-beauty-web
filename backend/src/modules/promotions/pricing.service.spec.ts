@@ -3,11 +3,43 @@ import {
   calculateDiscount,
   priceWithPromotions,
   promotionIndex,
+  pricesWithPromotions,
   type PromotionSnapshot,
   type VariantPricingContext,
 } from './pricing.service';
 
 const AT = new Date('2026-06-15T12:00:00.000Z');
+
+describe('precios agrupados sin caché entre peticiones', () => {
+  it('equivale al motor individual con distintos precios, destinos y vigencias', () => {
+    const variants = Array.from({ length: 120 }, (_, i) =>
+      variant({
+        variantId: `v-${i}`,
+        productId: `p-${Math.floor(i / 3)}`,
+        categoryId: `c-${i % 4}`,
+        parentCategoryId: i % 2 ? 'principal' : null,
+        regularPrice: [1, 10000, 20000][i % 3],
+      }),
+    );
+    const promotions = Array.from({ length: 45 }, (_, i) =>
+      promo({
+        scope: [PromotionScope.CATEGORY, PromotionScope.PRODUCT, PromotionScope.VARIANT][i % 3],
+        categoryIds: [`c-${i % 4}`, 'principal'],
+        productIds: [`p-${i % 40}`],
+        variantIds: [`v-${i % 120}`],
+        discountType: i % 2 ? DiscountType.FIXED_AMOUNT : DiscountType.PERCENTAGE,
+        discountValue: i % 2 ? 5000 : 20,
+        isActive: i % 5 !== 0,
+        startsAt: i % 7 ? new Date('2026-01-01') : new Date('2027-01-01'),
+      }),
+    );
+    const grouped = pricesWithPromotions(variants, promotions, AT);
+    for (const item of variants)
+      expect(grouped.get(item.variantId)).toEqual(priceWithPromotions(item, promotions, AT));
+    // Una petición nueva recibe los cambios; nunca conserva un precio anterior.
+    expect(pricesWithPromotions(variants, [], AT).get('v-1')?.discountAmount).toBe(0);
+  });
+});
 
 const variant = (overrides: Partial<VariantPricingContext> = {}): VariantPricingContext => ({
   variantId: 'variante-1',

@@ -304,8 +304,11 @@ function OrderDetail({
   const [cancelReason, setCancelReason] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentNote, setPaymentNote] = useState('');
+  const [paymentAmount, setPaymentAmount] = useState(order.total.toString());
   const [rejectReason, setRejectReason] = useState('');
-  const [refundAmount, setRefundAmount] = useState(order.total.toString());
+  const refundAmount = order.paymentRecords
+    .filter((record) => record.status === 'PAID')
+    .reduce((total, record) => total + record.amount, 0);
   const [refundNote, setRefundNote] = useState('');
   const [carrierId, setCarrierId] = useState(order.shipping?.carrierId ?? '');
   const [trackingNumber, setTrackingNumber] = useState(order.shipping?.trackingNumber ?? '');
@@ -391,6 +394,7 @@ function OrderDetail({
         return apiFetch<AdminOrder>(`/admin/orders/${order.id}/payment/verify`, {
           method: 'PATCH',
           body: JSON.stringify({
+            amount: Number(paymentAmount),
             reference: paymentReference || undefined,
             note: paymentNote || undefined,
           }),
@@ -406,7 +410,7 @@ function OrderDetail({
         return apiFetch<AdminOrder>(`/admin/orders/${order.id}/payment/refund`, {
           method: 'PATCH',
           body: JSON.stringify({
-            amount: Number(refundAmount),
+            amount: refundAmount,
             reference: paymentReference || undefined,
             note: refundNote,
           }),
@@ -438,6 +442,10 @@ function OrderDetail({
   const canCancel = cancellable && (role === 'ADMIN' || order.staffCanCancel);
   const canQuoteShipping = order.status !== 'CANCELLED' && order.status !== 'DELIVERED';
   const shippingCostValid = shippingCost.trim() !== '' && Number(shippingCost) >= 0;
+  const shippingIncreaseBlocked =
+    order.paymentStatus === 'PAID' && Number(shippingCost) > (order.shippingCost ?? 0);
+  const paymentAmountValid = paymentAmount.trim() !== '' && Number(paymentAmount) >= 0;
+  const paymentExcess = Number(paymentAmount) - order.total;
   const canConfirm = order.shippingCost !== null || shippingCostValid;
   const requiresVerification = order.paymentMethodCode !== 'CASH_ON_DELIVERY';
   const carriers = (carriersQuery.data ?? []).filter(
@@ -593,7 +601,7 @@ function OrderDetail({
                     inputMode="numeric"
                   />
                   <Button
-                    disabled={action.isPending || !shippingCostValid}
+                    disabled={action.isPending || !shippingCostValid || shippingIncreaseBlocked}
                     onClick={() => action.mutate('shipping')}
                   >
                     <Truck size={15} />
@@ -601,6 +609,11 @@ function OrderDetail({
                   </Button>
                 </div>
               </FormField>
+              {order.paymentStatus === 'PAID' && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  No se puede aumentar el envío mientras el pedido esté pagado.
+                </p>
+              )}
             </div>
           )}
         </section>
@@ -867,7 +880,7 @@ function OrderDetail({
                   onChange={(event) => setPaymentReference(event.target.value)}
                 />
               </FormField>
-              <FormField id="payment-note" label="Nota (opcional)">
+              <FormField id="payment-note" label="Nota del pago (opcional)">
                 <Textarea
                   id="payment-note"
                   rows={2}
@@ -890,9 +903,35 @@ function OrderDetail({
               </Button>
               {role === 'ADMIN' && order.paymentStatus === 'AWAITING_VERIFICATION' && (
                 <div className="space-y-1 border-t border-[#f0ecf0] pt-3">
+                  <FormField id="payment-amount" label="Monto recibido (COP)">
+                    <Input
+                      id="payment-amount"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={paymentAmount}
+                      onChange={(event) => setPaymentAmount(event.target.value)}
+                    />
+                  </FormField>
+                  {paymentAmountValid && Number(paymentAmount) < order.total && (
+                    <p className="text-xs text-muted-foreground">
+                      Se rechazará como pago incompleto y comenzará el plazo de aclaración de 8
+                      horas.
+                    </p>
+                  )}
+                  {paymentExcess > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Excedente por devolver: {formatCOP(paymentExcess)}. Escribe su soporte en
+                      Nota.
+                    </p>
+                  )}
                   <Button
                     className="w-full"
-                    disabled={action.isPending}
+                    disabled={
+                      action.isPending ||
+                      !paymentAmountValid ||
+                      (paymentExcess > 0 && paymentNote.trim().length < 3)
+                    }
                     onClick={() => action.mutate('verifyPayment')}
                   >
                     Verificar pago
@@ -920,14 +959,12 @@ function OrderDetail({
           {role === 'ADMIN' && order.paymentStatus === 'PAID' && (
             <div className="mt-3 border-t border-[#f0ecf0] pt-3">
               <FormField id="refund-amount" label="Monto a devolver (COP)">
-                <Input
-                  id="refund-amount"
-                  type="number"
-                  min={0}
-                  value={refundAmount}
-                  onChange={(event) => setRefundAmount(event.target.value)}
-                />
+                <Input id="refund-amount" type="number" min={0} value={refundAmount} readOnly />
               </FormField>
+              <p className="mb-3 text-xs text-muted-foreground">
+                Solo se permiten devoluciones totales del pago verificado. Los excedentes quedan
+                registrados en la nota del pago para su devolución.
+              </p>
               <FormField id="refund-note" label="Motivo o soporte de la devolución">
                 <Textarea
                   id="refund-note"

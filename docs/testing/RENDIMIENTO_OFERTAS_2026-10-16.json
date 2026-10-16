@@ -1,0 +1,18 @@
+{
+  "connections": 20,
+  "seconds": 60.5,
+  "paths": [
+    "/api/v1/store/products?q=QA",
+    "/api/v1/store/products?onSale=true"
+  ],
+  "requests": 1661,
+  "requestsPerSecond": 27.4,
+  "p50Ms": 723,
+  "p95Ms": 1099,
+  "p99Ms": 1210,
+  "failures": 0,
+  "statusCounts": {
+    "200": 1661
+  },
+  "errorCounts": {}
+}

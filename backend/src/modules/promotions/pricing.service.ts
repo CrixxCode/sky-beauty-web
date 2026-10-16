@@ -143,14 +143,64 @@ export function promotionIndex(promotions: PromotionSnapshot[], at: Date) {
       promotion.categoryIds.forEach((id) => add(byCategory, id, promotion));
     }
   }
-  return (variant: VariantPricingContext): PromotionSnapshot[] => [
-    ...new Set([
-      ...(byVariant.get(variant.variantId) ?? []),
-      ...(byProduct.get(variant.productId) ?? []),
-      ...(byCategory.get(variant.categoryId) ?? []),
-      ...((variant.parentCategoryId && byCategory.get(variant.parentCategoryId)) || []),
-    ]),
-  ];
+  const groups = new Map<string, PromotionSnapshot[]>();
+  return (variant: VariantPricingContext): PromotionSnapshot[] => {
+    const own = byVariant.get(variant.variantId);
+    const product = byProduct.get(variant.productId);
+    // Sin destinos propios, las variantes de una misma categoría comparten candidatos.
+    // El índice y sus grupos solo viven durante este cálculo; no hay caché entre peticiones.
+    const key = JSON.stringify([
+      own ? variant.variantId : null,
+      product ? variant.productId : null,
+      variant.categoryId,
+      variant.parentCategoryId,
+    ]);
+    let group = groups.get(key);
+    if (!group) {
+      group = [
+        ...new Set([
+          ...(own ?? []),
+          ...(product ?? []),
+          ...(byCategory.get(variant.categoryId) ?? []),
+          ...((variant.parentCategoryId && byCategory.get(variant.parentCategoryId)) || []),
+        ]),
+      ];
+      groups.set(key, group);
+    }
+    return group;
+  };
+}
+
+/** Mismo motor, reutilizando dentro de una petición los cálculos con idénticos destinos y precio. */
+export function pricesWithPromotions(
+  variants: VariantPricingContext[],
+  promotions: PromotionSnapshot[],
+  at: Date,
+): Map<string, PriceCalculation> {
+  const candidatesFor = promotionIndex(promotions, at);
+  const calculations = new Map<PromotionSnapshot[], Map<number, PriceCalculation>>();
+  return new Map(
+    variants.map((variant) => {
+      const candidates = candidatesFor(variant);
+      let byPrice = calculations.get(candidates);
+      if (!byPrice) {
+        byPrice = new Map();
+        calculations.set(candidates, byPrice);
+      }
+      let price = byPrice.get(variant.regularPrice);
+      if (!price) {
+        price = priceWithPromotions(variant, candidates, at);
+        byPrice.set(variant.regularPrice, price);
+      }
+      return [
+        variant.variantId,
+        {
+          ...price,
+          appliedPromotion: price.appliedPromotion ? { ...price.appliedPromotion } : null,
+        },
+      ];
+    }),
+  );
 }
 
 /** "Creada primero"; si coinciden al milisegundo, el id decide para que el resultado sea estable. */
@@ -237,6 +287,23 @@ export class PricingService {
         };
         return [variant.variantId, priceWithPromotions(context, candidatesFor(context), at)];
       }),
+    );
+  }
+
+  /**
+   * Catálogo actual: quien llama ya leyó el precio vigente de cada variante. Consultar además
+   * todo su historial no aporta datos para esta vista y encarece las ofertas de catálogos grandes.
+   * Los pedidos y la edición histórica siguen usando priceVariantsAt/priceKnownVariantsAt.
+   */
+  async priceKnownVariantsNow(
+    variants: Array<Omit<VariantPricingContext, 'regularPrice'> & { currentPrice: number }>,
+  ): Promise<Map<string, PriceCalculation>> {
+    if (variants.length === 0) return new Map();
+    const at = new Date();
+    return pricesWithPromotions(
+      variants.map(({ currentPrice, ...variant }) => ({ ...variant, regularPrice: currentPrice })),
+      await this.promotionSnapshotsAt(at),
+      at,
     );
   }
 

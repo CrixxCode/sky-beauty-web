@@ -31,6 +31,7 @@ blob-report/
 
 # Logs y SO
 *.log
+backups/
 npm-debug.log*
 .DS_Store
 Thumbs.db

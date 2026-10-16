@@ -1,5 +1,9 @@
 # Resultados de la ejecución del plan de QA — Sky Beauty Maquillaje
 
+Para el estado posterior de las correcciones y del despliegue, consultar
+[la verificación del 2026-10-16](PREPARACION_DESPLIEGUE_2026-10-16.md).
+Este informe conserva los resultados de la ejecución original.
+
 | Campo | Valor |
 |---|---|
 | Fecha | 2026-10-15 |

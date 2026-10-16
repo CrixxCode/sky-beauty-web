@@ -3,8 +3,10 @@ import 'dotenv/config';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { assertTestDatabaseUrl } from '../src/shared/security/test-database-url';
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
+assertTestDatabaseUrl(testDatabaseUrl);
 if (!testDatabaseUrl) {
   throw new Error(
     'TEST_DATABASE_URL no está definida; las pruebas de integración no pueden ejecutarse.',

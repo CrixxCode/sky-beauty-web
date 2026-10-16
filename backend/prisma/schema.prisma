@@ -8,9 +8,11 @@
 // - Los productos con historial de pedidos se archivan, no se eliminan físicamente.
 
 generator client {
-  provider     = "prisma-client"
-  output       = "../src/generated/prisma"
-  moduleFormat = "cjs"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  // Los archivos se compilan con TypeScript antes de arrancar Node.js.
+  importFileExtension = "js"
 }
 
 datasource db {

@@ -505,7 +505,7 @@ export class ProductsService {
     ).filter((product) => !needle || normalizeSearchText(product.name).includes(needle));
 
     // Las variantes ya están leídas: el motor no las vuelve a consultar.
-    const priceMap = await this.pricing.priceKnownVariantsAt(
+    const priceMap = await this.pricing.priceKnownVariantsNow(
       candidates.flatMap((product) =>
         product.variants.map((variant) => ({
           variantId: variant.id,

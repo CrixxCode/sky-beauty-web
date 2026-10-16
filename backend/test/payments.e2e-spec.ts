@@ -150,6 +150,73 @@ describe('Pagos (integración)', () => {
     await owner.patch(`${ORDERS}/${id}/payment/verify`).send({}).expect(400);
   });
 
+  it('BE-170: un pago menor se rechaza como incompleto y abre 8 horas de aclaración', async () => {
+    const id = await confirmedOrder();
+    await staff.patch(`${ORDERS}/${id}/payment-received`).send({}).expect(200);
+    const res = await owner
+      .patch(`${ORDERS}/${id}/payment/verify`)
+      .send({ amount: 24000 })
+      .expect(200);
+    const result = res.body as AdminOrder;
+    expect(result.paymentStatus).toBe('REJECTED');
+    expect(
+      new Date(result.paymentClarificationDeadline!).getTime() -
+        new Date(result.paymentRejectedAt!).getTime(),
+    ).toBe(8 * HOUR);
+    expect(await prisma.order.findUniqueOrThrow({ where: { id } })).toMatchObject({ paidAt: null });
+    const record = await prisma.paymentRecord.findFirstOrThrow({
+      where: { orderId: id, status: 'REJECTED' },
+    });
+    expect(record.amount.toNumber()).toBe(24000);
+    expect(record.note).toContain('Pago incompleto');
+    await staff.patch(`${ORDERS}/${id}/cancel`).send({ reason: 'Pago incompleto' }).expect(403);
+    await staff.patch(`${ORDERS}/${id}/payment-received`).send({}).expect(200);
+    await owner.patch(`${ORDERS}/${id}/payment/verify`).send({ amount: 25000 }).expect(200);
+    expect(await paymentOf(id)).toBe('PAID');
+  });
+
+  it('BE-170: un pago mayor exige soporte y registra el excedente sin inflar lo pagado del pedido', async () => {
+    const id = await confirmedOrder();
+    await staff.patch(`${ORDERS}/${id}/payment-received`).send({}).expect(200);
+    await owner.patch(`${ORDERS}/${id}/payment/verify`).send({ amount: 26000 }).expect(400);
+    await owner
+      .patch(`${ORDERS}/${id}/payment/verify`)
+      .send({ amount: 26000, note: '   ' })
+      .expect(400);
+    expect(await paymentOf(id)).toBe('AWAITING_VERIFICATION');
+    await owner
+      .patch(`${ORDERS}/${id}/payment/verify`)
+      .send({ amount: 26000, note: 'Excedente pendiente de devolver por transferencia.' })
+      .expect(200);
+    const record = await prisma.paymentRecord.findFirstOrThrow({
+      where: { orderId: id, status: 'PAID' },
+    });
+    expect(record.amount.toNumber()).toBe(25000);
+    expect(record.note).toContain('Excedente por devolver');
+    expect(record.note).toContain('1.000');
+  });
+
+  it('BE-149: bloquea aumentos del envío pagado sin alterar el total ni su historial', async () => {
+    const id = await confirmedOrder();
+    await staff.patch(`${ORDERS}/${id}/payment-received`).send({}).expect(200);
+    await owner.patch(`${ORDERS}/${id}/payment/verify`).send({}).expect(200);
+    const events = await prisma.orderStatusHistory.count({ where: { orderId: id } });
+    await staff.patch(`${ORDERS}/${id}/shipping-cost`).send({ shippingCost: 6000 }).expect(400);
+    expect(await prisma.orderStatusHistory.count({ where: { orderId: id } })).toBe(events);
+    expect((await prisma.order.findUniqueOrThrow({ where: { id } })).total.toNumber()).toBe(25000);
+    await staff.patch(`${ORDERS}/${id}/shipping-cost`).send({ shippingCost: 5000 }).expect(200);
+    await staff.patch(`${ORDERS}/${id}/shipping-cost`).send({ shippingCost: 4000 }).expect(200);
+    // Una reducción no cambia lo efectivamente pagado: la devolución total conserva 25.000.
+    await owner
+      .patch(`${ORDERS}/${id}/payment/refund`)
+      .send({ amount: 24000, note: 'Parcial no permitida' })
+      .expect(400);
+    await owner
+      .patch(`${ORDERS}/${id}/payment/refund`)
+      .send({ amount: 25000, note: 'Devolución total' })
+      .expect(200);
+  });
+
   it('no registra comprobantes en pedidos cancelados', async () => {
     const id = await confirmedOrder();
     await owner
@@ -276,6 +343,11 @@ describe('Pagos (integración)', () => {
         .patch(`${ORDERS}/${id}/payment/refund`)
         .send({ amount: 25001, note: 'Devolución de prueba' })
         .expect(400);
+      await owner
+        .patch(`${ORDERS}/${id}/payment/refund`)
+        .send({ amount: 1000, note: 'BE-172: parcial no permitida' })
+        .expect(400);
+      expect(await paymentOf(id)).toBe('PAID');
       await owner
         .patch(`${ORDERS}/${id}/payment/refund`)
         .send({ amount: 25000, note: '   ' })

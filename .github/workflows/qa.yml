@@ -1,0 +1,112 @@
+name: QA
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: qa
+          POSTGRES_PASSWORD: qa_local_only
+          POSTGRES_DB: sky_beauty_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U qa -d sky_beauty_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      CI: "true"
+      DATABASE_URL: postgresql://qa:qa_local_only@localhost:5432/sky_beauty_test
+      TEST_DATABASE_URL: postgresql://qa:qa_local_only@localhost:5432/sky_beauty_test
+      JWT_SECRET: jwt-ficticio-exclusivo-para-pruebas-ci-123456789
+      TRACKING_TOKEN_SECRET: tracking-ficticio-exclusivo-para-ci-123456789
+      INTERNAL_API_KEY: clave-interna-ficticia-exclusiva-para-ci-123456789
+      CORS_ORIGINS: http://localhost:3100
+      PUBLIC_SITE_URL: http://localhost:3100
+      API_INTERNAL_URL: http://localhost:4100
+      NEXT_PUBLIC_SITE_URL: http://localhost:3100
+      LOG_LEVEL: silent
+      TRUST_PROXY_HOPS: "1"
+      ADMIN_SESSION_TTL_MINUTES: "480"
+      LOGIN_MAX_FAILED_ATTEMPTS: "5"
+      LOGIN_LOCK_MINUTES: "15"
+      ORDER_PENDING_TTL_HOURS: "48"
+      ORDER_UNPAID_TTL_HOURS: "24"
+      ORDER_PAYMENT_CLARIFICATION_HOURS: "8"
+      UPLOADS_DIR: ./uploads-e2e
+      MAX_IMAGE_SIZE_MB: "5"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      - run: npm ci
+        working-directory: backend
+      - run: npm ci
+        working-directory: frontend
+      - name: Backend — lint, tipos, unitarias y compilación
+        run: npm run lint && npm run typecheck && npm test -- --runInBand && npm run build
+        working-directory: backend
+      - name: Frontend — lint, tipos y unitarias
+        run: npm run lint && npm run typecheck && npm test -- --runInBand
+        working-directory: frontend
+      - name: Dependencias de producción
+        run: npm audit --omit=dev --audit-level=high --prefix backend && npm audit --omit=dev --audit-level=high --prefix frontend
+      - run: npm run test:db:prepare
+        working-directory: backend
+      - name: Integración backend
+        # El arnés exige que DATABASE_URL no sea la base que vacía TEST_DATABASE_URL.
+        env:
+          DATABASE_URL: postgresql://qa:qa_local_only@localhost:5432/unused
+        run: npm run test:e2e
+        working-directory: backend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - name: Compra y panel en celular y escritorio
+        run: npm run test:e2e
+        working-directory: frontend
+      - name: Construir las imágenes de producción
+        run: |
+          docker build -t sky-beauty-backend:ci ./backend
+          docker build --build-arg NEXT_PUBLIC_SITE_URL=https://skybeauty.ejemplo.test --build-arg API_INTERNAL_URL=http://localhost:4400 -t sky-beauty-frontend:ci ./frontend
+      - name: Arranque de producción y salud por proxy
+        run: |
+          node -e 'const names = ["DATABASE_URL", "JWT_SECRET", "TRACKING_TOKEN_SECRET", "INTERNAL_API_KEY", "CORS_ORIGINS", "PUBLIC_SITE_URL", "LOG_LEVEL", "TRUST_PROXY_HOPS", "ADMIN_SESSION_TTL_MINUTES", "LOGIN_MAX_FAILED_ATTEMPTS", "LOGIN_LOCK_MINUTES", "ORDER_PENDING_TTL_HOURS", "ORDER_UNPAID_TTL_HOURS", "ORDER_PAYMENT_CLARIFICATION_HOURS", "UPLOADS_DIR", "MAX_IMAGE_SIZE_MB"]; require("fs").writeFileSync("ci-backend.env", names.map(name => name + "=" + process.env[name]).join("\n"));'
+          docker run -d --name backend-smoke --network host --env-file ci-backend.env -e NODE_ENV=production -e PORT=4400 sky-beauty-backend:ci
+          curl --fail --retry 15 --retry-connrefused --retry-delay 1 http://localhost:4400/api/v1/health
+          docker run -d --name frontend-smoke --network host -e PORT=3400 -e API_INTERNAL_URL=http://localhost:4400 -e INTERNAL_API_KEY sky-beauty-frontend:ci
+          curl --fail --retry 15 --retry-connrefused --retry-delay 1 http://localhost:3400/api/v1/health
+      - name: Cerrar contenedores de validación
+        if: always()
+        run: |
+          docker logs backend-smoke 2>&1 || true
+          docker logs frontend-smoke 2>&1 || true
+          docker rm -f backend-smoke frontend-smoke 2>/dev/null || true
+          rm -f ci-backend.env
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-failures
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          retention-days: 7

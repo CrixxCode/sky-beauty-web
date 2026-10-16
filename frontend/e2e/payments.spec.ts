@@ -110,9 +110,22 @@ test('el personal registra el comprobante y la propietaria rechaza, verifica y d
 
   // El cliente aclara: nuevo comprobante; la propietaria verifica y luego devuelve.
   await dialog.getByRole('button', { name: 'Registrar comprobante recibido' }).click();
+  await dialog.getByLabel('Monto recibido (COP)').fill('24000');
+  await expect(dialog.getByText(/Se rechazará como pago incompleto/)).toBeVisible();
+  await dialog.getByRole('button', { name: 'Verificar pago' }).click();
+  await expect(dialog.getByText(/Pago no demostrado\. El cliente tiene hasta/)).toBeVisible();
+  await dialog.getByRole('button', { name: 'Registrar comprobante recibido' }).click();
+  await dialog.getByLabel('Monto recibido (COP)').fill('26000');
+  await expect(dialog.getByRole('button', { name: 'Verificar pago' })).toBeDisabled();
+  await dialog
+    .getByLabel('Nota del pago (opcional)')
+    .fill('Excedente por devolver por transferencia.');
   await dialog.getByRole('button', { name: 'Verificar pago' }).click();
   await expect(dialog.getByText('Pagado').first()).toBeVisible();
   await expect(dialog.getByLabel('Monto a devolver (COP)')).toHaveValue('25000');
+  await expect(dialog.getByLabel('Monto a devolver (COP)')).toHaveAttribute('readonly', '');
+  await dialog.getByLabel('Costo del envío cotizado (COP)').fill('6000');
+  await expect(dialog.getByRole('button', { name: 'Guardar', exact: true })).toBeDisabled();
   await dialog.getByLabel('Motivo o soporte de la devolución').fill('Devolución ficticia');
   await dialog.getByRole('button', { name: 'Registrar devolución' }).click();
   await expect(dialog.getByText('Devuelto').first()).toBeVisible();

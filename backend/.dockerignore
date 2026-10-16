@@ -1,0 +1,14 @@
+node_modules
+dist
+dist-e2e
+coverage
+uploads*
+.env
+.env.*
+!.env.example
+*.log
+*.tsbuildinfo
+src/generated
+test
+prisma/demo
+perf

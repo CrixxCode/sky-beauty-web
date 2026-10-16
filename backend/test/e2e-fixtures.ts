@@ -9,17 +9,14 @@ import { seed } from '../prisma/seed';
 import { AdminRole, PrismaClient } from '../src/generated/prisma/client';
 import { hashPassword } from '../src/shared/security/password';
 import { resetDatabase } from './utils/database';
+import { assertTestDatabaseUrl } from '../src/shared/security/test-database-url';
 
 async function main(): Promise<void> {
   const { DATABASE_URL, E2E_OWNER_EMAIL, E2E_OWNER_NAME, E2E_OWNER_PASSWORD } = process.env;
   if (!DATABASE_URL || !E2E_OWNER_EMAIL || !E2E_OWNER_NAME || !E2E_OWNER_PASSWORD) {
     throw new Error('Faltan DATABASE_URL o las variables E2E_OWNER_*.');
   }
-  if (!DATABASE_URL.includes('_test')) {
-    throw new Error(
-      'Por seguridad, las pruebas de punta a punta solo se ejecutan en una base *_test.',
-    );
-  }
+  assertTestDatabaseUrl(DATABASE_URL);
 
   const prisma = new PrismaClient({ adapter: new PrismaPg(DATABASE_URL) });
   try {

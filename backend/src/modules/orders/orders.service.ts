@@ -681,6 +681,14 @@ export class OrdersService {
     if (order.status === OrderStatus.CANCELLED || order.status === OrderStatus.DELIVERED) {
       throw new BadRequestException('No se puede modificar el envío de este pedido.');
     }
+    if (
+      order.paymentStatus === PaymentStatus.PAID &&
+      dto.shippingCost > (order.shippingCost?.toNumber() ?? 0)
+    ) {
+      throw new BadRequestException(
+        'No se puede aumentar el envío mientras el pedido esté pagado.',
+      );
+    }
 
     await this.prisma.$transaction(async (tx) => {
       await this.claimOrder(tx, order);
@@ -1275,19 +1283,37 @@ export class OrdersService {
       throw new BadRequestException('Solo se verifican pedidos con comprobante recibido.');
     }
 
+    const received = new Prisma.Decimal(dto.amount ?? order.total);
+    const incomplete = received.lessThan(order.total);
+    const excess = received.minus(order.total);
+    if (excess.greaterThan(0) && (dto.note?.trim().length ?? 0) < 3) {
+      throw new BadRequestException('Escribe una nota sobre el excedente por devolver.');
+    }
+    const status = incomplete ? PaymentStatus.REJECTED : PaymentStatus.PAID;
+    const note = incomplete
+      ? `Pago incompleto: recibido ${cop(received.toNumber())} de ${cop(order.total.toNumber())}. ${dto.note?.trim() ?? ''}`.trim()
+      : excess.greaterThan(0)
+        ? `Recibido ${cop(received.toNumber())}. Excedente por devolver: ${cop(excess.toNumber())}. ${dto.note!.trim()}`
+        : dto.note?.trim() || 'Pago verificado por la propietaria.';
+    const now = new Date();
+
     await this.prisma.$transaction(async (tx) => {
       await this.claimOrder(tx, order);
       await tx.order.update({
         where: { id },
-        data: { paymentStatus: PaymentStatus.PAID, paymentRejectedAt: null, paidAt: new Date() },
+        data: {
+          paymentStatus: status,
+          paymentRejectedAt: incomplete ? now : null,
+          paidAt: incomplete ? null : now,
+        },
       });
       await tx.paymentRecord.create({
         data: {
           orderId: id,
-          status: PaymentStatus.PAID,
-          amount: dto.amount ?? order.total,
+          status,
+          amount: incomplete ? received : order.total,
           reference: dto.reference?.trim() || null,
-          note: dto.note?.trim() || 'Pago verificado por la propietaria.',
+          note,
           recordedById: adminId,
         },
       });
@@ -1296,14 +1322,14 @@ export class OrdersService {
           orderId: id,
           type: OrderEventType.PAYMENT_STATUS,
           fromStatus: order.paymentStatus,
-          toStatus: PaymentStatus.PAID,
-          note: 'Pago verificado.',
+          toStatus: status,
+          note,
           changedById: adminId,
         },
       });
       await closePendingBeforeNotices(tx, id, [
         CancellationNoticeCase.NO_PAYMENT_PROOF,
-        CancellationNoticeCase.PAYMENT_NOT_PROVEN,
+        ...(!incomplete ? [CancellationNoticeCase.PAYMENT_NOT_PROVEN] : []),
       ]);
     });
 
@@ -1381,6 +1407,9 @@ export class OrdersService {
       throw new BadRequestException(
         `La devolución no puede superar lo pagado (${cop(paidAmount)}).`,
       );
+    }
+    if (!new Prisma.Decimal(dto.amount).equals(paidAmount)) {
+      throw new BadRequestException(`Solo se permiten devoluciones totales (${cop(paidAmount)}).`);
     }
 
     await this.prisma.$transaction(async (tx) => {

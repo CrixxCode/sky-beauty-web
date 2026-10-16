@@ -461,6 +461,19 @@ describe('Catálogo (integración)', () => {
       (onSale.body as { items: Array<{ finalPriceFrom: number }> }).items[0].finalPriceFrom,
     ).toBe(8000);
 
+    // La optimización de ofertas debe conservar el mismo precio que la ficha, incluso tras
+    // cambiar el precio de la variante y generar otra entrada en su historial.
+    await owner
+      .patch(`${ADMIN}/products/${byVariant.productId}/variants/${byVariant.variantId}`)
+      .send({ price: 12000 })
+      .expect(200);
+    const updatedSale = await request(server).get(`${STORE}/products?onSale=true`).expect(200);
+    const detail = await request(server).get(`${STORE}/products/sombra-variante-test`).expect(200);
+    expect(
+      (updatedSale.body as { items: Array<{ finalPriceFrom: number }> }).items[0].finalPriceFrom,
+    ).toBe(9600);
+    expect((detail.body as { finalPriceFrom: number }).finalPriceFrom).toBe(9600);
+
     // Ofertas y búsqueda a la vez.
     const both = await request(server).get(`${STORE}/products`).query({ onSale: true, q: 'rubor' });
     expect(slugsOf(both)).toEqual(['rubor-categoria-test']);
