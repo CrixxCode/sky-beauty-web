@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { CartLine } from '@/types/checkout';
+import { isUuid } from '@/lib/utils';
 
 const STORAGE_KEY = 'sky-beauty-cart';
 
@@ -39,9 +40,8 @@ function readCart(): CartLine[] {
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(
       (item): item is CartLine =>
-        typeof item?.variantId === 'string' &&
-        Number.isInteger(item?.quantity) &&
-        item.quantity > 0,
+        // Solo ids válidos: uno alterado haría fallar la cotización de toda la bolsa.
+        isUuid(item?.variantId) && Number.isInteger(item?.quantity) && item.quantity > 0,
     );
   } catch {
     return [];

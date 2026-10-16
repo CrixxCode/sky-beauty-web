@@ -22,6 +22,7 @@ import {
 import { MobileFiltersSheet } from '@/features/storefront/mobile-filters-sheet';
 import { fetchPublicApi } from '@/lib/api.server';
 import { pageList } from '@/lib/pagination';
+import { isUuid } from '@/lib/utils';
 import type { PaginatedPublicProducts, PublicBrand, PublicCategory } from '@/types/catalog';
 
 /** Productos por página: llena filas completas con 4 columnas (escritorio) y 2 (celular). */
@@ -37,10 +38,8 @@ type ProductosPageProps = {
   }>;
 };
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 function validId(value: string | undefined): string | undefined {
-  return value && UUID_PATTERN.test(value) ? value : undefined;
+  return isUuid(value) ? value : undefined;
 }
 
 export default async function ProductosPage({ searchParams }: ProductosPageProps) {

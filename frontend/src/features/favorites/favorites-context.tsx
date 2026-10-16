@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { isUuid } from '@/lib/utils';
 
 const STORAGE_KEY = 'sky-beauty-favorites';
 /** Máximo de favoritos guardados (lo que la API devuelve en una sola consulta por ids). */
@@ -25,7 +26,8 @@ function readFavorites(): string[] {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '[]') as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((id): id is string => typeof id === 'string').slice(0, MAX_FAVORITES);
+    // Solo ids válidos: uno alterado haría fallar la consulta de todos los favoritos.
+    return parsed.filter(isUuid).slice(0, MAX_FAVORITES);
   } catch {
     return [];
   }
