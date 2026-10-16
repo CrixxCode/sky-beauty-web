@@ -23,12 +23,20 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
 
   // Sesión vencida o revocada durante una acción: se avisa y se vuelve al inicio de sesión.
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     function onExpired() {
-      toast.error('Tu sesión terminó. Vuelve a iniciar sesión.', { id: 'sesion-vencida' });
       router.replace('/admin/login');
       router.refresh();
+      // La acción que falló también muestra su error: se espera a que lo haga y se deja solo
+      // este aviso, que es el que explica lo que pasó.
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        toast.dismiss();
+        toast.error('Tu sesión terminó. Vuelve a iniciar sesión.', { id: 'sesion-vencida' });
+      }, 150);
     }
     window.addEventListener(ADMIN_SESSION_EXPIRED_EVENT, onExpired);
+    // El temporizador no se cancela al desmontar: el aviso debe verse ya en el inicio de sesión.
     return () => window.removeEventListener(ADMIN_SESSION_EXPIRED_EVENT, onExpired);
   }, [router]);
   const [mobileOpen, setMobileOpen] = useState(false);
