@@ -132,6 +132,16 @@ describe('Gestión de pedidos (integración)', () => {
       await owner.get(`${ORDERS}?status=CONFIRMED&paymentStatus=PAID`).expect(200);
     });
 
+    it('la búsqueda trata % y _ como texto, no como comodines', async () => {
+      await createOrder();
+      const all = (await owner.get(ORDERS).expect(200)).body as { total: number };
+      expect(all.total).toBeGreaterThan(0);
+      for (const q of ['%', '_', '\\']) {
+        const res = await owner.get(`${ORDERS}?q=${encodeURIComponent(q)}`).expect(200);
+        expect((res.body as { total: number }).total).toBe(0);
+      }
+    });
+
     it('lista con filtros por estado y búsqueda por código, cliente o teléfono', async () => {
       const a = await createOrder();
       await createOrder({ customerName: 'Otra Persona', customerPhone: '3109998877' });

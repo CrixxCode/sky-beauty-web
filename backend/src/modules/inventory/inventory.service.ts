@@ -15,6 +15,7 @@ import type {
   ListInventoryQueryDto,
   PaginatedInventoryMovementsDto,
 } from './inventory.dto';
+import { escapeLike } from '../../shared/text';
 
 /** Tipos de movimiento que se registran a mano desde el inventario. Los de pedidos los crea el módulo de pedidos. */
 const MANUAL_TYPES: InventoryMovementType[] = [
@@ -61,9 +62,9 @@ export class InventoryService {
       where: q
         ? {
             OR: [
-              { sku: { contains: q, mode: 'insensitive' } },
-              { name: { contains: q, mode: 'insensitive' } },
-              { product: { name: { contains: q, mode: 'insensitive' } } },
+              { sku: { contains: escapeLike(q), mode: 'insensitive' } },
+              { name: { contains: escapeLike(q), mode: 'insensitive' } },
+              { product: { name: { contains: escapeLike(q), mode: 'insensitive' } } },
             ],
           }
         : undefined,

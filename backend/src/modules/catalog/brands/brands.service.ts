@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
+import { sortByName } from '../../../shared/text';
 import type { BrandDto, CreateBrandDto, PublicBrandDto, UpdateBrandDto } from './brands.dto';
 
 /** Genera un slug a partir de un texto (minúsculas, sin acentos, guiones). */
@@ -42,9 +43,8 @@ export class BrandsService {
   async list(): Promise<BrandDto[]> {
     const brands = await this.prisma.brand.findMany({
       include: { _count: { select: { products: true } } },
-      orderBy: { name: 'asc' },
     });
-    return brands.map(toDto);
+    return sortByName(brands).map(toDto);
   }
 
   async listPublic(): Promise<PublicBrandDto[]> {
@@ -56,9 +56,8 @@ export class BrandsService {
         },
       },
       select: { id: true, name: true, slug: true },
-      orderBy: { name: 'asc' },
     });
-    return brands;
+    return sortByName(brands);
   }
 
   async create(dto: CreateBrandDto): Promise<BrandDto> {

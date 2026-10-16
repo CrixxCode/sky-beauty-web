@@ -16,6 +16,7 @@ import { effectiveMaxPerOrder } from '../../../shared/max-per-order';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
 import { uploadUrl } from '../../../shared/uploads';
 import { PricingService, type PriceCalculation } from '../../promotions/pricing.service';
+import { escapeLike } from '../../../shared/text';
 import { StoreSettingsService } from '../../store-settings/store-settings.service';
 import type {
   ChangeProductStatusDto,
@@ -330,7 +331,7 @@ export class ProductsService {
     if (query.categoryId) where.categoryId = query.categoryId;
     if (query.brandId) where.brandId = query.brandId;
     if (query.q) {
-      where.name = { contains: query.q, mode: 'insensitive' };
+      where.name = { contains: escapeLike(query.q), mode: 'insensitive' };
     }
 
     const [items, total] = await this.prisma.$transaction([

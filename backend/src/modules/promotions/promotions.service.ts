@@ -15,6 +15,7 @@ import type {
   PromotionRevisionDto,
   UpdatePromotionDto,
 } from './promotions.dto';
+import { escapeLike } from '../../shared/text';
 
 type PromotionWithTargets = Prisma.PromotionGetPayload<{
   include: {
@@ -105,7 +106,7 @@ export class PromotionsService {
 
     if (query.scope) where.scope = query.scope;
     if (query.isActive !== undefined) where.isActive = query.isActive;
-    if (query.q?.trim()) where.name = { contains: query.q.trim(), mode: 'insensitive' };
+    if (query.q?.trim()) where.name = { contains: escapeLike(query.q.trim()), mode: 'insensitive' };
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.promotion.findMany({

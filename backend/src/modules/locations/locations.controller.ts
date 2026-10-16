@@ -2,6 +2,7 @@ import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
 import { ApiOkResponse, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/auth.decorators';
 import { PrismaService } from '../../shared/prisma/prisma.service';
+import { sortByName } from '../../shared/text';
 
 export class LocationDto {
   @ApiProperty({ example: '05' }) code!: string;
@@ -17,11 +18,10 @@ export class LocationsController {
 
   @Get('departments')
   @ApiOkResponse({ type: [LocationDto] })
-  departments(): Promise<LocationDto[]> {
-    return this.prisma.department.findMany({
-      select: { code: true, name: true },
-      orderBy: { name: 'asc' },
-    });
+  async departments(): Promise<LocationDto[]> {
+    return sortByName(
+      await this.prisma.department.findMany({ select: { code: true, name: true } }),
+    );
   }
 
   @Get('departments/:code/municipalities')
@@ -29,10 +29,11 @@ export class LocationsController {
   async municipalities(@Param('code') code: string): Promise<LocationDto[]> {
     const department = await this.prisma.department.findUnique({ where: { code } });
     if (!department) throw new NotFoundException('No existe ese departamento.');
-    return this.prisma.municipality.findMany({
-      where: { departmentCode: code },
-      select: { code: true, name: true },
-      orderBy: { name: 'asc' },
-    });
+    return sortByName(
+      await this.prisma.municipality.findMany({
+        where: { departmentCode: code },
+        select: { code: true, name: true },
+      }),
+    );
   }
 }

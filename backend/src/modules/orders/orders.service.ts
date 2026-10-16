@@ -60,6 +60,7 @@ import type {
   AdminOrderListItemDto,
   VerifyPaymentDto,
 } from './orders.dto';
+import { escapeLike } from '../../shared/text';
 
 type MethodForCheckout = Prisma.PaymentMethodGetPayload<{
   include: { cities: true };
@@ -596,9 +597,9 @@ export class OrdersService {
     if (query.q?.trim()) {
       const q = query.q.trim();
       where.OR = [
-        { code: { contains: q, mode: 'insensitive' } },
-        { customerName: { contains: q, mode: 'insensitive' } },
-        { customerPhone: { contains: q, mode: 'insensitive' } },
+        { code: { contains: escapeLike(q), mode: 'insensitive' } },
+        { customerName: { contains: escapeLike(q), mode: 'insensitive' } },
+        { customerPhone: { contains: escapeLike(q), mode: 'insensitive' } },
       ];
     }
 
