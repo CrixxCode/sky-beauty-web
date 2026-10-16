@@ -13,7 +13,7 @@ Nada de esto depende de cambios de código. Es el despliegue y lo que se decide 
 
 | # | Qué falta | Quién | Referencia |
 |---|---|---|---|
-| 1 | **Gasto del volumen de fotos en Railway.** Sin volumen persistente las fotos se pierden en cada redespliegue. Hay que revisar el precio en el panel de Railway y confirmar que entra en el gasto permitido; si no, decidir otra forma de guardar las fotos sin servicios de pago | Propietaria / persona usuaria | `decisiones.md` "Validación en producción y aceptación final" |
+| 1 | ~~Gasto del volumen de fotos en Railway.~~ **Resuelto:** plan Hobby y volumen aprobados (ver sección 3). Falta crear el volumen en el servicio backend (punto 3) | — | `decisiones.md` "Volumen de fotos y plan de Railway" |
 | 2 | **Comprar el dominio** y configurarlo con HTTPS | Propietaria | `plan-desarrollo.md` módulo 14 |
 | 3 | **Montar Railway**: enlazar el proyecto, crear los servicios `backend` y `frontend`, cargar las variables, montar el volumen en `/app/uploads`, una sola instancia del backend sin suspensión automática | Desarrollo | `RAILWAY.md` |
 | 4 | **Primer arranque**: `npm run db:seed` con `SEED_OWNER_*` y luego borrar `SEED_OWNER_PASSWORD`. No ejecutar `db:demo` | Desarrollo | `RAILWAY.md` |
@@ -57,6 +57,7 @@ No requieren cambios de código. Sin ellos la tienda funciona, pero incompleta.
 | Envío que sube después del pago (Q-21) | No se puede subir mientras el pedido esté pagado |
 | Volumen y rendimiento (Q-15, D-04) | Metas iniciales confirmadas; cumplidas en local, pendientes en Railway (punto 8) |
 | Copias de seguridad (R-07) | Manuales, semanales y antes de cada despliegue, con las dos últimas en el computador. Falta la primera copia real (punto 9) |
+| Gasto del volumen de fotos | Plan Hobby de Railway y volumen aprobados. A 0,15 USD por GB al mes, un catálogo de cientos de productos ocupa menos de 1 GB |
 | Entorno de pruebas (Q-14) | Sin segundo entorno: se valida en producción antes de abrir |
 | Aceptación final (Q-16) | Desarrollo prueba; la propietaria aprueba |
 | Vulnerabilidad de Prisma (BE-226) | Prisma 7.10.1; cero hallazgos en dependencias de producción |

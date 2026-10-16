@@ -230,7 +230,15 @@ Resuelve el pendiente de copias de seguridad de "Infraestructura sin servicios d
 - **Sin entorno de pruebas aparte (Q-14):** la validación previa a abrir ventas se hace en el único entorno de Railway, con datos ficticios evidentes que se borran antes de abrir. No se crea un segundo entorno.
 - **Aceptación final (Q-16):** el desarrollador ejecuta las pruebas manuales en el entorno desplegado y la propietaria da el visto bueno final, incluido un pedido de prueba enviado por WhatsApp desde su celular.
 
-**Pendiente:** confirmar que el volumen persistente de Railway para las fotos entra dentro del gasto permitido (ver "Infraestructura sin servicios de pago").
+**Pendiente:** ~~confirmar que el volumen persistente de Railway para las fotos entra dentro del gasto permitido.~~ Resuelto el 2026-10-16: ver "Volumen de fotos y plan de Railway".
+
+---
+
+## 2026-10-16 — Volumen de fotos y plan de Railway
+
+**Decisión:** la tienda usa el plan **Hobby** de Railway y el volumen persistente de las fotos entra dentro del gasto permitido. Es parte del gasto de Railway que `decisiones.md` ya autoriza ("Infraestructura sin servicios de pago"); no se agrega ningún otro servicio de pago.
+
+Referencia de la documentación de Railway al 2026-10-16: el volumen cuesta 0,15 USD por GB al mes, solo por el espacio usado, y se descuenta del crédito incluido del plan. El plan Hobby limita cada volumen a 5 GB. Los precios los fija Railway y pueden cambiar.
 
 ---
 
@@ -647,7 +655,7 @@ No se usan S3 ni otros almacenamientos en la nube, CDN, servicios de correo o SM
 
 **Pendiente:**
 
-- Confirmar que el volumen persistente de Railway para las imágenes entra dentro del gasto de Railway permitido.
+- ~~Confirmar que el volumen persistente de Railway para las imágenes entra dentro del gasto de Railway permitido.~~ Resuelto el 2026-10-16: ver "Volumen de fotos y plan de Railway".
 - ~~Cómo se harán las copias de seguridad de la base de datos y de las imágenes.~~ Resuelto el 2026-10-16: ver "Copias de seguridad manuales".
 
 ---

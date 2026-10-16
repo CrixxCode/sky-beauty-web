@@ -32,6 +32,18 @@ Los Dockerfiles ya definen el comando de arranque. No sobrescribirlo con
 puerto asignado por Railway, reflejándolo también en `API_INTERNAL_URL`.
 
 Montar el volumen persistente de las fotos en `/app/uploads` del backend.
+Plan Hobby (aprobado el 2026-10-16): cada volumen admite hasta 5 GB y se cobra
+solo el espacio usado, a 0,15 USD por GB al mes (documentación de Railway al
+2026-10-16; verificar en el panel). Notas del volumen:
+
+- Un servicio solo puede tener un volumen, y con volumen no se pueden usar
+  réplicas.
+- Cada redespliegue del backend tiene una caída breve, aunque haya healthcheck:
+  desplegar fuera de horas de venta.
+- El tamaño solo se puede ampliar, no reducir.
+- Los sistemas de archivos reservan un 2-3 % para metadatos.
+- El contenedor corre como root, así que puede escribir en el volumen montado.
+
 Una sola instancia del backend: sus archivos se guardan en ese volumen y los
 límites de intentos están en memoria. No activar suspensión automática en el
 backend: los avisos y cancelaciones se ejecutan cada minuto en ese proceso.
