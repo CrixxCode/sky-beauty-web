@@ -115,8 +115,10 @@ export default async function SeguimientoPage({ params }: SeguimientoPageProps) 
           ) : (
             <>
               Este pedido fue cancelado
-              {order.cancelledAt ? ` el ${formatDateTime(order.cancelledAt)}` : ''}. Si tienes dudas
-              o ya habías pagado, ponte en contacto con la tienda por WhatsApp.
+              {order.cancelledAt ? ` el ${formatDateTime(order.cancelledAt)}` : ''}
+              {/* La hora termina en "a. m." o "p. m.": no se agrega un segundo punto. */}
+              {order.cancelledAt ? ' ' : '. '}Si tienes dudas o ya habías pagado, ponte en contacto
+              con la tienda por WhatsApp.
             </>
           )}
         </div>
@@ -184,7 +186,10 @@ export default async function SeguimientoPage({ params }: SeguimientoPageProps) 
       <div className="grid gap-5 lg:grid-cols-3">
         <StatusPanel icon={<PackageCheck size={18} />} title="Pedido">
           <Summary label="Estado" value={ORDER_STATUS_LABELS[order.status]} />
-          <Summary label="Fecha" value={formatDate(order.createdAt)} />
+          <Summary label="Fecha del pedido" value={formatDate(order.createdAt)} />
+          {cancelled && order.cancelledAt && (
+            <Summary label="Cancelado el" value={formatDate(order.cancelledAt)} />
+          )}
         </StatusPanel>
 
         <StatusPanel icon={<CreditCard size={18} />} title="Pago">
