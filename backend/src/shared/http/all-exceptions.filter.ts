@@ -7,6 +7,7 @@ import {
   Logger,
   PayloadTooLargeException,
 } from '@nestjs/common';
+import { ThrottlerException } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { Prisma } from '../../generated/prisma/client';
 
@@ -82,6 +83,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return {
         statusCode: HttpStatus.PAYLOAD_TOO_LARGE,
         message: 'El archivo supera el tamaño máximo permitido.',
+      };
+    }
+    // El limitador de peticiones responde en inglés ("ThrottlerException: Too Many Requests").
+    if (exception instanceof ThrottlerException) {
+      return {
+        statusCode: HttpStatus.TOO_MANY_REQUESTS,
+        message: 'Hiciste demasiadas solicitudes seguidas. Espera unos minutos e intenta de nuevo.',
       };
     }
     if (exception instanceof HttpException) {

@@ -458,8 +458,11 @@ export function CheckoutPage({ publishedPages }: { publishedPages: StorePageSlug
         )}
         {createOrder.isError && (
           <FormError>
-            {errorMessage(createOrder.error, 'No se pudo crear el pedido.')} Revisa los datos e
-            intenta de nuevo.
+            {errorMessage(createOrder.error, 'No se pudo crear el pedido.')}
+            {/* Solo si el problema está en los datos enviados; ante otros errores no ayuda. */}
+            {createOrder.error instanceof ApiError &&
+              [400, 409].includes(createOrder.error.status) &&
+              ' Revisa los datos e intenta de nuevo.'}
           </FormError>
         )}
 

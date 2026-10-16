@@ -1,4 +1,5 @@
 import { type ArgumentsHost, PayloadTooLargeException } from '@nestjs/common';
+import { ThrottlerException } from '@nestjs/throttler';
 import { Prisma } from '../../generated/prisma/client';
 import { AllExceptionsFilter, type ErrorResponseBody } from './all-exceptions.filter';
 
@@ -45,6 +46,14 @@ describe('AllExceptionsFilter', () => {
       'La operación entra en conflicto con datos existentes o no encontrados.',
     );
     expect(JSON.stringify(body)).not.toContain('Detalle interno');
+  });
+
+  it('responde 429 en español cuando el limitador corta las peticiones', () => {
+    const { status, body } = respond(new ThrottlerException());
+    expect(status).toBe(429);
+    expect(body.message).toBe(
+      'Hiciste demasiadas solicitudes seguidas. Espera unos minutos e intenta de nuevo.',
+    );
   });
 
   it('responde 413 en español a un archivo demasiado grande', () => {
