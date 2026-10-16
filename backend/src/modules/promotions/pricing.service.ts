@@ -119,6 +119,40 @@ export function priceWithPromotions(
   };
 }
 
+/**
+ * Índice de las promociones vigentes en `at` por destino, para no comparar cada variante con todas
+ * las promociones. Devuelve, para una variante, las que pueden aplicarle; la elección sigue en
+ * `priceWithPromotions`, así que el resultado es el mismo que pasándole todas.
+ */
+export function promotionIndex(promotions: PromotionSnapshot[], at: Date) {
+  const byVariant = new Map<string, PromotionSnapshot[]>();
+  const byProduct = new Map<string, PromotionSnapshot[]>();
+  const byCategory = new Map<string, PromotionSnapshot[]>();
+  const add = (map: Map<string, PromotionSnapshot[]>, id: string, promotion: PromotionSnapshot) => {
+    const list = map.get(id);
+    if (list) list.push(promotion);
+    else map.set(id, [promotion]);
+  };
+  for (const promotion of promotions) {
+    if (!promotion.isActive || promotion.startsAt > at || promotion.endsAt < at) continue;
+    if (promotion.scope === PromotionScope.VARIANT) {
+      promotion.variantIds.forEach((id) => add(byVariant, id, promotion));
+    } else if (promotion.scope === PromotionScope.PRODUCT) {
+      promotion.productIds.forEach((id) => add(byProduct, id, promotion));
+    } else {
+      promotion.categoryIds.forEach((id) => add(byCategory, id, promotion));
+    }
+  }
+  return (variant: VariantPricingContext): PromotionSnapshot[] => [
+    ...new Set([
+      ...(byVariant.get(variant.variantId) ?? []),
+      ...(byProduct.get(variant.productId) ?? []),
+      ...(byCategory.get(variant.categoryId) ?? []),
+      ...((variant.parentCategoryId && byCategory.get(variant.parentCategoryId)) || []),
+    ]),
+  ];
+}
+
 /** "Creada primero"; si coinciden al milisegundo, el id decide para que el resultado sea estable. */
 function isCreatedBefore(a: PromotionSnapshot, b: PromotionSnapshot): boolean {
   const diff = a.createdAt.getTime() - b.createdAt.getTime();
@@ -148,20 +182,42 @@ export class PricingService {
     const ids = [...new Set(variantIds)];
     if (ids.length === 0) return new Map();
 
-    const [variants, history, promotions] = await Promise.all([
-      this.prisma.productVariant.findMany({
-        where: { id: { in: ids } },
-        select: {
-          id: true,
-          price: true,
-          productId: true,
-          product: {
-            select: { basePrice: true, categoryId: true, category: { select: { parentId: true } } },
-          },
+    const variants = await this.prisma.productVariant.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        price: true,
+        productId: true,
+        product: {
+          select: { basePrice: true, categoryId: true, category: { select: { parentId: true } } },
         },
-      }),
+      },
+    });
+    return this.priceKnownVariantsAt(
+      variants.map((variant) => ({
+        variantId: variant.id,
+        productId: variant.productId,
+        categoryId: variant.product.categoryId,
+        parentCategoryId: variant.product.category.parentId,
+        currentPrice: (variant.price ?? variant.product.basePrice).toNumber(),
+      })),
+      at,
+    );
+  }
+
+  /**
+   * Igual que `priceVariantsAt`, para variantes que quien llama ya leyó (evita volver a consultarlas
+   * cuando son muchas, como en las ofertas del catálogo). `currentPrice` es el precio efectivo actual.
+   */
+  async priceKnownVariantsAt(
+    variants: Array<Omit<VariantPricingContext, 'regularPrice'> & { currentPrice: number }>,
+    at = new Date(),
+  ): Promise<Map<string, PriceCalculation>> {
+    if (variants.length === 0) return new Map();
+
+    const [history, promotions] = await Promise.all([
       this.prisma.variantPriceHistory.findMany({
-        where: { variantId: { in: ids }, validFrom: { lte: at } },
+        where: { variantId: { in: variants.map((v) => v.variantId) }, validFrom: { lte: at } },
         orderBy: [{ variantId: 'asc' }, { validFrom: 'desc' }],
         distinct: ['variantId'],
         select: { variantId: true, price: true },
@@ -170,24 +226,17 @@ export class PricingService {
     ]);
 
     const priceAt = new Map(history.map((row) => [row.variantId, row.price.toNumber()]));
+    const candidatesFor = promotionIndex(promotions, at);
 
     return new Map(
-      variants.map((variant) => [
-        variant.id,
-        priceWithPromotions(
-          {
-            variantId: variant.id,
-            productId: variant.productId,
-            categoryId: variant.product.categoryId,
-            parentCategoryId: variant.product.category.parentId,
-            // Sin historial a esa fecha se usa el precio efectivo actual.
-            regularPrice:
-              priceAt.get(variant.id) ?? (variant.price ?? variant.product.basePrice).toNumber(),
-          },
-          promotions,
-          at,
-        ),
-      ]),
+      variants.map(({ currentPrice, ...variant }) => {
+        // Sin historial a esa fecha se usa el precio efectivo actual.
+        const context = {
+          ...variant,
+          regularPrice: priceAt.get(variant.variantId) ?? currentPrice,
+        };
+        return [variant.variantId, priceWithPromotions(context, candidatesFor(context), at)];
+      }),
     );
   }
 

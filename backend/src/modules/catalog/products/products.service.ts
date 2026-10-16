@@ -492,17 +492,30 @@ export class ProductsService {
           id: true,
           name: true,
           basePrice: true,
+          categoryId: true,
+          category: { select: { parentId: true } },
           variants: {
             where: { isActive: true },
             orderBy: { position: 'asc' },
-            select: { id: true, price: true, isActive: true },
+            select: { id: true, price: true },
           },
         },
         orderBy: { publishedAt: 'desc' },
       })
     ).filter((product) => !needle || normalizeSearchText(product.name).includes(needle));
 
-    const priceMap = await this.priceProducts(candidates);
+    // Las variantes ya están leídas: el motor no las vuelve a consultar.
+    const priceMap = await this.pricing.priceKnownVariantsAt(
+      candidates.flatMap((product) =>
+        product.variants.map((variant) => ({
+          variantId: variant.id,
+          productId: product.id,
+          categoryId: product.categoryId,
+          parentCategoryId: product.category.parentId,
+          currentPrice: (variant.price ?? product.basePrice).toNumber(),
+        })),
+      ),
+    );
     return candidates
       .map((product) => ({
         id: product.id,

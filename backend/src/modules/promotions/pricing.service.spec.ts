@@ -2,6 +2,7 @@ import { DiscountType, PromotionScope } from '../../generated/prisma/client';
 import {
   calculateDiscount,
   priceWithPromotions,
+  promotionIndex,
   type PromotionSnapshot,
   type VariantPricingContext,
 } from './pricing.service';
@@ -253,5 +254,49 @@ describe('priceWithPromotions', () => {
       const result = priceWithPromotions(variant({ regularPrice: 40 }), [pct(1)], AT);
       expect(result).toMatchObject({ discountAmount: 0, finalPrice: 40, appliedPromotion: null });
     });
+  });
+});
+
+describe('promotionIndex', () => {
+  it('da el mismo precio que comparar cada variante con todas las promociones', () => {
+    // Generador determinista: alcances, destinos, fechas, estados y montos variados.
+    let seed = 7;
+    const rand = (n: number) => {
+      seed = (seed * 1103515245 + 12345) % 2 ** 31;
+      return seed % n;
+    };
+    const ids = (prefix: string, n: number) =>
+      Array.from({ length: n }, (_, i) => `${prefix}-${i}`);
+    const [variants, products, categories] = [ids('v', 30), ids('p', 12), ids('c', 6)];
+    const pick = (list: string[]) => list.filter(() => rand(4) === 0);
+    const scopes = [PromotionScope.VARIANT, PromotionScope.PRODUCT, PromotionScope.CATEGORY];
+    const promotions = Array.from({ length: 40 }, (_, i) =>
+      promo({
+        scope: scopes[rand(3)],
+        variantIds: pick(variants),
+        productIds: pick(products),
+        categoryIds: pick(categories),
+        isActive: rand(5) > 0,
+        startsAt: new Date(Date.UTC(2026, rand(12), 1)),
+        endsAt: new Date(Date.UTC(2026, 6 + rand(6), 28)),
+        discountType: rand(2) ? DiscountType.PERCENTAGE : DiscountType.FIXED_AMOUNT,
+        discountValue: rand(2) ? 5 + rand(60) : 1000 * (1 + rand(15)),
+        createdAt: new Date(Date.UTC(2025, 11, 1 + (i % 3))),
+      }),
+    );
+    const candidatesFor = promotionIndex(promotions, AT);
+
+    for (const [i, variantId] of variants.entries()) {
+      const context = variant({
+        variantId,
+        productId: products[i % products.length],
+        categoryId: categories[i % categories.length],
+        parentCategoryId: i % 2 ? categories[(i + 1) % categories.length] : null,
+        regularPrice: 2000 + rand(30) * 1000,
+      });
+      expect(priceWithPromotions(context, candidatesFor(context), AT)).toEqual(
+        priceWithPromotions(context, promotions, AT),
+      );
+    }
   });
 });
