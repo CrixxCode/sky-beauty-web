@@ -108,6 +108,31 @@ describe('Configuración de la tienda (integración)', () => {
     });
   });
 
+  describe('contenido de las peticiones', () => {
+    it('rechaza claves __proto__ o constructor sin cambiar nada', async () => {
+      const owner = await loginAgent(app, 'duena@ejemplo.test');
+      for (const raw of [
+        '{"__proto__":{"isAdmin":true},"contactEmail":"x@ejemplo.test"}',
+        '{"contactEmail":"x@ejemplo.test","constructor":{"prototype":{"x":1}}}',
+      ]) {
+        await owner.patch(SETTINGS).set('Content-Type', 'application/json').send(raw).expect(400);
+      }
+      const settings = await prisma.storeSettings.findUniqueOrThrow({ where: { id: 'default' } });
+      expect(settings.contactEmail).toBeNull();
+    });
+
+    it('el panel solo acepta JSON: un cuerpo de formulario responde 415', async () => {
+      const owner = await loginAgent(app, 'duena@ejemplo.test');
+      await owner
+        .patch(SETTINGS)
+        .type('form')
+        .send({ contactEmail: 'hack@atacante.test' })
+        .expect(415);
+      const settings = await prisma.storeSettings.findUniqueOrThrow({ where: { id: 'default' } });
+      expect(settings.contactEmail).toBeNull();
+    });
+  });
+
   describe('tarifas de envío por municipio', () => {
     it('la propietaria crea, actualiza y borra una tarifa; borrar responde 204 sin cuerpo', async () => {
       const owner = await loginAgent(app, 'duena@ejemplo.test');
@@ -220,6 +245,10 @@ describe('Configuración de la tienda (integración)', () => {
         .get('/api/v1/store/locations/departments')
         .expect(200);
       expect(departments.body).toHaveLength(33);
+      // Orden alfabético en español: las tildes no mandan los nombres al final.
+      const names = (departments.body as Array<{ name: string }>).map((d) => d.name);
+      expect(names.indexOf('Córdoba')).toBeLessThan(names.indexOf('Cundinamarca'));
+      expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b, 'es')));
 
       const antioquia = await request(server)
         .get('/api/v1/store/locations/departments/05/municipalities')

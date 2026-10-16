@@ -89,6 +89,21 @@ describe('Acceso al panel (integración)', () => {
     it('valida el formato de los datos', async () => {
       await request(server()).post(LOGIN).send({ email: 'no-es-correo', password: '' }).expect(400);
     });
+
+    it('responde los errores de validación en español', async () => {
+      const res = await request(server())
+        .post(LOGIN)
+        .send({ email: 'a@ejemplo.test', password: 'x'.repeat(201), role: 'ADMIN' })
+        .expect(400);
+      const messages = (res.body as { message: string[] }).message;
+      expect(messages).toEqual(
+        expect.arrayContaining([
+          'El campo "role" no está permitido.',
+          'El campo "password" admite como máximo 200 caracteres.',
+        ]),
+      );
+      expect(messages.join(' ')).not.toMatch(/\b(must|should)\b/);
+    });
   });
 
   describe('sesión', () => {

@@ -1,6 +1,6 @@
 import { Module, ValidationPipe } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import type { Request } from 'express';
@@ -22,6 +22,8 @@ import { ShippingModule } from './modules/shipping/shipping.module';
 import { StoreSettingsModule } from './modules/store-settings/store-settings.module';
 import { TestimonialsModule } from './modules/testimonials/testimonials.module';
 import { AllExceptionsFilter } from './shared/http/all-exceptions.filter';
+import { RequestBodyInterceptor } from './shared/http/request-body.interceptor';
+import { validationExceptionFactory } from './shared/http/validation-messages';
 import { PrismaModule } from './shared/prisma/prisma.module';
 import { isInternalRequest } from './shared/security/internal-request';
 
@@ -85,12 +87,14 @@ import { isInternalRequest } from './shared/security/internal-request';
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    { provide: APP_INTERCEPTOR, useClass: RequestBodyInterceptor },
     {
       provide: APP_PIPE,
       useValue: new ValidationPipe({
         whitelist: true,
         forbidNonWhitelisted: true,
         transform: true,
+        exceptionFactory: validationExceptionFactory,
       }),
     },
   ],
