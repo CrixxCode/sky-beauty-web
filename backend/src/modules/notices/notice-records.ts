@@ -70,10 +70,14 @@ export function publicNoticeText(
   code: string,
   deadlineAt: Date,
 ): string {
-  return MESSAGES[noticeCase][stage]
-    .replace('Hola, {nombre}. ', '')
-    .replace('{código}', code)
-    .replace('en 1 hora', `el ${dateFormatter.format(deadlineAt)}`);
+  const date = dateFormatter.format(deadlineAt);
+  return (
+    MESSAGES[noticeCase][stage]
+      .replace('Hola, {nombre}. ', '')
+      .replace('{código}', code)
+      // La hora termina en "a. m." o "p. m.": no se agrega un segundo punto.
+      .replace('en 1 hora.', date.endsWith('.') ? `el ${date}` : `el ${date}.`)
+  );
 }
 
 export function formatNoticeDate(value: Date): string {

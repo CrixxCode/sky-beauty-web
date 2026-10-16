@@ -152,6 +152,8 @@ describe('Cancelaciones automáticas y avisos (integración)', () => {
         new RegExp(`^Tu pedido ${order.code} se cancelará el .+\\. Motivo: no hemos recibido`),
       );
       expect(pendingView.notice?.text).not.toContain('Ana');
+      // La hora termina en "a. m." o "p. m.": sin un segundo punto.
+      expect(pendingView.notice?.text).not.toContain('..');
 
       // Vence: se cancela solo.
       expect(await notices.runCycle(at(order.createdAt, 48.01))).toMatchObject({ cancelled: 1 });
