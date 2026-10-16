@@ -25,9 +25,9 @@ Los resultados de QA del 15 de octubre se conservan como evidencia histórica.
   conservando las dos últimas en el computador de la persona usuaria. Sin servicio
   adicional, programación periódica ni borrado automático de copias.
 
-Estas confirmaciones aún no se han trasladado a `Context/decisiones.md`:
-AGENTS.md exige que la persona usuaria pida ese cambio. Las instrucciones
-expresas de esta conversación autorizan la implementación.
+Estas confirmaciones ya están registradas en `Context/decisiones.md` (entradas
+del 2026-10-16). El estado actual de lo que falta para abrir ventas está en
+[`PENDIENTES_LANZAMIENTO.md`](PENDIENTES_LANZAMIENTO.md).
 
 ## Correcciones técnicas
 
