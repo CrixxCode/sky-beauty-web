@@ -5,8 +5,18 @@ import { OrdersManager } from '@/features/orders/orders-manager';
 
 export const metadata: Metadata = { title: 'Pedidos' };
 
-export default async function PedidosPage() {
+export default async function PedidosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ pedido?: string | string[] }>;
+}) {
   const admin = await requireAdmin();
+  const { pedido } = await searchParams;
+  const orderId =
+    typeof pedido === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pedido)
+      ? pedido
+      : null;
 
   return (
     <>
@@ -14,7 +24,7 @@ export default async function PedidosPage() {
         title="Pedidos"
         description="Confirma pedidos, ajusta productos pendientes, cotiza el envío y actualiza estados."
       />
-      <OrdersManager role={admin.role} />
+      <OrdersManager key={orderId ?? 'list'} role={admin.role} initialOrderId={orderId} />
     </>
   );
 }

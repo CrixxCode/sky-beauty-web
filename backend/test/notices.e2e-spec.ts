@@ -22,10 +22,19 @@ type Notice = {
   message: string;
   whatsappUrl: string;
   sentByName: string | null;
+  kind: string;
+  type: string | null;
 };
 type Notifications = {
   unread: number;
-  items: Array<{ id: string; type: string; title: string; read: boolean }>;
+  items: Array<{
+    id: string;
+    type: string;
+    title: string;
+    read: boolean;
+    body: string;
+    href: string;
+  }>;
 };
 
 const at = (base: Date, hours: number) => new Date(base.getTime() + hours * HOUR);
@@ -100,7 +109,10 @@ describe('Cancelaciones automáticas y avisos (integración)', () => {
 
   afterAll(() => app.close());
 
-  async function createOrder(paymentMethodId = transferId) {
+  async function createOrder(
+    paymentMethodId = transferId,
+    idempotencyKey = `aviso-${Date.now()}-${Math.random()}`,
+  ) {
     const res = await request(app.getHttpServer())
       .post('/api/v1/store/orders')
       .send({
@@ -110,7 +122,7 @@ describe('Cancelaciones automáticas y avisos (integración)', () => {
         customerPhone: '3001112233',
         addressLine: 'Dirección ficticia 123',
         paymentMethodId,
-        idempotencyKey: `aviso-${Date.now()}-${Math.random()}`,
+        idempotencyKey,
         termsAccepted: true,
         dataProcessingAccepted: true,
       })
@@ -323,25 +335,286 @@ describe('Cancelaciones automáticas y avisos (integración)', () => {
       await notices.runCycle(at(order.createdAt, 48.5));
 
       const forStaff = (await staff.get(NOTIFICATIONS).expect(200)).body as Notifications;
-      expect(forStaff.unread).toBe(3);
+      expect(forStaff.unread).toBe(4);
       expect(forStaff.items.map((n) => n.type).sort()).toEqual([
         'NOTICE_PENDING',
         'NOTICE_PENDING',
         'ORDER_AUTO_CANCELLED',
+        'ORDER_RECEIVED',
       ]);
       expect(forStaff.items.map((n) => n.title)).toContain(
         `Pedido ${order.code} cancelado automáticamente`,
       );
 
       await staff.patch(`${NOTIFICATIONS}/${forStaff.items[0].id}/read`).expect(204);
-      expect(((await staff.get(NOTIFICATIONS).expect(200)).body as Notifications).unread).toBe(2);
+      expect(((await staff.get(NOTIFICATIONS).expect(200)).body as Notifications).unread).toBe(3);
       // La propietaria sigue viéndolas sin leer.
-      expect(((await owner.get(NOTIFICATIONS).expect(200)).body as Notifications).unread).toBe(3);
+      expect(((await owner.get(NOTIFICATIONS).expect(200)).body as Notifications).unread).toBe(4);
 
       await staff.patch(`${NOTIFICATIONS}/read-all`).expect(204);
       const after = (await staff.get(NOTIFICATIONS).expect(200)).body as Notifications;
       expect(after.unread).toBe(0);
       expect(after.items.every((n) => n.read)).toBe(true);
+    });
+  });
+
+  describe('notificaciones operativas y mensajes al cliente', () => {
+    const notificationTypes = async (agent: Agent) =>
+      ((await agent.get(NOTIFICATIONS).expect(200)).body as Notifications).items.map((n) => n.type);
+    const adjustStock = (quantity: number) =>
+      staff
+        .post('/api/v1/admin/inventory/movements')
+        .send({ variantId, type: 'ADJUSTMENT', quantity, reason: 'Ajuste ficticio de prueba' })
+        .expect(201);
+
+    it('un reintento del checkout conserva un solo pedido y una sola notificación', async () => {
+      const first = await createOrder(transferId, 'pedido-operativo-idempotente');
+      const replay = await createOrder(transferId, 'pedido-operativo-idempotente');
+      expect(replay.id).toBe(first.id);
+      expect(await stockOf()).toBe(8);
+      expect(await notificationTypes(staff)).toEqual(['ORDER_RECEIVED']);
+      const list = (await staff.get(NOTIFICATIONS).expect(200)).body as Notifications;
+      expect(list.items[0].href).toBe(`/admin/pedidos?pedido=${first.id}`);
+    });
+
+    it('protege comprobantes y excedentes en listado, contador y acciones de lectura', async () => {
+      const order = await createOrder();
+      await staff.patch(`${ORDERS}/${order.id}/confirm`).send({ shippingCost: 5000 }).expect(200);
+      await staff.patch(`${ORDERS}/${order.id}/payment-received`).send({}).expect(200);
+      // Guardar de nuevo mientras ya está por verificar no genera otro aviso.
+      await staff
+        .patch(`${ORDERS}/${order.id}/payment-received`)
+        .send({ reference: 'Soporte ficticio' })
+        .expect(200);
+      await owner
+        .patch(`${ORDERS}/${order.id}/payment/verify`)
+        .send({ amount: 26000, note: 'Excedente ficticio para devolver a mano' })
+        .expect(200);
+      const forOwner = (await owner.get(NOTIFICATIONS).expect(200)).body as Notifications;
+      expect(forOwner.unread).toBe(3);
+      expect(forOwner.items.map((n) => n.type).sort()).toEqual([
+        'ORDER_RECEIVED',
+        'PAYMENT_EXCESS',
+        'PAYMENT_PROOF_RECEIVED',
+      ]);
+      expect(await notificationTypes(staff)).toEqual(['ORDER_RECEIVED']);
+      const hidden = forOwner.items.filter((n) => n.type !== 'ORDER_RECEIVED');
+      for (const notification of hidden) {
+        await staff.patch(`${NOTIFICATIONS}/${notification.id}/read`).expect(404);
+      }
+      await staff.patch(`${NOTIFICATIONS}/read-all`).expect(204);
+      expect(((await staff.get(NOTIFICATIONS).expect(200)).body as Notifications).unread).toBe(0);
+      expect(((await owner.get(NOTIFICATIONS).expect(200)).body as Notifications).unread).toBe(3);
+      const staffUser = await prisma.adminUser.findUniqueOrThrow({
+        where: { email: 'personal@ejemplo.test' },
+      });
+      expect(
+        await prisma.adminNotificationRead.count({
+          where: { adminId: staffUser.id, notificationId: { in: hidden.map((n) => n.id) } },
+        }),
+      ).toBe(0);
+      await request(app.getHttpServer()).get(NOTIFICATIONS).expect(401);
+    });
+
+    it('notifica el rechazo y el pago incompleto, sin preparar un mensaje de pago verificado', async () => {
+      const order = await createOrder();
+      await staff.patch(`${ORDERS}/${order.id}/confirm`).send({ shippingCost: 5000 }).expect(200);
+      await staff.patch(`${ORDERS}/${order.id}/payment-received`).send({}).expect(200);
+      await owner
+        .patch(`${ORDERS}/${order.id}/payment/reject`)
+        .send({ reason: 'Soporte ficticio no demostrado' })
+        .expect(200);
+      expect(await notificationTypes(staff)).toContain('PAYMENT_REJECTED');
+      await staff.patch(`${ORDERS}/${order.id}/payment-received`).send({}).expect(200);
+      await owner.patch(`${ORDERS}/${order.id}/payment/verify`).send({ amount: 1000 }).expect(200);
+      expect(
+        (await notificationTypes(staff)).filter((type) => type === 'PAYMENT_REJECTED'),
+      ).toHaveLength(2);
+      expect(
+        (await notificationTypes(owner)).filter((type) => type === 'PAYMENT_PROOF_RECEIVED'),
+      ).toHaveLength(2);
+      expect(
+        await prisma.orderUpdateNotice.count({
+          where: { orderId: order.id, type: 'PAYMENT_VERIFIED' },
+        }),
+      ).toBe(0);
+    });
+
+    it('avisa al cruzar stock bajo, al agotarse y al cruzar de nuevo tras reponer', async () => {
+      await prisma.productVariant.update({
+        where: { id: variantId },
+        data: { lowStockThreshold: 8 },
+      });
+      const order = await createOrder(); // 10 -> 8: reserva en checkout.
+      await staff
+        .patch(`${ORDERS}/${order.id}/items`)
+        .send({ items: [{ variantId, quantity: 3 }] })
+        .expect(200);
+      await adjustStock(-1); // 7 -> 6: sigue bajo, sin aviso adicional.
+      expect((await notificationTypes(staff)).filter((t) => t === 'LOW_STOCK')).toHaveLength(1);
+      await adjustStock(4); // 6 -> 10: repuesto.
+      await staff
+        .patch(`${ORDERS}/${order.id}/items`)
+        .send({ items: [{ variantId, quantity: 5 }] })
+        .expect(200);
+      expect((await notificationTypes(staff)).filter((t) => t === 'LOW_STOCK')).toHaveLength(2);
+      await adjustStock(-8); // 8 -> 0: solo agotado.
+      expect((await notificationTypes(staff)).filter((t) => t === 'OUT_OF_STOCK')).toHaveLength(1);
+      expect((await notificationTypes(staff)).filter((t) => t === 'LOW_STOCK')).toHaveLength(2);
+      await staff
+        .post('/api/v1/admin/inventory/movements')
+        .send({ variantId, type: 'ADJUSTMENT', quantity: -1, reason: 'Salida imposible ficticia' })
+        .expect(400);
+      expect(await stockOf()).toBe(0);
+      const list = (await staff.get(NOTIFICATIONS).expect(200)).body as Notifications;
+      expect(
+        list.items
+          .filter((n) => ['LOW_STOCK', 'OUT_OF_STOCK'].includes(n.type))
+          .every((n) => n.href === '/admin/inventario'),
+      ).toBe(true);
+    });
+
+    it('notifica agotados sin umbral y revierte los avisos si la transacción falla', async () => {
+      const order = await createOrder(); // 8 restantes, sin umbral.
+      await adjustStock(-8);
+      expect(await notificationTypes(staff)).toContain('OUT_OF_STOCK');
+      await adjustStock(10);
+      const before = await prisma.adminNotification.count();
+      await staff
+        .patch(`${ORDERS}/${order.id}/items`)
+        .send({
+          items: [
+            { variantId, quantity: 12 },
+            { variantId: '00000000-0000-4000-8000-000000000000', quantity: 1 },
+          ],
+        })
+        .expect(400); // La reserva llega a cero, pero otra línea falla: rollback completo.
+      expect(await stockOf()).toBe(10);
+      expect(await prisma.adminNotification.count()).toBe(before);
+    });
+
+    it('movimientos simultáneos de una variante generan un solo aviso al cruzar el umbral', async () => {
+      await prisma.productVariant.update({
+        where: { id: variantId },
+        data: { lowStockThreshold: 8 },
+      });
+      await Promise.all([adjustStock(-1), adjustStock(-1), adjustStock(-1)]);
+      expect(await stockOf()).toBe(7);
+      expect((await notificationTypes(staff)).filter((type) => type === 'LOW_STOCK')).toHaveLength(
+        1,
+      );
+    });
+
+    it('prepara confirmación, pago y despacho; registra el envío manual y cuenta todos los pendientes', async () => {
+      const order = await createOrder();
+      await staff.patch(`${ORDERS}/${order.id}/confirm`).send({ shippingCost: 5000 }).expect(200);
+      await staff.patch(`${ORDERS}/${order.id}/payment-received`).send({}).expect(200);
+      await owner.patch(`${ORDERS}/${order.id}/payment/verify`).send({}).expect(200);
+      const carrier = await prisma.carrier.create({ data: { name: 'Transportadora ficticia' } });
+      const shipping = {
+        method: 'CARRIER',
+        carrierId: carrier.id,
+        trackingNumber: 'GUIA-FICTICIA',
+        status: 'IN_TRANSIT',
+      };
+      await staff.patch(`${ORDERS}/${order.id}/shipping`).send(shipping).expect(200);
+      await staff.patch(`${ORDERS}/${order.id}/shipping`).send(shipping).expect(200);
+      await staff
+        .patch(`${ORDERS}/${order.id}/shipping`)
+        .send({ ...shipping, trackingNumber: 'GUIA-CORREGIDA-FICTICIA' })
+        .expect(200);
+      const pending = (await staff.get(NOTICES).expect(200)).body as Notice[];
+      expect(pending.map((n) => n.type).sort()).toEqual([
+        'ORDER_CONFIRMED',
+        'ORDER_SHIPPED',
+        'PAYMENT_VERIFIED',
+      ]);
+      expect(pending.every((n) => n.kind === 'ORDER_UPDATE' && n.status === 'PENDING')).toBe(true);
+      const shipped = pending.find((n) => n.type === 'ORDER_SHIPPED')!;
+      expect(shipped.message).toContain('Transportadora ficticia');
+      expect(shipped.message).toContain('GUIA-CORREGIDA-FICTICIA');
+      expect(shipped.message).toContain(`http://localhost:3000/seguimiento/${order.token}`);
+      expect(shipped.whatsappUrl).toBe(
+        `https://wa.me/573001112233?text=${encodeURIComponent(shipped.message)}`,
+      );
+      expect((await staff.get(`${NOTICES}/pending-count`).expect(200)).body).toEqual({
+        pending: 3,
+      });
+      expect((await staff.get('/api/v1/admin/dashboard/pending').expect(200)).body).toMatchObject({
+        noticesToSend: 3,
+      });
+      await staff.patch(`${NOTICES}/${shipped.id}/sent`).expect(204);
+      await staff.patch(`${NOTICES}/${shipped.id}/sent`).expect(409);
+      const sent = (await owner.get(`${NOTICES}?status=SENT`).expect(200)).body as Notice[];
+      expect(sent[0]).toMatchObject({ id: shipped.id, sentByName: 'Personal' });
+      await staff
+        .patch(`${ORDERS}/${order.id}/shipping`)
+        .send({ ...shipping, trackingNumber: 'OTRA-GUIA-FICTICIA' })
+        .expect(200);
+      expect(
+        await prisma.orderUpdateNotice.findUnique({ where: { id: shipped.id } }),
+      ).toMatchObject({ message: shipped.message, status: 'SENT' });
+      expect((await staff.get(`${NOTICES}/pending-count`).expect(200)).body).toEqual({
+        pending: 2,
+      });
+    });
+
+    it('notifica novedades al entrar en ese estado y conserva un único mensaje de despacho local', async () => {
+      const order = await createOrder(codId);
+      await staff.patch(`${ORDERS}/${order.id}/confirm`).send({ shippingCost: 5000 }).expect(200);
+      await staff
+        .patch(`${ORDERS}/${order.id}/shipping`)
+        .send({ method: 'LOCAL', status: 'IN_TRANSIT' })
+        .expect(200);
+      await staff.patch(`${ORDERS}/${order.id}/shipping`).send({ status: 'INCIDENT' }).expect(200);
+      await staff
+        .patch(`${ORDERS}/${order.id}/shipping`)
+        .send({ status: 'INCIDENT', notes: 'Corrección ficticia' })
+        .expect(200);
+      expect(
+        (await notificationTypes(staff)).filter((t) => t === 'SHIPPING_INCIDENT'),
+      ).toHaveLength(1);
+      await staff
+        .patch(`${ORDERS}/${order.id}/shipping`)
+        .send({ status: 'IN_TRANSIT' })
+        .expect(200);
+      await staff.patch(`${ORDERS}/${order.id}/shipping`).send({ status: 'INCIDENT' }).expect(200);
+      expect(
+        (await notificationTypes(staff)).filter((t) => t === 'SHIPPING_INCIDENT'),
+      ).toHaveLength(2);
+      const updates = await prisma.orderUpdateNotice.findMany({
+        where: { orderId: order.id, type: 'ORDER_SHIPPED' },
+      });
+      expect(updates).toHaveLength(1);
+      expect(updates[0].message).toContain('Entrega local de la tienda.');
+      expect(updates[0].message).not.toContain('Guía:');
+      await staff.patch(`${ORDERS}/${order.id}/shipping`).send({ status: 'DELIVERED' }).expect(200);
+      expect(
+        await prisma.orderUpdateNotice.count({
+          where: { orderId: order.id, type: 'PAYMENT_VERIFIED' },
+        }),
+      ).toBe(1);
+    });
+
+    it('descarta mensajes pendientes que ya no aplican después de devolver y cancelar', async () => {
+      const order = await createOrder();
+      await staff.patch(`${ORDERS}/${order.id}/confirm`).send({ shippingCost: 5000 }).expect(200);
+      await staff.patch(`${ORDERS}/${order.id}/payment-received`).send({}).expect(200);
+      await owner.patch(`${ORDERS}/${order.id}/payment/verify`).send({}).expect(200);
+      await owner
+        .patch(`${ORDERS}/${order.id}/payment/refund`)
+        .send({ amount: 25000, note: 'Devolución ficticia total' })
+        .expect(200);
+      expect(
+        await prisma.orderUpdateNotice.findFirst({
+          where: { orderId: order.id, type: 'PAYMENT_VERIFIED' },
+        }),
+      ).toMatchObject({ status: 'DISCARDED' });
+      await owner
+        .patch(`${ORDERS}/${order.id}/cancel`)
+        .send({ reason: 'Cancelación ficticia posterior a devolución' })
+        .expect(200);
+      expect((await staff.get(NOTICES).expect(200)).body).toEqual([]);
     });
   });
 });

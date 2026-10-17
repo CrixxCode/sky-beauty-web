@@ -16,21 +16,32 @@ export class DashboardService {
    * que la cifra coincida con lo que se ve al entrar.
    */
   async pending(): Promise<DashboardPendingDto> {
-    const [ordersToConfirm, paymentsToVerify, noticesToSend, [{ lowStock }]] = await Promise.all([
-      this.prisma.order.count({ where: { status: OrderStatus.PENDING_CONFIRMATION } }),
-      this.prisma.order.count({
-        where: {
-          paymentStatus: PaymentStatus.AWAITING_VERIFICATION,
-          status: { not: OrderStatus.CANCELLED },
-        },
-      }),
-      this.prisma.cancellationNotice.count({ where: { status: CancellationNoticeStatus.PENDING } }),
-      // Igual que el filtro "Stock bajo" de Inventario.
-      this.prisma.$queryRaw<[{ lowStock: number }]>`
+    const [ordersToConfirm, paymentsToVerify, cancellationNotices, updateNotices, [{ lowStock }]] =
+      await Promise.all([
+        this.prisma.order.count({ where: { status: OrderStatus.PENDING_CONFIRMATION } }),
+        this.prisma.order.count({
+          where: {
+            paymentStatus: PaymentStatus.AWAITING_VERIFICATION,
+            status: { not: OrderStatus.CANCELLED },
+          },
+        }),
+        this.prisma.cancellationNotice.count({
+          where: { status: CancellationNoticeStatus.PENDING },
+        }),
+        this.prisma.orderUpdateNotice.count({
+          where: { status: CancellationNoticeStatus.PENDING },
+        }),
+        // Igual que el filtro "Stock bajo" de Inventario.
+        this.prisma.$queryRaw<[{ lowStock: number }]>`
         SELECT count(*)::int AS "lowStock"
         FROM "ProductVariant"
         WHERE "lowStockThreshold" IS NOT NULL AND "stock" <= "lowStockThreshold"`,
-    ]);
-    return { ordersToConfirm, paymentsToVerify, noticesToSend, lowStockVariants: lowStock };
+      ]);
+    return {
+      ordersToConfirm,
+      paymentsToVerify,
+      noticesToSend: cancellationNotices + updateNotices,
+      lowStockVariants: lowStock,
+    };
   }
 }

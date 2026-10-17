@@ -41,7 +41,7 @@ export function DashboardPendingStats() {
         icon={<BellRing size={19} />}
         label="Avisos por enviar"
         value={count(data?.noticesToSend)}
-        detail="Avisos de cancelación al cliente"
+        detail="Mensajes al cliente por WhatsApp"
       />
       <AdminStat
         href="/admin/inventario"

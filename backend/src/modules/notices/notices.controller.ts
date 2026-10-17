@@ -51,14 +51,14 @@ export class AdminNotificationsController {
   @Get()
   @ApiOkResponse({ type: NotificationsDto })
   list(@CurrentAdmin() admin: AuthenticatedAdmin): Promise<NotificationsDto> {
-    return this.notices.notifications(admin.id);
+    return this.notices.notifications(admin.id, admin.role);
   }
 
   @Patch('read-all')
   @HttpCode(204)
   @ApiNoContentResponse()
   markAllRead(@CurrentAdmin() admin: AuthenticatedAdmin): Promise<void> {
-    return this.notices.markAllRead(admin.id);
+    return this.notices.markAllRead(admin.id, admin.role);
   }
 
   @Patch(':id/read')
@@ -68,6 +68,6 @@ export class AdminNotificationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentAdmin() admin: AuthenticatedAdmin,
   ): Promise<void> {
-    return this.notices.markRead(id, admin.id);
+    return this.notices.markRead(id, admin.id, admin.role);
   }
 }

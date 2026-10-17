@@ -90,6 +90,8 @@ export function InventoryManager() {
       setReason('');
       await queryClient.invalidateQueries({ queryKey: VARIANTS_KEY });
       await queryClient.invalidateQueries({ queryKey: MOVEMENTS_KEY });
+      await queryClient.invalidateQueries({ queryKey: ['admin-notifications'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin-dashboard-pending'] });
     },
     onError: (error) => toast.error(errorMessage(error, 'No se pudo registrar el movimiento.')),
   });

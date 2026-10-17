@@ -16,6 +16,7 @@ import type {
   PaginatedInventoryMovementsDto,
 } from './inventory.dto';
 import { escapeLike } from '../../shared/text';
+import { notifyStockTransition } from '../notices/operational-notifications';
 
 /** Tipos de movimiento que se registran a mano desde el inventario. Los de pedidos los crea el módulo de pedidos. */
 const MANUAL_TYPES: InventoryMovementType[] = [
@@ -198,6 +199,7 @@ export class InventoryService {
         include: movementInclude,
       });
 
+      await notifyStockTransition(tx, dto.variantId, stockAfter - dto.quantity, stockAfter);
       return movementDto(movement);
     });
   }

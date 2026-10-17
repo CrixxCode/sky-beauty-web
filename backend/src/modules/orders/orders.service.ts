@@ -17,6 +17,7 @@ import {
   InventoryMovementType,
   OrderEventType,
   OrderStatus,
+  OrderUpdateNoticeType,
   PaymentStatus,
   Prisma,
   ShippingMethod,
@@ -62,6 +63,8 @@ import type {
   VerifyPaymentDto,
 } from './orders.dto';
 import { escapeLike } from '../../shared/text';
+import { notifyStockTransition } from '../notices/operational-notifications';
+import { discardOrderUpdates, prepareOrderUpdate } from '../notices/order-update-records';
 
 type MethodForCheckout = Prisma.PaymentMethodGetPayload<{
   include: { cities: true };
@@ -410,6 +413,12 @@ export class OrdersService {
             stockBefore: afterReserve.stock + item.quantity,
             unitCost: variant.costPrice,
           });
+          await notifyStockTransition(
+            tx,
+            item.variantId,
+            afterReserve.stock + item.quantity,
+            afterReserve.stock,
+          );
         }
 
         const customer = await tx.customer.upsert({
@@ -485,6 +494,14 @@ export class OrdersService {
           }),
         });
 
+        await tx.adminNotification.create({
+          data: {
+            type: AdminNotificationType.ORDER_RECEIVED,
+            orderId: created.id,
+            title: `Nuevo pedido: ${created.code}`,
+            body: 'Revisa el pedido, cotiza el envío si falta y confírmalo.',
+          },
+        });
         return created.id;
       });
     } catch (err: unknown) {
@@ -666,6 +683,12 @@ export class OrdersService {
         },
       });
       await closePendingBeforeNotices(tx, id, [CancellationNoticeCase.UNCONFIRMED]);
+      await prepareOrderUpdate(
+        tx,
+        order,
+        OrderUpdateNoticeType.ORDER_CONFIRMED,
+        this.trackingUrlFor(this.publicTokenFor(order.idempotencyKey)),
+      );
     });
 
     return this.findAdmin(id, role);
@@ -928,6 +951,30 @@ export class OrdersService {
             recordedById: adminId,
           },
         });
+      }
+      const trackingUrl = this.trackingUrlFor(this.publicTokenFor(order.idempotencyKey));
+      if (nextOrderStatus === OrderStatus.SHIPPED) {
+        await prepareOrderUpdate(tx, order, OrderUpdateNoticeType.ORDER_SHIPPED, trackingUrl, {
+          local: isLocal,
+          carrierName,
+          trackingNumber,
+        });
+      }
+      if (
+        dto.status === ShippingStatus.INCIDENT &&
+        currentShippingStatus !== ShippingStatus.INCIDENT
+      ) {
+        await tx.adminNotification.create({
+          data: {
+            type: AdminNotificationType.SHIPPING_INCIDENT,
+            orderId: id,
+            title: `Novedad de envío: pedido ${order.code}`,
+            body: 'Se registró una novedad en el envío. Revisa el pedido para atenderla.',
+          },
+        });
+      }
+      if (shouldRegisterCodPayment) {
+        await prepareOrderUpdate(tx, order, OrderUpdateNoticeType.PAYMENT_VERIFIED, trackingUrl);
       }
     });
 
@@ -1200,6 +1247,7 @@ export class OrdersService {
         },
       });
       await closePendingBeforeNotices(tx, id, ALL_NOTICE_CASES);
+      await discardOrderUpdates(tx, id);
       // Pago no demostrado tras el plazo de aclaración: aviso de cancelación al cliente.
       const deadline = this.clarificationDeadline(order);
       if (deadline && deadline <= new Date()) {
@@ -1266,6 +1314,17 @@ export class OrdersService {
         CancellationNoticeCase.NO_PAYMENT_PROOF,
         CancellationNoticeCase.PAYMENT_NOT_PROVEN,
       ]);
+      if (order.paymentStatus !== PaymentStatus.AWAITING_VERIFICATION) {
+        await tx.adminNotification.create({
+          data: {
+            type: AdminNotificationType.PAYMENT_PROOF_RECEIVED,
+            adminOnly: true,
+            orderId: id,
+            title: `Comprobante por verificar: pedido ${order.code}`,
+            body: 'Se registró un comprobante de pago recibido por WhatsApp. Revisa el pago.',
+          },
+        });
+      }
     });
 
     return this.findAdmin(id, role);
@@ -1332,6 +1391,34 @@ export class OrdersService {
         CancellationNoticeCase.NO_PAYMENT_PROOF,
         ...(!incomplete ? [CancellationNoticeCase.PAYMENT_NOT_PROVEN] : []),
       ]);
+      if (incomplete) {
+        await tx.adminNotification.create({
+          data: {
+            type: AdminNotificationType.PAYMENT_REJECTED,
+            orderId: id,
+            title: `Pago incompleto: pedido ${order.code}`,
+            body: 'Contacta al cliente para aclarar el pago. El plazo de aclaración ya comenzó.',
+          },
+        });
+      } else {
+        await prepareOrderUpdate(
+          tx,
+          order,
+          OrderUpdateNoticeType.PAYMENT_VERIFIED,
+          this.trackingUrlFor(this.publicTokenFor(order.idempotencyKey)),
+        );
+      }
+      if (excess.greaterThan(0)) {
+        await tx.adminNotification.create({
+          data: {
+            type: AdminNotificationType.PAYMENT_EXCESS,
+            adminOnly: true,
+            orderId: id,
+            title: `Excedente por devolver: pedido ${order.code}`,
+            body: `Excedente: ${cop(excess.toNumber())}. Revisa la nota del pago y realiza la devolución manual.`,
+          },
+        });
+      }
     });
 
     return this.findAdmin(id, AdminRole.ADMIN);
@@ -1380,6 +1467,14 @@ export class OrdersService {
           toStatus: PaymentStatus.REJECTED,
           note: reason,
           changedById: adminId,
+        },
+      });
+      await tx.adminNotification.create({
+        data: {
+          type: AdminNotificationType.PAYMENT_REJECTED,
+          orderId: id,
+          title: `Pago rechazado: pedido ${order.code}`,
+          body: 'Contacta al cliente para aclarar el pago. El plazo de aclaración ya comenzó.',
         },
       });
     });
@@ -1438,6 +1533,10 @@ export class OrdersService {
           note,
           changedById: adminId,
         },
+      });
+      await tx.orderUpdateNotice.updateMany({
+        where: { orderId: id, type: OrderUpdateNoticeType.PAYMENT_VERIFIED, status: 'PENDING' },
+        data: { status: 'DISCARDED' },
       });
     });
 
@@ -1658,6 +1757,7 @@ export class OrdersService {
           },
         });
         await closePendingBeforeNotices(tx, orderId, ALL_NOTICE_CASES, now);
+        await discardOrderUpdates(tx, orderId);
         await createNotice(tx, {
           order,
           noticeCase,
@@ -1730,6 +1830,7 @@ export class OrdersService {
         orderId,
       },
     });
+    await notifyStockTransition(tx, variantId, after.stock + quantity, after.stock);
   }
 
   private async releaseStock(

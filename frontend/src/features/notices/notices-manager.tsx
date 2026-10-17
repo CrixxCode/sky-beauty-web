@@ -16,7 +16,7 @@ import { NOTIFICATIONS_KEY, PENDING_NOTICES_KEY } from './notifications-bell';
 
 const NOTICES_KEY = ['admin-notices'];
 
-/** Bandeja de avisos de cancelación para enviar por WhatsApp (propietaria y personal). */
+/** Mensajes y avisos para enviar manualmente por WhatsApp (propietaria y personal). */
 export function NoticesManager() {
   const [tab, setTab] = useState<Extract<NoticeStatus, 'PENDING' | 'SENT'>>('PENDING');
   return (
@@ -51,6 +51,7 @@ function NoticeList({ status }: { status: 'PENDING' | 'SENT' }) {
         queryClient.invalidateQueries({ queryKey: NOTICES_KEY }),
         queryClient.invalidateQueries({ queryKey: PENDING_NOTICES_KEY }),
         queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
+        queryClient.invalidateQueries({ queryKey: ['admin-dashboard-pending'] }),
       ]);
     },
     onError: (error) =>
@@ -79,13 +80,15 @@ function NoticeList({ status }: { status: 'PENDING' | 'SENT' }) {
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <strong className="text-xs text-[#493a45]">Pedido {notice.orderCode}</strong>
-                <Badge variant={notice.stage === 'AFTER' ? 'danger' : 'warning'}>
-                  {NOTICE_STAGE_LABELS[notice.stage]}
-                </Badge>
+                {notice.stage && (
+                  <Badge variant={notice.stage === 'AFTER' ? 'danger' : 'warning'}>
+                    {NOTICE_STAGE_LABELS[notice.stage]}
+                  </Badge>
+                )}
                 <Badge variant="neutral">{notice.caseName}</Badge>
               </div>
               <span className="text-[10px] text-[#6d646a]">
-                {notice.stage === 'BEFORE'
+                {notice.stage === 'BEFORE' && notice.deadlineAt
                   ? `Se cancela el ${formatDateTime(notice.deadlineAt)}`
                   : `Creado el ${formatDateTime(notice.createdAt)}`}
               </span>

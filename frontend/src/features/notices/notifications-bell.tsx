@@ -28,13 +28,13 @@ export function usePendingNoticesCount(): number {
 }
 
 /** Campana de notificaciones del panel (propietaria y personal). */
-export function NotificationsBell() {
+export function NotificationsBell({ adminId }: { adminId: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
 
   const query = useQuery({
-    queryKey: NOTIFICATIONS_KEY,
+    queryKey: [...NOTIFICATIONS_KEY, adminId],
     queryFn: () => apiFetch<AdminNotifications>('/admin/notifications'),
     refetchInterval: REFRESH_MS,
   });
@@ -54,7 +54,7 @@ export function NotificationsBell() {
   function openNotification(notification: AdminNotification) {
     if (!notification.read) markRead.mutate(notification.id);
     setOpen(false);
-    router.push(notification.type === 'NOTICE_PENDING' ? '/admin/avisos' : '/admin/pedidos');
+    router.push(notification.href);
   }
 
   return (

@@ -12,7 +12,7 @@ export default async function AvisosPage() {
     <>
       <AdminHeading
         title="Avisos"
-        description="Avisos de cancelación para enviar al cliente por WhatsApp. Ábrelo, envíalo y márcalo como enviado."
+        description="Confirmaciones, pagos, despachos y avisos de cancelación para enviar al cliente por WhatsApp. Abre el mensaje, envíalo y márcalo como enviado."
       />
       <NoticesManager />
     </>

@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Copy, CreditCard, Edit2, Eye, PackageCheck, Search, Truck, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { ListPagination } from '@/components/layout/list-pagination';
@@ -96,17 +97,20 @@ export function OrdersManager({
   role,
   initialPaymentStatus = '',
   title = 'Bandeja de pedidos',
+  initialOrderId = null,
 }: {
   role: AdminRole;
   initialPaymentStatus?: PaymentStatus | '';
   title?: string;
+  initialOrderId?: string | null;
 }) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | ''>(initialPaymentStatus);
   const [page, setPage] = useState(1);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialOrderId);
 
   // Cada cambio de búsqueda o filtro vuelve a la primera página.
   function updateFilter<T>(set: (value: T) => void) {
@@ -141,8 +145,14 @@ export function OrdersManager({
   const orders = ordersQuery.data?.items ?? [];
 
   async function refreshDetail() {
-    await queryClient.invalidateQueries({ queryKey: ORDERS_KEY });
-    await queryClient.invalidateQueries({ queryKey: ['admin-order', selectedId] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ORDERS_KEY }),
+      queryClient.invalidateQueries({ queryKey: ['admin-order', selectedId] }),
+      queryClient.invalidateQueries({ queryKey: ['admin-notifications'] }),
+      queryClient.invalidateQueries({ queryKey: ['admin-notices'] }),
+      queryClient.invalidateQueries({ queryKey: ['admin-notices-pending-count'] }),
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-pending'] }),
+    ]);
   }
 
   return (
@@ -265,7 +275,10 @@ export function OrdersManager({
 
       <Modal
         isOpen={Boolean(selectedId)}
-        onClose={() => setSelectedId(null)}
+        onClose={() => {
+          setSelectedId(null);
+          if (initialOrderId) router.replace('/admin/pedidos', { scroll: false });
+        }}
         title={detailQuery.data ? `Pedido ${detailQuery.data.code}` : 'Pedido'}
         description={
           detailQuery.data

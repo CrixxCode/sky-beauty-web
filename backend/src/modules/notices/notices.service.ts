@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import type { Env } from '../../config/env';
 import {
+  AdminRole,
   CancellationNoticeCase,
   CancellationNoticeStage,
   CancellationNoticeStatus,
@@ -13,6 +14,7 @@ import {
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { OrdersService } from '../orders/orders.service';
 import { closePendingBeforeNotices, createNotice, NOTICE_CASE_NAMES } from './notice-records';
+import { ORDER_UPDATE_NAMES } from './order-update-records';
 import type {
   AdminNotificationDto,
   CancellationNoticeDto,
@@ -228,16 +230,29 @@ export class NoticesService {
   // ── Bandeja de avisos ──────────────────────────────────────────────────────
 
   async listNotices(query: ListNoticesQueryDto): Promise<CancellationNoticeDto[]> {
-    const notices = await this.prisma.cancellationNotice.findMany({
-      where: { status: query.status ?? CancellationNoticeStatus.PENDING },
-      include: {
-        order: { select: { code: true, customerName: true, customerPhone: true } },
-        sentBy: { select: { name: true } },
-      },
-      orderBy: [{ createdAt: query.status === 'PENDING' || !query.status ? 'asc' : 'desc' }],
-      take: 100,
-    });
-    return notices.map((notice) => ({
+    const status = query.status ?? CancellationNoticeStatus.PENDING;
+    const include = {
+      order: { select: { code: true, customerName: true, customerPhone: true } },
+      sentBy: { select: { name: true } },
+    } as const;
+    const direction = status === 'PENDING' ? 'asc' : 'desc';
+    const [notices, updates] = await Promise.all([
+      this.prisma.cancellationNotice.findMany({
+        where: { status: query.status ?? CancellationNoticeStatus.PENDING },
+        include,
+        orderBy: [{ createdAt: direction }],
+        take: 100,
+      }),
+      this.prisma.orderUpdateNotice.findMany({
+        where: { status },
+        include,
+        orderBy: { createdAt: direction },
+        take: 100,
+      }),
+    ]);
+    const cancellationItems: CancellationNoticeDto[] = notices.map((notice) => ({
+      kind: 'CANCELLATION',
+      type: null,
       id: notice.id,
       orderId: notice.orderId,
       orderCode: notice.order.code,
@@ -254,12 +269,42 @@ export class NoticesService {
       sentAt: notice.sentAt,
       sentByName: notice.sentBy?.name ?? null,
     }));
+    const updateItems: CancellationNoticeDto[] = updates.map((notice) => ({
+      kind: 'ORDER_UPDATE',
+      id: notice.id,
+      orderId: notice.orderId,
+      orderCode: notice.order.code,
+      customerName: notice.order.customerName,
+      customerPhone: notice.order.customerPhone,
+      case: null,
+      type: notice.type,
+      caseName: ORDER_UPDATE_NAMES[notice.type],
+      stage: null,
+      status: notice.status,
+      deadlineAt: null,
+      message: notice.message,
+      whatsappUrl: `https://wa.me/${notice.order.customerPhone}?text=${encodeURIComponent(notice.message)}`,
+      createdAt: notice.createdAt,
+      sentAt: notice.sentAt,
+      sentByName: notice.sentBy?.name ?? null,
+    }));
+    return [...cancellationItems, ...updateItems]
+      .sort((a, b) =>
+        direction === 'asc'
+          ? a.createdAt.getTime() - b.createdAt.getTime()
+          : b.createdAt.getTime() - a.createdAt.getTime(),
+      )
+      .slice(0, 100);
   }
 
   async pendingCount(): Promise<number> {
-    return this.prisma.cancellationNotice.count({
-      where: { status: CancellationNoticeStatus.PENDING },
-    });
+    const counts = await Promise.all([
+      this.prisma.cancellationNotice.count({
+        where: { status: CancellationNoticeStatus.PENDING },
+      }),
+      this.prisma.orderUpdateNotice.count({ where: { status: CancellationNoticeStatus.PENDING } }),
+    ]);
+    return counts[0] + counts[1];
   }
 
   /** Marca un aviso como enviado por WhatsApp (solo si sigue pendiente). */
@@ -269,21 +314,31 @@ export class NoticesService {
       data: { status: CancellationNoticeStatus.SENT, sentAt: new Date(), sentById: adminId },
     });
     if (count === 1) return;
+    const update = await this.prisma.orderUpdateNotice.updateMany({
+      where: { id, status: CancellationNoticeStatus.PENDING },
+      data: { status: CancellationNoticeStatus.SENT, sentAt: new Date(), sentById: adminId },
+    });
+    if (update.count === 1) return;
     const exists = await this.prisma.cancellationNotice.findUnique({ where: { id } });
-    if (!exists) throw new NotFoundException('No existe ese aviso.');
+    const updateExists =
+      exists ?? (await this.prisma.orderUpdateNotice.findUnique({ where: { id } }));
+    if (!updateExists) throw new NotFoundException('No existe ese aviso.');
     throw new ConflictException('Este aviso ya no está pendiente.');
   }
 
   // ── Notificaciones del panel ───────────────────────────────────────────────
 
-  async notifications(adminId: string, limit = 20): Promise<NotificationsDto> {
+  async notifications(adminId: string, role: AdminRole, limit = 20): Promise<NotificationsDto> {
+    const visible: Prisma.AdminNotificationWhereInput =
+      role === AdminRole.ADMIN ? {} : { adminOnly: false };
     const [items, unread] = await Promise.all([
       this.prisma.adminNotification.findMany({
+        where: visible,
         orderBy: { createdAt: 'desc' },
         take: limit,
         include: { reads: { where: { adminId }, select: { readAt: true } } },
       }),
-      this.prisma.adminNotification.count({ where: { reads: { none: { adminId } } } }),
+      this.prisma.adminNotification.count({ where: { ...visible, reads: { none: { adminId } } } }),
     ]);
     return {
       unread,
@@ -293,6 +348,14 @@ export class NoticesService {
           type: item.type,
           title: item.title,
           body: item.body,
+          href:
+            item.type === 'NOTICE_PENDING'
+              ? '/admin/avisos'
+              : item.type === 'LOW_STOCK' || item.type === 'OUT_OF_STOCK'
+                ? '/admin/inventario'
+                : item.orderId
+                  ? `/admin/pedidos?pedido=${item.orderId}`
+                  : '/admin/pedidos',
           orderId: item.orderId,
           noticeId: item.noticeId,
           createdAt: item.createdAt,
@@ -302,8 +365,10 @@ export class NoticesService {
     };
   }
 
-  async markRead(id: string, adminId: string): Promise<void> {
-    const exists = await this.prisma.adminNotification.findUnique({ where: { id } });
+  async markRead(id: string, adminId: string, role: AdminRole): Promise<void> {
+    const exists = await this.prisma.adminNotification.findFirst({
+      where: { id, ...(role !== AdminRole.ADMIN && { adminOnly: false }) },
+    });
     if (!exists) throw new NotFoundException('No existe esa notificación.');
     await this.prisma.adminNotificationRead.upsert({
       where: { notificationId_adminId: { notificationId: id, adminId } },
@@ -312,9 +377,12 @@ export class NoticesService {
     });
   }
 
-  async markAllRead(adminId: string): Promise<void> {
+  async markAllRead(adminId: string, role: AdminRole): Promise<void> {
     const unread = await this.prisma.adminNotification.findMany({
-      where: { reads: { none: { adminId } } },
+      where: {
+        reads: { none: { adminId } },
+        ...(role !== AdminRole.ADMIN && { adminOnly: false }),
+      },
       select: { id: true },
     });
     if (unread.length === 0) return;

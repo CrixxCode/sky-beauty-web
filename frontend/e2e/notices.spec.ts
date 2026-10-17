@@ -114,3 +114,129 @@ test('aviso antes de cancelar, cancelación automática, bandeja de avisos y not
     }),
   ).toBeVisible();
 });
+
+test('notificaciones operativas abren su sección y los mensajes al cliente se envían a mano', async ({
+  page,
+}, testInfo) => {
+  const suffix = `Operativas ${testInfo.project.name}`;
+  await login(page, E2E_OWNER.email, E2E_OWNER.password);
+  await expect(page).toHaveURL(/\/admin$/);
+  const api = async (method: 'post' | 'patch', url: string, data: object) => {
+    const res = await page.request[method](`/api/v1${url}`, { data });
+    expect(res.ok(), `${method} ${url}: ${await res.text()}`).toBe(true);
+    return (await res.json()) as Record<string, string>;
+  };
+  const brand = await api('post', '/admin/brands', { name: `Marca ficticia ${suffix}` });
+  const category = await api('post', '/admin/categories', { name: `Categoría ficticia ${suffix}` });
+  const product = await api('post', '/admin/products', {
+    name: `Producto ficticio ${suffix}`,
+    description: 'Producto ficticio para pruebas.',
+    brandId: brand.id,
+    categoryId: category.id,
+    basePrice: 10000,
+  });
+  const variant = await api('post', `/admin/products/${product.id}/variants`, {
+    sku: `E2E-OPERATIVAS-${testInfo.project.name}`,
+    name: 'Tono ficticio',
+    lowStockThreshold: 2,
+  });
+  await api('post', '/admin/inventory/movements', {
+    variantId: variant.id,
+    type: 'INITIAL',
+    quantity: 3,
+  });
+  await api('patch', `/admin/products/${product.id}/status`, { status: 'ACTIVE' });
+  const methods = (await (
+    await page.request.get('/api/v1/admin/payment-methods')
+  ).json()) as Array<{ id: string; code: string }>;
+  const transfer = methods.find((method) => method.code === 'BANK_TRANSFER')!;
+  await api('patch', `/admin/payment-methods/${transfer.id}`, {
+    isActive: true,
+    instructions: 'Instrucciones ficticias.',
+  });
+  const staff = {
+    name: `Personal ${suffix}`,
+    email: `operativas.${testInfo.project.name}@ejemplo.test`,
+    password: 'clave-personal-123',
+  };
+  await api('post', '/admin/users', staff);
+  const order = await api('post', '/store/orders', {
+    items: [{ variantId: variant.id, quantity: 1 }],
+    municipalityCode: '44001',
+    customerName: 'Cliente ficticio',
+    customerPhone: '3001112233',
+    addressLine: 'Dirección ficticia',
+    paymentMethodId: transfer.id,
+    idempotencyKey: `e2e-operativas-${suffix}-${Date.now()}`,
+    termsAccepted: true,
+    dataProcessingAccepted: true,
+  });
+  await page.goto('/admin');
+  await page.getByRole('button', { name: /^Notificaciones/ }).click();
+  await page.getByRole('button', { name: new RegExp(`Nuevo pedido: ${order.code}`) }).click();
+  await expect(page).toHaveURL(new RegExp(`/admin/pedidos\\?pedido=${order.id}$`));
+  await expect(page.getByRole('dialog', { name: `Pedido ${order.code}` })).toBeVisible();
+  await page
+    .getByRole('dialog', { name: `Pedido ${order.code}` })
+    .getByRole('button', { name: 'Cerrar', exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/admin\/pedidos$/);
+  await page.getByRole('button', { name: /^Notificaciones/ }).click();
+  await page.getByRole('button', { name: new RegExp(`Nuevo pedido: ${order.code}`) }).click();
+  await expect(page.getByRole('dialog', { name: `Pedido ${order.code}` })).toBeVisible();
+  await page
+    .getByRole('dialog', { name: `Pedido ${order.code}` })
+    .getByRole('button', { name: 'Cerrar', exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/admin\/pedidos$/);
+  await page.getByRole('button', { name: /^Notificaciones/ }).click();
+  await page
+    .getByRole('button', { name: new RegExp(`Stock bajo: Producto ficticio ${suffix}`) })
+    .click();
+  await expect(page).toHaveURL(/\/admin\/inventario$/);
+
+  await api('patch', `/admin/orders/${order.id}/confirm`, { shippingCost: 5000 });
+  await api('patch', `/admin/orders/${order.id}/payment-received`, {});
+  await api('patch', `/admin/orders/${order.id}/payment/verify`, {});
+  await api('patch', `/admin/orders/${order.id}/shipping`, {
+    method: 'LOCAL',
+    status: 'IN_TRANSIT',
+  });
+  await page.goto('/admin/avisos');
+  const messages = page.getByRole('article', { name: `Aviso del pedido ${order.code}` });
+  await expect(messages).toHaveCount(3);
+  const dispatch = messages.filter({ hasText: 'Pedido despachado' });
+  const href = await dispatch.getByRole('link', { name: 'Abrir en WhatsApp' }).getAttribute('href');
+  expect(href).toMatch(/^https:\/\/wa.me\/573001112233\?text=/);
+  expect(decodeURIComponent(href!)).toContain('Entrega local de la tienda.');
+  expect(decodeURIComponent(href!)).toContain(`/seguimiento/${order.publicToken}`);
+  // Abrir WhatsApp no se confunde con envío: el registro se hace explícitamente.
+  await dispatch.getByRole('button', { name: 'Marcar como enviado' }).click();
+  await expect(messages).toHaveCount(2);
+  await page.getByRole('tab', { name: 'Enviados' }).click();
+  await expect(
+    page
+      .getByRole('article', { name: `Aviso del pedido ${order.code}` })
+      .getByText(`por ${E2E_OWNER.name}`),
+  ).toBeVisible();
+  await page.goto('/admin');
+  await page.getByRole('button', { name: /^Notificaciones/ }).click();
+  await expect(
+    page.getByRole('button', {
+      name: new RegExp(`Comprobante por verificar: pedido ${order.code}`),
+    }),
+  ).toBeVisible();
+  await page.keyboard.press('Escape');
+  await logout(page);
+  // Se cambia de cuenta sin recargar la página: la caché de la propietaria sigue en memoria.
+  await page.getByLabel('Correo').fill(staff.email);
+  await page.getByLabel('Contraseña', { exact: true }).fill(staff.password);
+  await page.getByRole('button', { name: 'Ingresar' }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+  await page.getByRole('button', { name: /^Notificaciones/ }).click();
+  await expect(
+    page.getByRole('button', {
+      name: new RegExp(`Comprobante por verificar: pedido ${order.code}`),
+    }),
+  ).toHaveCount(0);
+});

@@ -173,7 +173,7 @@ export function AdminShell({ admin, children }: { admin: AdminProfile; children:
             Sky Beauty <ChevronRight size={14} /> {current?.label}
           </span>
           <div className="flex items-center gap-3">
-            <NotificationsBell />
+            <NotificationsBell adminId={admin.id} />
             <span className="rounded-[3px] bg-[#f1e4f0] px-2.5 py-1.75 text-[9px] font-semibold uppercase tracking-[.09em] text-[#875683]">
               {ROLE_LABELS[admin.role]}
             </span>

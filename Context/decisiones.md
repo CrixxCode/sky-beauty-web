@@ -386,6 +386,29 @@ Cada usuario marca sus notificaciones como leídas por su cuenta. Los avisos al 
 
 ---
 
+## 2026-10-16 — Notificaciones operativas y mensajes al cliente por WhatsApp
+
+**Decisión:** se amplían las notificaciones del panel de la decisión del 2026-10-13. Además de los avisos de cancelación pendientes y las cancelaciones automáticas, la campana avisa de los siguientes eventos:
+
+| Evento | Destinatarios | Acción que facilita |
+|---|---|---|
+| Nuevo pedido recibido | Propietaria y personal | Revisar el pedido, cotizar el envío si falta y confirmarlo. |
+| Comprobante registrado, pendiente de verificar | Solo propietaria | Revisar el pago. |
+| Pago rechazado o incompleto | Propietaria y personal | Contactar al cliente para aclararlo, sin esperar al aviso de vencimiento. |
+| Variante que entra en stock bajo o se agota | Propietaria y personal | Revisar reposición y disponibilidad. |
+| Novedad registrada en un envío | Propietaria y personal | Atender el problema de entrega. |
+| Pago con excedente por devolver | Solo propietaria | Recordar la devolución manual del excedente. |
+
+**Sin duplicados:** cada evento se notifica una sola vez. En inventario se avisa cuando la variante entra en stock bajo o se agota, no cada vez que alguien abre el panel. Si se repone y después vuelve a entrar en esa condición, corresponde un nuevo aviso. El stock bajo usa el umbral configurado para cada variante; esta decisión no fija uno nuevo.
+
+**Lectura y permisos:** cada usuario mantiene su propia lectura de notificaciones. Los comprobantes por verificar y los excedentes por devolver son visibles solo para la propietaria, también en el contador de la campana.
+
+**Mensajes al cliente:** se preparan mensajes de pedido confirmado, pago verificado y pedido despachado, con el enlace de seguimiento y la guía cuando corresponda. Quedan en la bandeja "Avisos" para que la propietaria o el personal abra WhatsApp, envíe el mensaje y lo marque como enviado. Se registra quién lo envió y cuándo. Preparar el mensaje o abrir WhatsApp no equivale a enviarlo.
+
+El envío por WhatsApp sigue siendo **manual**; no se incorpora un servicio de mensajería automática.
+
+---
+
 ## 2026-10-13 — Rastreador por código y teléfono
 
 **Decisión:** además del enlace privado, el cliente puede consultar su pedido en la página "Rastrear pedido" (`/rastrear`, enlazada desde el pie de la tienda) escribiendo el **código del pedido** y el **teléfono con el que compró**.
