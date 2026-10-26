@@ -586,6 +586,24 @@ model Carrier {
   updatedAt           DateTime @updatedAt @db.Timestamptz(3)
 
   shippings Shipping[]
+  rates     CarrierShippingRate[]
+}
+
+/// Lo que se le cobra al cliente al enviar con esta transportadora a un municipio. Se propone al
+/// elegir la transportadora en un pedido sin confirmar (decisión del 2026-10-26); el checkout sigue
+/// usando MunicipalShippingRate.
+model CarrierShippingRate {
+  id               String       @id @default(uuid()) @db.Uuid
+  carrierId        String       @db.Uuid
+  carrier          Carrier      @relation(fields: [carrierId], references: [id], onDelete: Cascade)
+  municipalityCode String       @db.Char(5)
+  municipality     Municipality @relation(fields: [municipalityCode], references: [code], onDelete: Restrict)
+  amount           Decimal      @db.Decimal(12, 2)
+  createdAt        DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime     @updatedAt @db.Timestamptz(3)
+
+  @@unique([carrierId, municipalityCode])
+  @@index([municipalityCode])
 }
 
 /// Cómo se entrega el pedido (decisión del 2026-10-13).
@@ -643,6 +661,7 @@ model Municipality {
   orders         Order[]
   paymentMethods PaymentMethodCity[]
   shippingRate   MunicipalShippingRate?
+  carrierRates   CarrierShippingRate[]
 
   @@index([departmentCode, name])
 }

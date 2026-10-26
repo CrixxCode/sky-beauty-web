@@ -270,6 +270,32 @@ No cambia los pedidos ya hechos, que conservan su información.
 
 ---
 
+## 2026-10-26 — Despacho simplificado en el panel
+
+**Decisiones:**
+
+- **En preparación al verificar el pago:** cuando la propietaria verifica el pago de un pedido **confirmado**, el pedido pasa solo a "Preparando". Un pago incompleto no lo mueve. "Marcar en preparación" sigue disponible a mano (sobre todo para el contra entrega).
+- **Pago verificado para despachar:** un pedido por transferencia, Nequi o Daviplata no se puede despachar ni marcar entregado sin el pago verificado. El contra entrega es la excepción, porque se paga al recibirlo.
+- **Costo real propuesto:** al despachar, el costo real de la transportadora o de la entrega se propone con el envío cobrado al cliente y se puede cambiar. Si el envío fue gratis, el campo queda vacío.
+
+**Aplicado sin decisión expresa:** si el pago se verifica antes de confirmar el pedido, al confirmarlo no pasa solo a "Preparando"; la regla aplica solo en el momento de verificar.
+
+---
+
+## 2026-10-26 — Tarifas por transportadora y municipio
+
+**Decisión:** cada transportadora puede tener una tarifa por municipio, que es lo que se le **cobra al cliente** por el envío. Solo la propietaria las edita; el personal las consulta (igual que las tarifas por municipio).
+
+- **Cuándo se aplica:** al elegir la transportadora en un pedido **sin confirmar**, el costo del envío se llena con su tarifa para el municipio del pedido. Se puede corregir a mano antes de confirmar. Al confirmar, la transportadora queda elegida para el despacho.
+- **Envío gratis:** si el pedido tiene envío gratis, se mantiene; la tarifa de la transportadora no lo reemplaza.
+- **Sin tarifa:** si la transportadora no tiene tarifa para ese municipio, se conserva el costo que ya tenía el pedido.
+- **Checkout:** no cambia; sigue usando la tarifa del municipio (ver "Tarifas de envío por municipio y envío gratis nacional").
+- Cambiar la transportadora al despachar no recalcula el envío cobrado.
+
+**Aplicado sin decisión expresa:** el envío gratis se reconoce porque el pedido tiene costo de envío 0, así que una cotización manual de 0 también se mantiene.
+
+---
+
 ## 2026-10-14 — Tope general de unidades por producto
 
 **Decisión:** la tienda tiene un tope general de unidades de un mismo producto (variante) por pedido, para todos los productos. Se combina con el máximo propio de cada variante: aplica el menor de los dos.
@@ -744,6 +770,8 @@ Estado al 2026-10-13. Migraciones en `backend/prisma/migrations/`:
 - **Pagos y envío (2026-10-16):** `OrdersService.verifyPayment` rechaza como pago incompleto un monto menor (abre `paymentRejectedAt`) y exige nota ante un excedente; `refundPayment` solo acepta la devolución total; `quoteShipping` no permite subir el envío con el pago verificado.
 - **Visibilidad en la tienda (2026-10-16):** `backend/src/modules/catalog/products/public-visibility.ts` define en un solo lugar qué producto se muestra y se puede comprar (`publicProductWhere`: publicado, marca activa, categoría visible). Lo usan el listado, la búsqueda, las ofertas, los favoritos, el detalle, la cotización del carrito, la edición de pedidos, los testimonios y los listados públicos de categorías y marcas.
 - **Enlace y publicación (2026-10-16):** `ProductsService.update` ya no regenera el `slug` al cambiar el nombre; `changeStatus` rechaza publicar sin una variante activa.
+- **Despacho (2026-10-26):** `OrdersService.verifyPayment` pasa el pedido `CONFIRMED` a `PREPARING` con su evento en el historial; `upsertShipping` rechaza salir de `NOT_SHIPPED` sin `paymentStatus = PAID`, salvo `CASH_ON_DELIVERY`. `confirm` registra el costo cotizado en el historial cuando cambia. `GET /admin/notices?orderId=` lista los mensajes de un pedido para enviarlos desde su detalle.
+- **Tarifas por transportadora (2026-10-26):** tabla `CarrierShippingRate` (migración `20261026175422_tarifas_por_transportadora`, con el valor restringido a 0 o más). Gestión en `/admin/carriers/:id/rates` (escritura solo `ADMIN`). `GET /admin/orders/:id/shipping-quote?carrierId=` propone el costo y `confirm` acepta `carrierId`, que crea el envío sin despachar con esa transportadora.
 
 ### Pendiente en el código
 

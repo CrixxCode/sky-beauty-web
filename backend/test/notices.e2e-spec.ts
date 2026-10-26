@@ -326,6 +326,20 @@ describe('Cancelaciones automáticas y avisos (integración)', () => {
       expect((await tracking(order.token)).notice?.stage).toBe('BEFORE');
       await request(app.getHttpServer()).get(NOTICES).expect(401);
     });
+
+    it('filtra los pendientes de un pedido, para enviarlos desde su detalle', async () => {
+      const first = await createOrder();
+      const second = await createOrder();
+      await staff.patch(`${ORDERS}/${first.id}/confirm`).send({ shippingCost: 5000 }).expect(200);
+      await staff.patch(`${ORDERS}/${second.id}/confirm`).send({ shippingCost: 5000 }).expect(200);
+
+      const ofFirst = (await staff.get(`${NOTICES}?orderId=${first.id}`).expect(200))
+        .body as Notice[];
+      expect(ofFirst).toHaveLength(1);
+      expect(ofFirst[0]).toMatchObject({ orderId: first.id, kind: 'ORDER_UPDATE' });
+      expect(((await staff.get(NOTICES).expect(200)).body as Notice[]).length).toBe(2);
+      await staff.get(`${NOTICES}?orderId=no-es-uuid`).expect(400);
+    });
   });
 
   describe('notificaciones del panel', () => {

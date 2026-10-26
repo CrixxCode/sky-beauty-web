@@ -414,6 +414,33 @@ export class ConfirmOrderDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   shippingCost?: number;
+
+  @ApiPropertyOptional({ description: 'Transportadora elegida; queda lista para el despacho.' })
+  @IsOptional()
+  @IsUUID()
+  carrierId?: string;
+}
+
+export class ShippingQuoteQueryDto {
+  @ApiProperty()
+  @IsUUID()
+  carrierId!: string;
+}
+
+/** Envío que se propone al elegir una transportadora en un pedido sin confirmar. */
+export class ShippingQuoteDto {
+  @ApiProperty() carrierId!: string;
+  @ApiProperty() carrierName!: string;
+  @ApiProperty() municipalityName!: string;
+  @ApiProperty({
+    enum: ['FREE', 'CARRIER_RATE', 'NO_RATE'],
+    description:
+      'FREE: el pedido tiene envío gratis y se mantiene. CARRIER_RATE: tarifa de la transportadora ' +
+      'para el municipio. NO_RATE: la transportadora no tiene tarifa y se conserva el costo actual.',
+  })
+  source!: 'FREE' | 'CARRIER_RATE' | 'NO_RATE';
+  @ApiProperty({ nullable: true, type: Number, description: 'null = el envío sigue por cotizar.' })
+  shippingCost!: number | null;
 }
 
 export class ChangeOrderStatusDto {

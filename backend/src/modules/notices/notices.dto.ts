@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional } from 'class-validator';
+import { IsEnum, IsOptional, IsUUID } from 'class-validator';
 import {
   AdminNotificationType,
   CancellationNoticeCase,
@@ -13,6 +13,11 @@ export class ListNoticesQueryDto {
   @IsOptional()
   @IsEnum(CancellationNoticeStatus)
   status?: CancellationNoticeStatus;
+
+  @ApiPropertyOptional({ description: 'Solo los avisos de este pedido.' })
+  @IsOptional()
+  @IsUUID()
+  orderId?: string;
 }
 
 export class CancellationNoticeDto {

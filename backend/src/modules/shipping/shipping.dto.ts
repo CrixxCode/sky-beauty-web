@@ -1,5 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
+
+const MAX_MONEY = 9_999_999_999.99;
 
 export class CarrierDto {
   @ApiProperty() id!: string;
@@ -62,4 +74,25 @@ export class UpdateCarrierDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+}
+
+export class CarrierRateDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() carrierId!: string;
+  @ApiProperty() municipalityCode!: string;
+  @ApiProperty() municipalityName!: string;
+  @ApiProperty() departmentName!: string;
+  @ApiProperty({ type: Number }) amount!: number;
+}
+
+export class UpsertCarrierRateDto {
+  @ApiProperty({ example: '44001' })
+  @Matches(/^\d{5}$/, { message: 'Código de municipio inválido.' })
+  municipalityCode!: string;
+
+  @ApiProperty({ example: 8000, description: 'Lo que se le cobra al cliente por el envío.' })
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Ingresa un valor en pesos.' })
+  @Min(0)
+  @Max(MAX_MONEY)
+  amount!: number;
 }

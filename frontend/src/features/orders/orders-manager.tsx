@@ -1,9 +1,22 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, CreditCard, Edit2, Eye, PackageCheck, Search, Truck, X } from 'lucide-react';
+import {
+  Check,
+  Copy,
+  CreditCard,
+  Edit2,
+  Eye,
+  MessageCircle,
+  PackageCheck,
+  PackageOpen,
+  Search,
+  TriangleAlert,
+  Truck,
+  X,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ListPagination } from '@/components/layout/list-pagination';
 import { Badge } from '@/components/ui/badge';
@@ -31,25 +44,23 @@ import {
 import { AdminPanel, AdminPanelTitle, AdminStatus } from '@/features/admin-auth/admin-ui';
 import { ApiError, apiFetch } from '@/lib/api';
 import { QuantityStepper } from '@/features/cart/quantity-stepper';
+import { NOTIFICATIONS_KEY, PENDING_NOTICES_KEY } from '@/features/notices/notifications-bell';
 import { formatCOP, formatDateTime } from '@/lib/format';
 import { ADMIN_PAGE_SIZE, fetchAllPages, pageCount } from '@/lib/pagination';
 import type { AdminRole } from '@/types/admin';
 import type { PaginatedProducts, Product } from '@/types/catalog';
+import type { CancellationNotice } from '@/types/notices';
+import { NOTICE_STAGE_LABELS } from '@/types/notices';
 import type { AdminOrder, AdminOrderItem, PaginatedAdminOrders } from '@/types/orders';
 import type { OrderStatus, PaymentStatus } from '@/types/orders-labels';
 import {
-  NEXT_ORDER_STATUSES,
   ORDER_EVENT_LABELS,
   ORDER_STATUS_LABELS,
   PAYMENT_STATUS_LABELS,
 } from '@/types/orders-labels';
-import type { Carrier, ShippingStatus } from '@/types/shipping';
+import type { Carrier, ShippingQuote, ShippingStatus } from '@/types/shipping';
 import type { ShippingMethod } from '@/types/shipping';
-import {
-  NEXT_SHIPPING_STATUSES,
-  SHIPPING_METHOD_LABELS,
-  SHIPPING_STATUS_LABELS,
-} from '@/types/shipping';
+import { SHIPPING_METHOD_LABELS, SHIPPING_STATUS_LABELS } from '@/types/shipping';
 
 const ORDERS_KEY = ['admin-orders'];
 
@@ -311,9 +322,6 @@ function OrderDetail({
   refresh: () => Promise<void>;
 }) {
   const [shippingCost, setShippingCost] = useState(order.shippingCost?.toString() ?? '');
-  const nextStatuses = NEXT_ORDER_STATUSES[order.status];
-  const [nextStatus, setNextStatus] = useState<OrderStatus | ''>(nextStatuses[0] ?? '');
-  const [statusNote, setStatusNote] = useState('');
   const [cancelReason, setCancelReason] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentNote, setPaymentNote] = useState('');
@@ -323,35 +331,43 @@ function OrderDetail({
     .filter((record) => record.status === 'PAID')
     .reduce((total, record) => total + record.amount, 0);
   const [refundNote, setRefundNote] = useState('');
-  const [carrierId, setCarrierId] = useState(order.shipping?.carrierId ?? '');
-  const [trackingNumber, setTrackingNumber] = useState(order.shipping?.trackingNumber ?? '');
-  const [carrierCost, setCarrierCost] = useState(order.shipping?.carrierCost?.toString() ?? '');
-  const savedShippingStatus: ShippingStatus = order.shipping?.status ?? 'NOT_SHIPPED';
-  const [shippingMethod, setShippingMethod] = useState<ShippingMethod>(
-    order.shipping?.method ?? 'CARRIER',
-  );
-  const [shippingStatus, setShippingStatus] = useState<ShippingStatus>(savedShippingStatus);
-  const [dispatchedAt, setDispatchedAt] = useState(
-    toDateTimeInput(order.shipping?.dispatchedAt ?? null),
-  );
-  const [deliveredAt, setDeliveredAt] = useState(
-    toDateTimeInput(order.shipping?.deliveredAt ?? null),
-  );
-  const [shippingNotes, setShippingNotes] = useState(order.shipping?.notes ?? '');
   const [editOpen, setEditOpen] = useState(false);
+  const [confirmCarrierId, setConfirmCarrierId] = useState(order.shipping?.carrierId ?? '');
+  const [carrierQuote, setCarrierQuote] = useState<ShippingQuote | null>(null);
+  const latestQuote = useRef('');
 
   const carriersQuery = useQuery({
     queryKey: ['admin-carriers'],
     queryFn: () => apiFetch<Carrier[]>('/admin/carriers'),
+    enabled: order.status === 'PENDING_CONFIRMATION',
   });
+  const activeCarriers = (carriersQuery.data ?? []).filter((carrier) => carrier.isActive);
+
+  /** Al elegir la transportadora, el costo del envío se llena con su tarifa para el municipio. */
+  async function chooseCarrier(carrierId: string) {
+    setConfirmCarrierId(carrierId);
+    setCarrierQuote(null);
+    latestQuote.current = carrierId;
+    if (!carrierId) return;
+    try {
+      const quote = await apiFetch<ShippingQuote>(
+        `/admin/orders/${order.id}/shipping-quote?carrierId=${carrierId}`,
+      );
+      // Si se eligió otra transportadora mientras llegaba la respuesta, se descarta.
+      if (latestQuote.current !== carrierId) return;
+      setCarrierQuote(quote);
+      if (quote.shippingCost !== null) setShippingCost(String(quote.shippingCost));
+    } catch (error) {
+      toast.error(errorMessage(error, 'No se pudo consultar la tarifa de la transportadora.'));
+    }
+  }
 
   const action = useMutation({
     mutationFn: async (
       task:
         | 'confirm'
         | 'shipping'
-        | 'shippingRecord'
-        | 'status'
+        | 'preparing'
         | 'cancel'
         | 'paymentReceived'
         | 'verifyPayment'
@@ -362,9 +378,10 @@ function OrderDetail({
         return apiFetch<AdminOrder>(`/admin/orders/${order.id}/confirm`, {
           method: 'PATCH',
           // Un campo vacío no es envío gratis: se confirma con el costo ya registrado.
-          body: JSON.stringify(
-            shippingCost.trim() === '' ? {} : { shippingCost: Number(shippingCost) },
-          ),
+          body: JSON.stringify({
+            ...(shippingCost.trim() === '' ? {} : { shippingCost: Number(shippingCost) }),
+            ...(confirmCarrierId ? { carrierId: confirmCarrierId } : {}),
+          }),
         });
       }
       if (task === 'shipping') {
@@ -373,25 +390,10 @@ function OrderDetail({
           body: JSON.stringify({ shippingCost: Number(shippingCost) }),
         });
       }
-      if (task === 'shippingRecord') {
-        return apiFetch<AdminOrder>(`/admin/orders/${order.id}/shipping`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            method: shippingMethod,
-            carrierId: carrierId || null,
-            trackingNumber: trackingNumber || null,
-            carrierCost: carrierCost ? Number(carrierCost) : null,
-            status: shippingStatus,
-            dispatchedAt: toIsoDateTime(dispatchedAt),
-            deliveredAt: toIsoDateTime(deliveredAt),
-            notes: shippingNotes || null,
-          }),
-        });
-      }
-      if (task === 'status') {
+      if (task === 'preparing') {
         return apiFetch<AdminOrder>(`/admin/orders/${order.id}/status`, {
           method: 'PATCH',
-          body: JSON.stringify({ status: nextStatus, note: statusNote || undefined }),
+          body: JSON.stringify({ status: 'PREPARING' }),
         });
       }
       if (task === 'paymentReceived') {
@@ -436,7 +438,6 @@ function OrderDetail({
     },
     onSuccess: async () => {
       toast.success('Pedido actualizado.');
-      setStatusNote('');
       setCancelReason('');
       setPaymentReference('');
       setPaymentNote('');
@@ -453,7 +454,11 @@ function OrderDetail({
   // El personal solo cancela por pago no demostrado, cuando venció el plazo de aclaración (lo
   // calcula el servidor). La propietaria cancela en cualquier otro caso.
   const canCancel = cancellable && (role === 'ADMIN' || order.staffCanCancel);
-  const canQuoteShipping = order.status !== 'CANCELLED' && order.status !== 'DELIVERED';
+  // Mientras el pedido está sin confirmar, el costo se escribe junto al botón de confirmar.
+  const canQuoteShipping =
+    order.status !== 'PENDING_CONFIRMATION' &&
+    order.status !== 'CANCELLED' &&
+    order.status !== 'DELIVERED';
   const shippingCostValid = shippingCost.trim() !== '' && Number(shippingCost) >= 0;
   const shippingIncreaseBlocked =
     order.paymentStatus === 'PAID' && Number(shippingCost) > (order.shippingCost ?? 0);
@@ -461,9 +466,6 @@ function OrderDetail({
   const paymentExcess = Number(paymentAmount) - order.total;
   const canConfirm = order.shippingCost !== null || shippingCostValid;
   const requiresVerification = order.paymentMethodCode !== 'CASH_ON_DELIVERY';
-  const carriers = (carriersQuery.data ?? []).filter(
-    (carrier) => carrier.isActive || carrier.id === order.shipping?.carrierId,
-  );
 
   return (
     <div className="grid gap-5 lg:grid-cols-[1.15fr_.85fr]">
@@ -539,6 +541,8 @@ function OrderDetail({
       </div>
 
       <div className="space-y-5">
+        <OrderNotices orderId={order.id} />
+
         <section className="border border-[#eee8ed] p-4.5 text-[11px] leading-[1.8]">
           <h3 className="mb-3 text-xs font-semibold text-[#493a45]">Cliente y entrega</h3>
           <p>
@@ -631,151 +635,54 @@ function OrderDetail({
           )}
         </section>
 
-        <section className="border border-[#eee8ed] p-4.5">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-xs font-semibold text-[#493a45]">Envío</h3>
-            <AdminStatus tone={shippingTone(savedShippingStatus)}>
-              {SHIPPING_STATUS_LABELS[savedShippingStatus]}
-            </AdminStatus>
-          </div>
-          {order.shipping?.trackingUrl && (
-            <a
-              className="mb-3 inline-block text-[11px] font-medium text-[#7a5178] underline-offset-4 hover:underline"
-              href={order.shipping.trackingUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Abrir el rastreo de la transportadora
-            </a>
-          )}
-          {order.status === 'CANCELLED' ? (
-            <p className="text-[11px] text-[#6d646a]">El pedido está cancelado.</p>
-          ) : (
-            <div className="grid gap-x-2">
-              <fieldset className="mb-3.5">
-                <legend className="mb-1.5 text-[11px] font-medium text-field-label">
-                  Tipo de entrega
-                </legend>
-                <RadioGroup
-                  value={shippingMethod}
-                  onValueChange={(value) => setShippingMethod(value as ShippingMethod)}
-                  className="grid-cols-2 gap-2"
-                  aria-label="Tipo de entrega"
-                >
-                  {(['CARRIER', 'LOCAL'] as const).map((value) => (
-                    <label
-                      key={value}
-                      className="flex cursor-pointer items-center gap-2 border border-[#e7dde4] p-2.5 text-[11px] has-[[data-state=checked]]:border-[#ad81aa] has-[[data-state=checked]]:bg-[#faf5fa]"
-                    >
-                      <RadioGroupItem value={value} />
-                      {SHIPPING_METHOD_LABELS[value]}
-                    </label>
-                  ))}
-                </RadioGroup>
-              </fieldset>
-              {shippingMethod === 'CARRIER' && (
-                <>
-                  <FormField id="shipping-carrier" label="Transportadora">
-                    <Select
-                      id="shipping-carrier"
-                      value={carrierId}
-                      onChange={(event) => setCarrierId(event.target.value)}
-                    >
-                      <option value="">Sin transportadora</option>
-                      {carriers.map((carrier) => (
-                        <option key={carrier.id} value={carrier.id}>
-                          {carrier.name}
-                          {!carrier.isActive ? ' (inactiva)' : ''}
-                        </option>
-                      ))}
-                    </Select>
-                  </FormField>
-                  <FormField id="shipping-tracking" label="Número de guía">
-                    <Input
-                      id="shipping-tracking"
-                      value={trackingNumber}
-                      onChange={(event) => setTrackingNumber(event.target.value)}
-                    />
-                  </FormField>
-                </>
-              )}
-              <FormField
-                id="shipping-carrier-cost"
-                label={
-                  shippingMethod === 'CARRIER'
-                    ? 'Costo real de la transportadora (COP)'
-                    : 'Costo real de la entrega (COP)'
-                }
-              >
-                <Input
-                  id="shipping-carrier-cost"
-                  type="number"
-                  min={0}
-                  value={carrierCost}
-                  onChange={(event) => setCarrierCost(event.target.value)}
-                />
-              </FormField>
-              <FormField id="shipping-status" label="Estado del envío">
-                <Select
-                  id="shipping-status"
-                  value={shippingStatus}
-                  onChange={(event) => setShippingStatus(event.target.value as ShippingStatus)}
-                >
-                  {NEXT_SHIPPING_STATUSES[savedShippingStatus].map((value) => (
-                    <option key={value} value={value}>
-                      {SHIPPING_STATUS_LABELS[value]}
-                    </option>
-                  ))}
-                </Select>
-              </FormField>
-              <div className="grid gap-x-2 min-[501px]:grid-cols-2">
-                <FormField id="shipping-dispatched" label="Despacho (opcional)">
-                  <Input
-                    id="shipping-dispatched"
-                    type="datetime-local"
-                    value={dispatchedAt}
-                    onChange={(event) => setDispatchedAt(event.target.value)}
-                  />
-                </FormField>
-                <FormField id="shipping-delivered" label="Entrega (opcional)">
-                  <Input
-                    id="shipping-delivered"
-                    type="datetime-local"
-                    value={deliveredAt}
-                    onChange={(event) => setDeliveredAt(event.target.value)}
-                  />
-                </FormField>
-              </div>
-              <FormField id="shipping-notes" label="Notas internas (opcional)">
-                <Textarea
-                  id="shipping-notes"
-                  rows={2}
-                  value={shippingNotes}
-                  onChange={(event) => setShippingNotes(event.target.value)}
-                />
-              </FormField>
-              <p className="mb-3 text-[10px] text-[#6d646a]">
-                {shippingMethod === 'CARRIER'
-                  ? 'Para despachar registra transportadora y guía. '
-                  : 'La entrega local no lleva transportadora ni guía. '}
-                Si dejas las fechas vacías, se usa la hora en que guardas.
-              </p>
-              <Button
-                variant="outline"
-                disabled={action.isPending || carriersQuery.isPending}
-                onClick={() => action.mutate('shippingRecord')}
-              >
-                <Truck size={15} />
-                Guardar envío
-              </Button>
-            </div>
-          )}
-        </section>
+        <ShippingSection order={order} refresh={refresh} />
 
         <section className="border border-[#eee8ed] p-4.5">
           <h3 className="mb-3 text-xs font-semibold text-[#493a45]">Acciones</h3>
           {order.status === 'PENDING_CONFIRMATION' && (
             <div className="mb-3">
+              <FormField id="order-carrier" label="Transportadora (opcional)">
+                <Select
+                  id="order-carrier"
+                  value={confirmCarrierId}
+                  onChange={(event) => void chooseCarrier(event.target.value)}
+                >
+                  <option value="">Sin elegir todavía</option>
+                  {activeCarriers.map((carrier) => (
+                    <option key={carrier.id} value={carrier.id}>
+                      {carrier.name}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+              {carrierQuote && (
+                <p className="-mt-2 mb-3.5 text-[10px] text-[#6d646a]">
+                  {carrierQuote.source === 'CARRIER_RATE'
+                    ? `Tarifa de ${carrierQuote.carrierName} para ${carrierQuote.municipalityName}.`
+                    : carrierQuote.source === 'FREE'
+                      ? 'El pedido tiene envío gratis: se mantiene.'
+                      : `${carrierQuote.carrierName} no tiene tarifa para ${carrierQuote.municipalityName}: se conserva el costo actual.`}
+                </p>
+              )}
+              <FormField
+                id="order-shipping-cost"
+                label="Costo del envío (COP)"
+                description={
+                  order.shippingCost === null
+                    ? 'Cotiza el envío con el cliente y escríbelo aquí para confirmar.'
+                    : 'Ya registrado. Cámbialo solo si cotizaste otro valor.'
+                }
+              >
+                <Input
+                  id="order-shipping-cost"
+                  value={shippingCost}
+                  onChange={(event) => setShippingCost(event.target.value)}
+                  type="number"
+                  min={0}
+                  step={1}
+                  inputMode="numeric"
+                />
+              </FormField>
               <Button
                 className="w-full"
                 disabled={action.isPending || !canConfirm}
@@ -784,9 +691,22 @@ function OrderDetail({
                 <PackageCheck size={16} />
                 Confirmar pedido
               </Button>
-              {!canConfirm && (
+            </div>
+          )}
+          {order.status === 'CONFIRMED' && (
+            <div className="mb-3">
+              <Button
+                className="w-full"
+                variant="outline"
+                disabled={action.isPending}
+                onClick={() => action.mutate('preparing')}
+              >
+                <PackageOpen size={16} />
+                Marcar en preparación
+              </Button>
+              {requiresVerification && (
                 <p className="mt-2 text-[10px] text-[#6d646a]">
-                  Registra primero el costo del envío cotizado.
+                  Pasa solo a «Preparando» cuando se verifica el pago.
                 </p>
               )}
             </div>
@@ -795,38 +715,6 @@ function OrderDetail({
             <p className="mb-3 text-[10px] text-[#6d646a]">
               El despacho y la entrega se registran en la sección de envío.
             </p>
-          )}
-          {nextStatuses.length > 0 && (
-            <div className="grid gap-2">
-              <FormField id="order-next-status" label="Nuevo estado">
-                <Select
-                  id="order-next-status"
-                  value={nextStatus}
-                  onChange={(event) => setNextStatus(event.target.value as OrderStatus)}
-                >
-                  {nextStatuses.map((value) => (
-                    <option key={value} value={value}>
-                      {ORDER_STATUS_LABELS[value]}
-                    </option>
-                  ))}
-                </Select>
-              </FormField>
-              <FormField id="order-status-note" label="Nota (opcional)">
-                <Textarea
-                  id="order-status-note"
-                  rows={2}
-                  value={statusNote}
-                  onChange={(event) => setStatusNote(event.target.value)}
-                />
-              </FormField>
-              <Button
-                variant="outline"
-                disabled={action.isPending || !nextStatus}
-                onClick={() => action.mutate('status')}
-              >
-                Cambiar estado
-              </Button>
-            </div>
           )}
           {order.status === 'DELIVERED' && (
             <p className="text-[11px] text-[#6d646a]">El pedido fue entregado.</p>
@@ -1017,6 +905,428 @@ function OrderDetail({
         />
       </Modal>
     </div>
+  );
+}
+
+/**
+ * Despacho y entrega del pedido, una acción por paso. Los datos ya registrados se corrigen aparte,
+ * sin cambiar el estado del envío.
+ */
+function ShippingSection({ order, refresh }: { order: AdminOrder; refresh: () => Promise<void> }) {
+  const shipping = order.shipping;
+  const savedStatus: ShippingStatus = shipping?.status ?? 'NOT_SHIPPED';
+  const [method, setMethod] = useState<ShippingMethod>(shipping?.method ?? 'CARRIER');
+  const [carrierId, setCarrierId] = useState(shipping?.carrierId ?? '');
+  const [trackingNumber, setTrackingNumber] = useState(shipping?.trackingNumber ?? '');
+  // Se propone el envío cobrado al cliente. Si fue gratis no se sabe cuánto costó: queda vacío.
+  const [carrierCost, setCarrierCost] = useState(
+    shipping?.carrierCost?.toString() ?? (order.shippingCost ? order.shippingCost.toString() : ''),
+  );
+  const [notes, setNotes] = useState(shipping?.notes ?? '');
+  const [dispatchedAt, setDispatchedAt] = useState(toDateTimeInput(shipping?.dispatchedAt ?? null));
+  const [deliveredAt, setDeliveredAt] = useState(toDateTimeInput(shipping?.deliveredAt ?? null));
+  const [incidentOpen, setIncidentOpen] = useState(false);
+  const [incident, setIncident] = useState('');
+  const [correcting, setCorrecting] = useState(false);
+
+  const carriersQuery = useQuery({
+    queryKey: ['admin-carriers'],
+    queryFn: () => apiFetch<Carrier[]>('/admin/carriers'),
+  });
+  const carriers = (carriersQuery.data ?? []).filter(
+    (carrier) => carrier.isActive || carrier.id === shipping?.carrierId,
+  );
+  const activeCarriers = carriers.filter((carrier) => carrier.isActive);
+  // Con una sola transportadora activa, queda elegida.
+  const selectedCarrierId = carrierId || (activeCarriers.length === 1 ? activeCarriers[0].id : '');
+
+  const save = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      apiFetch<AdminOrder>(`/admin/orders/${order.id}/shipping`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: async () => {
+      toast.success('Pedido actualizado.');
+      await refresh();
+    },
+    onError: (error) => toast.error(errorMessage(error, 'No se pudo actualizar el envío.')),
+  });
+
+  const details = () => ({
+    method,
+    carrierId: method === 'CARRIER' ? selectedCarrierId || null : null,
+    trackingNumber: method === 'CARRIER' ? trackingNumber.trim() || null : null,
+    carrierCost: carrierCost.trim() ? Number(carrierCost) : null,
+    notes: notes.trim() || null,
+  });
+
+  const isCashOnDelivery = order.paymentMethodCode === 'CASH_ON_DELIVERY';
+  const paymentReady = isCashOnDelivery || order.paymentStatus === 'PAID';
+  const canDispatch =
+    (order.status === 'CONFIRMED' || order.status === 'PREPARING') && savedStatus === 'NOT_SHIPPED';
+  const carrierCostValid = carrierCost.trim() === '' || Number(carrierCost) >= 0;
+  const detailsReady =
+    carrierCostValid &&
+    (method === 'LOCAL' || (Boolean(selectedCarrierId) && trackingNumber.trim() !== ''));
+  const busy = save.isPending || carriersQuery.isPending;
+
+  const detailFields = (
+    <>
+      <fieldset className="mb-3.5">
+        <legend className="mb-1.5 text-[11px] font-medium text-field-label">Tipo de entrega</legend>
+        <RadioGroup
+          value={method}
+          onValueChange={(value) => setMethod(value as ShippingMethod)}
+          className="grid-cols-2 gap-2"
+          aria-label="Tipo de entrega"
+        >
+          {(['CARRIER', 'LOCAL'] as const).map((value) => (
+            <label
+              key={value}
+              className="flex cursor-pointer items-center gap-2 border border-[#e7dde4] p-2.5 text-[11px] has-data-[state=checked]:border-[#ad81aa] has-data-[state=checked]:bg-[#faf5fa]"
+            >
+              <RadioGroupItem value={value} />
+              {SHIPPING_METHOD_LABELS[value]}
+            </label>
+          ))}
+        </RadioGroup>
+      </fieldset>
+      {method === 'CARRIER' && (
+        <div className="grid gap-x-2 min-[501px]:grid-cols-2">
+          <FormField id="shipping-carrier" label="Transportadora">
+            <Select
+              id="shipping-carrier"
+              value={selectedCarrierId}
+              onChange={(event) => setCarrierId(event.target.value)}
+            >
+              <option value="">Elige la transportadora</option>
+              {carriers.map((carrier) => (
+                <option key={carrier.id} value={carrier.id}>
+                  {carrier.name}
+                  {!carrier.isActive ? ' (inactiva)' : ''}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+          <FormField id="shipping-tracking" label="Número de guía">
+            <Input
+              id="shipping-tracking"
+              value={trackingNumber}
+              onChange={(event) => setTrackingNumber(event.target.value)}
+            />
+          </FormField>
+        </div>
+      )}
+      <FormField
+        id="shipping-carrier-cost"
+        label={
+          method === 'CARRIER'
+            ? 'Costo real de la transportadora (COP)'
+            : 'Costo real de la entrega (COP)'
+        }
+        description={
+          shipping?.carrierCost == null && order.shippingCost
+            ? 'Propuesto con el envío cobrado al cliente. Cámbialo si costó otro valor.'
+            : undefined
+        }
+      >
+        <Input
+          id="shipping-carrier-cost"
+          type="number"
+          min={0}
+          inputMode="numeric"
+          value={carrierCost}
+          onChange={(event) => setCarrierCost(event.target.value)}
+        />
+      </FormField>
+      {correcting && (
+        <div className="grid gap-x-2 min-[501px]:grid-cols-2">
+          <FormField id="shipping-dispatched" label="Despacho">
+            <Input
+              id="shipping-dispatched"
+              type="datetime-local"
+              value={dispatchedAt}
+              onChange={(event) => setDispatchedAt(event.target.value)}
+            />
+          </FormField>
+          {savedStatus === 'DELIVERED' && (
+            <FormField id="shipping-delivered" label="Entrega">
+              <Input
+                id="shipping-delivered"
+                type="datetime-local"
+                value={deliveredAt}
+                onChange={(event) => setDeliveredAt(event.target.value)}
+              />
+            </FormField>
+          )}
+        </div>
+      )}
+      <FormField id="shipping-notes" label="Notas internas (opcional)">
+        <Textarea
+          id="shipping-notes"
+          rows={2}
+          value={notes}
+          onChange={(event) => setNotes(event.target.value)}
+        />
+      </FormField>
+    </>
+  );
+
+  return (
+    <section className="border border-[#eee8ed] p-4.5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-xs font-semibold text-[#493a45]">Envío</h3>
+        <AdminStatus tone={shippingTone(savedStatus)}>
+          {SHIPPING_STATUS_LABELS[savedStatus]}
+        </AdminStatus>
+      </div>
+
+      {order.status === 'CANCELLED' && (
+        <p className="text-[11px] text-[#6d646a]">El pedido está cancelado.</p>
+      )}
+      {order.status === 'PENDING_CONFIRMATION' && (
+        <p className="text-[11px] text-[#6d646a]">Confirma el pedido para poder despacharlo.</p>
+      )}
+
+      {canDispatch && (
+        <div>
+          {!paymentReady && (
+            <p className="mb-3 border border-[#efd9df] bg-[#fdf6f8] p-3 text-[11px] text-[#98566f]">
+              Verifica el pago antes de despachar. Solo el contra entrega sale sin el pago
+              verificado.
+            </p>
+          )}
+          {detailFields}
+          <Button
+            className="w-full"
+            disabled={busy || !paymentReady || !detailsReady}
+            onClick={() => save.mutate({ ...details(), status: 'IN_TRANSIT' })}
+          >
+            <Truck size={15} />
+            Despachar pedido
+          </Button>
+          <p className="mt-2 text-[10px] text-[#6d646a]">
+            Se registra con la hora actual y queda listo el mensaje de despacho para el cliente.
+          </p>
+        </div>
+      )}
+
+      {shipping && savedStatus !== 'NOT_SHIPPED' && (
+        <>
+          <dl className="mb-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11px]">
+            <dt className="text-[#6d646a]">Tipo</dt>
+            <dd>{SHIPPING_METHOD_LABELS[shipping.method]}</dd>
+            {shipping.method === 'CARRIER' && (
+              <>
+                <dt className="text-[#6d646a]">Transportadora</dt>
+                <dd>{shipping.carrierName ?? '-'}</dd>
+                <dt className="text-[#6d646a]">Guía</dt>
+                <dd>{shipping.trackingNumber ?? '-'}</dd>
+              </>
+            )}
+            <dt className="text-[#6d646a]">Costo real</dt>
+            <dd>
+              {shipping.carrierCost === null ? 'Sin registrar' : formatCOP(shipping.carrierCost)}
+            </dd>
+            {shipping.dispatchedAt && (
+              <>
+                <dt className="text-[#6d646a]">Despacho</dt>
+                <dd>{formatDate(shipping.dispatchedAt)}</dd>
+              </>
+            )}
+            {shipping.deliveredAt && (
+              <>
+                <dt className="text-[#6d646a]">Entrega</dt>
+                <dd>{formatDate(shipping.deliveredAt)}</dd>
+              </>
+            )}
+            {shipping.notes && (
+              <>
+                <dt className="text-[#6d646a]">Notas</dt>
+                <dd className="whitespace-pre-line">{shipping.notes}</dd>
+              </>
+            )}
+          </dl>
+          {shipping.trackingUrl && (
+            <a
+              className="mb-3 inline-block text-[11px] font-medium text-[#7a5178] underline-offset-4 hover:underline"
+              href={shipping.trackingUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Abrir el rastreo de la transportadora
+            </a>
+          )}
+
+          {(savedStatus === 'IN_TRANSIT' || savedStatus === 'INCIDENT') && !correcting && (
+            <div className="grid gap-2">
+              <Button disabled={busy} onClick={() => save.mutate({ status: 'DELIVERED' })}>
+                <PackageCheck size={15} />
+                Marcar entregado
+              </Button>
+              {isCashOnDelivery && order.paymentStatus !== 'PAID' && (
+                <p className="text-[10px] text-[#6d646a]">
+                  Al marcarlo entregado, el pago contra entrega queda registrado.
+                </p>
+              )}
+              {savedStatus === 'INCIDENT' && (
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => save.mutate({ status: 'IN_TRANSIT' })}
+                >
+                  <Truck size={15} />
+                  Novedad resuelta: sigue en tránsito
+                </Button>
+              )}
+              {savedStatus === 'IN_TRANSIT' && !incidentOpen && (
+                <Button variant="outline" disabled={busy} onClick={() => setIncidentOpen(true)}>
+                  <TriangleAlert size={15} />
+                  Registrar novedad
+                </Button>
+              )}
+              {savedStatus === 'IN_TRANSIT' && incidentOpen && (
+                <div className="border-t border-[#f0ecf0] pt-3">
+                  <FormField id="shipping-incident" label="¿Qué pasó con la entrega?">
+                    <Textarea
+                      id="shipping-incident"
+                      rows={2}
+                      value={incident}
+                      onChange={(event) => setIncident(event.target.value)}
+                    />
+                  </FormField>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="destructive"
+                      disabled={busy || incident.trim().length < 3}
+                      onClick={() =>
+                        save.mutate({
+                          status: 'INCIDENT',
+                          // La novedad se suma a las notas del envío sin borrar las anteriores.
+                          notes: [shipping.notes, `Novedad: ${incident.trim()}`]
+                            .filter(Boolean)
+                            .join('\n'),
+                        })
+                      }
+                    >
+                      Guardar novedad
+                    </Button>
+                    <Button variant="ghost" onClick={() => setIncidentOpen(false)}>
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="mt-3 border-t border-[#f0ecf0] pt-3">
+            {correcting ? (
+              <>
+                {detailFields}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={busy || !detailsReady}
+                    onClick={() =>
+                      save.mutate({
+                        ...details(),
+                        status: savedStatus,
+                        dispatchedAt: toIsoDateTime(dispatchedAt),
+                        deliveredAt: toIsoDateTime(deliveredAt),
+                      })
+                    }
+                  >
+                    Guardar corrección
+                  </Button>
+                  <Button variant="ghost" onClick={() => setCorrecting(false)}>
+                    Cancelar
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <Button size="sm" variant="ghost" onClick={() => setCorrecting(true)}>
+                <Edit2 size={14} />
+                Corregir datos del envío
+              </Button>
+            )}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+/** Mensajes del pedido que faltan por enviar al cliente, sin tener que ir a la bandeja de avisos. */
+function OrderNotices({ orderId }: { orderId: string }) {
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: ['admin-notices', 'order', orderId],
+    queryFn: () =>
+      apiFetch<CancellationNotice[]>(`/admin/notices?status=PENDING&orderId=${orderId}`),
+  });
+
+  const markSent = useMutation({
+    mutationFn: (id: string) => apiFetch<void>(`/admin/notices/${id}/sent`, { method: 'PATCH' }),
+    onSuccess: async () => {
+      toast.success('Mensaje marcado como enviado.');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin-notices'] }),
+        queryClient.invalidateQueries({ queryKey: PENDING_NOTICES_KEY }),
+        queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
+        queryClient.invalidateQueries({ queryKey: ['admin-dashboard-pending'] }),
+      ]);
+    },
+    onError: (error) => toast.error(errorMessage(error, 'No se pudo marcar el mensaje.')),
+  });
+
+  if (!query.data?.length) return null;
+
+  return (
+    <section
+      className="border border-[#e7d3e4] bg-[#faf5fa] p-4.5"
+      aria-label="Mensajes por enviar al cliente"
+    >
+      <h3 className="mb-3 text-xs font-semibold text-[#493a45]">Mensajes por enviar al cliente</h3>
+      <div className="space-y-3">
+        {query.data.map((notice) => (
+          <article
+            key={notice.id}
+            aria-label={`Mensaje: ${notice.caseName}`}
+            className="border-b border-[#eadbe7] pb-3 last:border-0 last:pb-0"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="neutral">{notice.caseName}</Badge>
+              {notice.stage && (
+                <Badge variant={notice.stage === 'AFTER' ? 'danger' : 'warning'}>
+                  {NOTICE_STAGE_LABELS[notice.stage]}
+                </Badge>
+              )}
+            </div>
+            <p className="my-2 text-[11px] leading-relaxed text-[#493a45]">{notice.message}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild size="sm">
+                <a href={notice.whatsappUrl} target="_blank" rel="noreferrer">
+                  <MessageCircle size={15} /> Abrir en WhatsApp
+                </a>
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={markSent.isPending}
+                onClick={() => markSent.mutate(notice.id)}
+              >
+                <Check size={15} /> Marcar como enviado
+              </Button>
+            </div>
+          </article>
+        ))}
+      </div>
+      <p className="mt-3 text-[10px] text-[#6d646a]">
+        Abrir WhatsApp no lo marca como enviado: márcalo cuando lo hayas enviado.
+      </p>
+    </section>
   );
 }
 

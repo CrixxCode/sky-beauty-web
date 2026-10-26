@@ -95,8 +95,10 @@ test('el personal registra el comprobante y la propietaria rechaza, verifica y d
   await dialog.getByLabel('Referencia del comprobante (opcional)').fill('REF-FICTICIA-001');
   await dialog.getByRole('button', { name: 'Registrar comprobante recibido' }).click();
   await expect(dialog.getByText('Por verificar').first()).toBeVisible();
-  // El personal no verifica.
+  // El personal no verifica, y sin el pago verificado no se despacha.
   await expect(dialog.getByRole('button', { name: 'Verificar pago' })).toHaveCount(0);
+  await expect(dialog.getByText(/Verifica el pago antes de despachar/)).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Despachar pedido' })).toBeDisabled();
   await closeDialog(page);
   await logout(page);
 
@@ -122,6 +124,7 @@ test('el personal registra el comprobante y la propietaria rechaza, verifica y d
     .fill('Excedente por devolver por transferencia.');
   await dialog.getByRole('button', { name: 'Verificar pago' }).click();
   await expect(dialog.getByText('Pagado').first()).toBeVisible();
+  await expect(dialog.getByText('Preparando').first()).toBeVisible();
   await expect(dialog.getByLabel('Monto a devolver (COP)')).toHaveValue('25000');
   await expect(dialog.getByLabel('Monto a devolver (COP)')).toHaveAttribute('readonly', '');
   await dialog.getByLabel('Costo del envío cotizado (COP)').fill('6000');

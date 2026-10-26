@@ -78,6 +78,9 @@ test('el cliente sigue su pedido con el enlace privado y un enlace inválido no 
   await login(page, E2E_OWNER.email, E2E_OWNER.password);
   await expect(page).toHaveURL(/\/admin$/);
   await api('patch', `/admin/orders/${order.id}/confirm`, { shippingCost: 7000 });
+  // Un pedido por transferencia solo se despacha con el pago verificado.
+  await api('patch', `/admin/orders/${order.id}/payment-received`, {});
+  await api('patch', `/admin/orders/${order.id}/payment/verify`, {});
   await api('patch', `/admin/orders/${order.id}/shipping`, {
     method: 'LOCAL',
     status: 'IN_TRANSIT',

@@ -210,6 +210,47 @@ describe('Gestión de pedidos (integración)', () => {
       expect(order.confirmedAt).toBeInstanceOf(Date);
     });
 
+    it('cotizar al confirmar queda en el historial; confirmar con el mismo costo no', async () => {
+      const shippingNotes = async (orderId: string) =>
+        (
+          await prisma.orderStatusHistory.findMany({
+            where: { orderId, type: 'SHIPPING' },
+            orderBy: { createdAt: 'asc' },
+          })
+        ).map((event) => event.note?.replace(/\s/g, ' '));
+
+      const quotedOnConfirm = await createOrder(); // envío por confirmar
+      await staff
+        .patch(`${ORDERS}/${quotedOnConfirm}/confirm`)
+        .send({ shippingCost: 7000 })
+        .expect(200);
+      expect(await shippingNotes(quotedOnConfirm)).toEqual(['Costo de envío cotizado: $ 7.000.']);
+
+      // Con el costo ya registrado (tarifa o cotización previa), reenviarlo no repite el evento.
+      const alreadyQuoted = await createOrder();
+      await staff
+        .patch(`${ORDERS}/${alreadyQuoted}/shipping-cost`)
+        .send({ shippingCost: 5000 })
+        .expect(200);
+      await staff
+        .patch(`${ORDERS}/${alreadyQuoted}/confirm`)
+        .send({ shippingCost: 5000 })
+        .expect(200);
+      expect(await shippingNotes(alreadyQuoted)).toEqual(['Costo de envío cotizado: $ 5.000.']);
+
+      // Cambiarlo al confirmar sí queda registrado.
+      const changed = await createOrder();
+      await staff
+        .patch(`${ORDERS}/${changed}/shipping-cost`)
+        .send({ shippingCost: 5000 })
+        .expect(200);
+      await staff.patch(`${ORDERS}/${changed}/confirm`).send({ shippingCost: 6000 }).expect(200);
+      expect(await shippingNotes(changed)).toEqual([
+        'Costo de envío cotizado: $ 5.000.',
+        'Costo de envío cotizado: $ 6.000.',
+      ]);
+    });
+
     it('confirmar dos veces a la vez solo confirma una vez', async () => {
       const id = await createOrder();
       const results = await Promise.all(
@@ -225,7 +266,8 @@ describe('Gestión de pedidos (integración)', () => {
 
   describe('cambios de estado', () => {
     it('solo marca en preparación; despachar y entregar se registran en el envío', async () => {
-      const id = await createOrder();
+      // Contra entrega: se despacha sin el pago verificado.
+      const id = await createOrder({ paymentMethodId: codId });
       await staff.patch(`${ORDERS}/${id}/status`).send({ status: 'PREPARING' }).expect(400);
       await staff.patch(`${ORDERS}/${id}/confirm`).send({ shippingCost: 5000 }).expect(200);
       await staff.patch(`${ORDERS}/${id}/status`).send({ status: 'CONFIRMED' }).expect(400);
@@ -477,7 +519,7 @@ describe('Gestión de pedidos (integración)', () => {
     });
 
     it('no cancela pedidos despachados ni entregados', async () => {
-      const id = await createOrder();
+      const id = await createOrder({ paymentMethodId: codId });
       await owner.patch(`${ORDERS}/${id}/confirm`).send({ shippingCost: 5000 }).expect(200);
       await owner
         .patch(`${ORDERS}/${id}/shipping`)
