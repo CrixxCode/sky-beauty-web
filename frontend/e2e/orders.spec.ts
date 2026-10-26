@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { E2E_OWNER } from './env';
-import { login, logout, openNav, pick } from './helpers';
+import { login, logout, openNav } from './helpers';
 
 async function openOrder(page: Page, code: string) {
   await openNav(page);
@@ -104,16 +104,28 @@ test('el personal edita un pedido sin confirmar, lo confirma y avanza su estado;
   dialog = page.getByRole('dialog', { name: `Pedido ${first.code}` });
   await expect(dialog.getByText('$ 30.000').first()).toBeVisible();
 
+  // El costo del envío se escribe junto al botón de confirmar.
   await expect(dialog.getByRole('button', { name: 'Confirmar pedido' })).toBeDisabled();
-  await expect(dialog.getByText('Registra primero el costo del envío cotizado.')).toBeVisible();
-  await dialog.getByLabel('Costo del envío cotizado (COP)').fill('6000');
-  await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
-  await expect(dialog.getByText('$ 36.000')).toBeVisible();
+  await expect(
+    dialog.getByText('Cotiza el envío con el cliente y escríbelo aquí para confirmar.'),
+  ).toBeVisible();
+  await dialog.getByLabel('Costo del envío (COP)', { exact: true }).fill('6000');
   await dialog.getByRole('button', { name: 'Confirmar pedido' }).click();
   await expect(dialog.getByText('Confirmado').first()).toBeVisible();
+  await expect(dialog.getByText('$ 36.000')).toBeVisible();
 
-  await pick(page, 'Nuevo estado', 'Preparando', dialog);
-  await dialog.getByRole('button', { name: 'Cambiar estado' }).click();
+  // El mensaje de confirmación para el cliente queda en el mismo pedido.
+  const messages = dialog.getByRole('region', { name: 'Mensajes por enviar al cliente' });
+  await expect(messages.getByText('Pedido confirmado').first()).toBeVisible();
+  await expect(messages.getByRole('link', { name: 'Abrir en WhatsApp' })).toHaveAttribute(
+    'href',
+    /^https:\/\/wa\.me\/573001112233\?text=/,
+  );
+  await messages.getByRole('button', { name: 'Marcar como enviado' }).click();
+  await expect(page.getByText('Mensaje marcado como enviado.')).toBeVisible();
+  await expect(messages).toHaveCount(0);
+
+  await dialog.getByRole('button', { name: 'Marcar en preparación' }).click();
   await expect(dialog.getByText('Preparando').first()).toBeVisible();
   // El personal no ve la cancelación (el pago no está rechazado).
   await expect(dialog.getByLabel('Motivo de la cancelación')).toHaveCount(0);

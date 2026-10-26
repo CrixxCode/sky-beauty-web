@@ -238,13 +238,13 @@ export class NoticesService {
     const direction = status === 'PENDING' ? 'asc' : 'desc';
     const [notices, updates] = await Promise.all([
       this.prisma.cancellationNotice.findMany({
-        where: { status: query.status ?? CancellationNoticeStatus.PENDING },
+        where: { status, ...(query.orderId && { orderId: query.orderId }) },
         include,
         orderBy: [{ createdAt: direction }],
         take: 100,
       }),
       this.prisma.orderUpdateNotice.findMany({
-        where: { status },
+        where: { status, ...(query.orderId && { orderId: query.orderId }) },
         include,
         orderBy: { createdAt: direction },
         take: 100,

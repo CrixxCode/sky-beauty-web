@@ -23,6 +23,25 @@ export const NEXT_SHIPPING_STATUSES: Record<ShippingStatus, ShippingStatus[]> = 
   DELIVERED: ['DELIVERED'],
 };
 
+/** Lo que se le cobra al cliente al enviar con una transportadora a un municipio. */
+export interface CarrierRate {
+  id: string;
+  carrierId: string;
+  municipalityCode: string;
+  municipalityName: string;
+  departmentName: string;
+  amount: number;
+}
+
+/** Envío que se propone al elegir una transportadora en un pedido sin confirmar. */
+export interface ShippingQuote {
+  carrierId: string;
+  carrierName: string;
+  municipalityName: string;
+  source: 'FREE' | 'CARRIER_RATE' | 'NO_RATE';
+  shippingCost: number | null;
+}
+
 export interface Carrier {
   id: string;
   name: string;

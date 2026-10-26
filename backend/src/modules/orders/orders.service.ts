@@ -56,6 +56,7 @@ import type {
   RefundPaymentDto,
   RegisterPaymentReceivedDto,
   RejectPaymentDto,
+  ShippingQuoteDto,
   UpsertOrderShippingDto,
   UpdateOrderItemsDto,
   AdminOrderDto,
@@ -650,19 +651,61 @@ export class OrdersService {
     adminId: string,
     role: AdminRole,
   ): Promise<AdminOrderDto> {
-    const order = await this.prisma.order.findUnique({ where: { id } });
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: { shipping: true },
+    });
     if (!order) throw new NotFoundException('No existe ese pedido.');
     if (order.status !== OrderStatus.PENDING_CONFIRMATION) {
       throw new BadRequestException('Solo se pueden confirmar pedidos pendientes.');
+    }
+    const carrier = dto.carrierId
+      ? await this.prisma.carrier.findUnique({ where: { id: dto.carrierId } })
+      : null;
+    if (dto.carrierId && !carrier?.isActive) {
+      throw new BadRequestException('La transportadora seleccionada no está activa.');
     }
 
     const nextShippingCost = dto.shippingCost ?? order.shippingCost?.toNumber() ?? null;
     if (nextShippingCost === null) {
       throw new BadRequestException('Registra el costo de envío cotizado antes de confirmar.');
     }
+    // Cotizar al confirmar deja el mismo rastro que cotizar aparte.
+    const shippingCostChanged = nextShippingCost !== (order.shippingCost?.toNumber() ?? null);
 
     await this.prisma.$transaction(async (tx) => {
       await this.claimOrder(tx, order);
+      if (shippingCostChanged) {
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId: id,
+            type: OrderEventType.SHIPPING,
+            note: `Costo de envío cotizado: ${cop(nextShippingCost)}.`,
+            changedById: adminId,
+          },
+        });
+      }
+      // La transportadora elegida al confirmar queda lista para el despacho.
+      if (carrier && carrier.id !== order.shipping?.carrierId) {
+        await tx.shipping.upsert({
+          where: { orderId: id },
+          create: {
+            orderId: id,
+            method: ShippingMethod.CARRIER,
+            carrierId: carrier.id,
+            status: ShippingStatus.NOT_SHIPPED,
+          },
+          update: { method: ShippingMethod.CARRIER, carrierId: carrier.id },
+        });
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId: id,
+            type: OrderEventType.SHIPPING,
+            note: `Transportadora elegida: ${carrier.name}.`,
+            changedById: adminId,
+          },
+        });
+      }
       await tx.order.update({
         where: { id },
         data: {
@@ -692,6 +735,33 @@ export class OrdersService {
     });
 
     return this.findAdmin(id, role);
+  }
+
+  /**
+   * Envío que se propone al elegir una transportadora (decisión del 2026-10-26): un envío gratis se
+   * mantiene; si no, se usa la tarifa de la transportadora para el municipio del pedido y, si no la
+   * tiene, se conserva el costo actual. Solo propone el valor: se guarda al confirmar.
+   */
+  async shippingQuote(id: string, carrierId: string): Promise<ShippingQuoteDto> {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      select: { shippingCost: true, municipalityCode: true, city: true },
+    });
+    if (!order) throw new NotFoundException('No existe ese pedido.');
+    const carrier = await this.prisma.carrier.findUnique({ where: { id: carrierId } });
+    if (!carrier) throw new BadRequestException('La transportadora seleccionada no existe.');
+
+    const base = { carrierId, carrierName: carrier.name, municipalityName: order.city };
+    const current = order.shippingCost?.toNumber() ?? null;
+    if (current === 0) return { ...base, source: 'FREE', shippingCost: 0 };
+    const rate = await this.prisma.carrierShippingRate.findUnique({
+      where: {
+        carrierId_municipalityCode: { carrierId, municipalityCode: order.municipalityCode },
+      },
+    });
+    return rate
+      ? { ...base, source: 'CARRIER_RATE', shippingCost: rate.amount.toNumber() }
+      : { ...base, source: 'NO_RATE', shippingCost: current };
   }
 
   async quoteShipping(
@@ -809,6 +879,15 @@ export class OrdersService {
       dto.status !== ShippingStatus.NOT_SHIPPED
     ) {
       throw new BadRequestException('Primero confirma el pedido antes de despacharlo.');
+    }
+    // Solo el contra entrega sale sin el pago verificado (se paga al recibirlo).
+    if (
+      currentShippingStatus === ShippingStatus.NOT_SHIPPED &&
+      dto.status !== ShippingStatus.NOT_SHIPPED &&
+      order.paymentMethodCode !== 'CASH_ON_DELIVERY' &&
+      order.paymentStatus !== PaymentStatus.PAID
+    ) {
+      throw new BadRequestException('Verifica el pago antes de despachar el pedido.');
     }
 
     const method = dto.method ?? order.shipping?.method ?? ShippingMethod.CARRIER;
@@ -1356,6 +1435,8 @@ export class OrdersService {
         ? `Recibido ${cop(received.toNumber())}. Excedente por devolver: ${cop(excess.toNumber())}. ${dto.note!.trim()}`
         : dto.note?.trim() || 'Pago verificado por la propietaria.';
     const now = new Date();
+    // Con el pago verificado, un pedido confirmado pasa solo a preparación.
+    const startsPreparing = !incomplete && order.status === OrderStatus.CONFIRMED;
 
     await this.prisma.$transaction(async (tx) => {
       await this.claimOrder(tx, order);
@@ -1365,6 +1446,7 @@ export class OrdersService {
           paymentStatus: status,
           paymentRejectedAt: incomplete ? now : null,
           paidAt: incomplete ? null : now,
+          ...(startsPreparing && { status: OrderStatus.PREPARING }),
         },
       });
       await tx.paymentRecord.create({
@@ -1387,6 +1469,18 @@ export class OrdersService {
           changedById: adminId,
         },
       });
+      if (startsPreparing) {
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId: id,
+            type: OrderEventType.ORDER_STATUS,
+            fromStatus: order.status,
+            toStatus: OrderStatus.PREPARING,
+            note: 'En preparación al verificar el pago.',
+            changedById: adminId,
+          },
+        });
+      }
       await closePendingBeforeNotices(tx, id, [
         CancellationNoticeCase.NO_PAYMENT_PROOF,
         ...(!incomplete ? [CancellationNoticeCase.PAYMENT_NOT_PROVEN] : []),

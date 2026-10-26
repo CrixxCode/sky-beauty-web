@@ -102,8 +102,11 @@ describe('Envíos (integración)', () => {
 
   afterAll(() => app.close());
 
-  /** Pedido confirmado; devuelve su id y el token del enlace privado. */
-  async function confirmedOrder(paymentMethodId = transferId) {
+  /**
+   * Pedido confirmado y, salvo contra entrega o `paid: false`, con el pago verificado (requisito
+   * para despacharlo). Devuelve su id y el token del enlace privado.
+   */
+  async function confirmedOrder(paymentMethodId = transferId, { paid = true } = {}) {
     const res = await request(app.getHttpServer())
       .post('/api/v1/store/orders')
       .send({
@@ -120,6 +123,10 @@ describe('Envíos (integración)', () => {
       .expect(201);
     const { id, publicToken } = res.body as { id: string; publicToken: string };
     await staff.patch(`${ORDERS}/${id}/confirm`).send({ shippingCost: 5000 }).expect(200);
+    if (paid && paymentMethodId !== codId) {
+      await staff.patch(`${ORDERS}/${id}/payment-received`).send({}).expect(200);
+      await owner.patch(`${ORDERS}/${id}/payment/verify`).send({}).expect(200);
+    }
     return { id, token: publicToken };
   }
 
@@ -259,6 +266,30 @@ describe('Envíos (integración)', () => {
       await ship(other.id, { status: 'IN_TRANSIT', carrierId, trackingNumber: 'G-7' }).expect(400);
     });
 
+    it('no despacha sin el pago verificado, salvo contra entrega', async () => {
+      const { id } = await confirmedOrder(transferId, { paid: false });
+      const rejected = await ship(id, {
+        status: 'IN_TRANSIT',
+        carrierId,
+        trackingNumber: 'G-P',
+      }).expect(400);
+      expect((rejected.body as { message: string }).message).toBe(
+        'Verifica el pago antes de despachar el pedido.',
+      );
+      await ship(id, { method: 'LOCAL', status: 'DELIVERED' }).expect(400);
+      // Los datos del envío sí se pueden registrar antes.
+      await ship(id, { status: 'NOT_SHIPPED', carrierId, trackingNumber: 'G-P' }).expect(200);
+
+      await staff.patch(`${ORDERS}/${id}/payment-received`).send({}).expect(200);
+      await ship(id, { status: 'IN_TRANSIT' }).expect(400);
+      await owner.patch(`${ORDERS}/${id}/payment/verify`).send({}).expect(200);
+      const shipped = (await ship(id, { status: 'IN_TRANSIT' }).expect(200)).body as AdminOrder;
+      expect(shipped.status).toBe('SHIPPED');
+
+      const cod = await confirmedOrder(codId);
+      await ship(cod.id, { method: 'LOCAL', status: 'IN_TRANSIT' }).expect(200);
+    });
+
     it('contra entrega: queda pagado una sola vez al entregarse', async () => {
       const { id } = await confirmedOrder(codId);
       await ship(id, { status: 'IN_TRANSIT', carrierId, trackingNumber: 'G-8' }).expect(200);
@@ -297,7 +328,9 @@ describe('Envíos (integración)', () => {
         where: { orderId: id, type: 'SHIPPING' },
         orderBy: { createdAt: 'asc' },
       });
-      expect(history[0].note).toBe('Pedido en camino (entrega local).');
+      expect(history.find((event) => event.toStatus === 'IN_TRANSIT')?.note).toBe(
+        'Pedido en camino (entrega local).',
+      );
     });
 
     it('la entrega local descarta transportadora y guía', async () => {
@@ -322,6 +355,100 @@ describe('Envíos (integración)', () => {
     });
   });
 
+  describe('tarifas por transportadora', () => {
+    const rates = (id = carrierId) => `${CARRIERS}/${id}/rates`;
+    type Rate = { id: string; municipalityName: string; amount: number };
+    type Quote = { source: string; shippingCost: number | null; municipalityName: string };
+
+    /** Pedido sin confirmar en Riohacha (sin tarifa del municipio: envío por confirmar). */
+    async function pendingOrder(): Promise<string> {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/store/orders')
+        .send({
+          items: [{ variantId, quantity: 1 }],
+          municipalityCode: '44001',
+          customerName: 'Cliente Ficticio',
+          customerPhone: '3001112233',
+          addressLine: 'Dirección ficticia 123',
+          paymentMethodId: transferId,
+          idempotencyKey: `tarifa-${Date.now()}-${Math.random()}`,
+          termsAccepted: true,
+          dataProcessingAccepted: true,
+        })
+        .expect(201);
+      return (res.body as { id: string }).id;
+    }
+    const quote = async (orderId: string, id = carrierId) =>
+      (await staff.get(`${ORDERS}/${orderId}/shipping-quote?carrierId=${id}`).expect(200))
+        .body as Quote;
+
+    it('solo la propietaria las edita; el personal las consulta', async () => {
+      await staff.post(rates()).send({ municipalityCode: '44001', amount: 8000 }).expect(403);
+      const created = (
+        await owner.post(rates()).send({ municipalityCode: '44001', amount: 8000 }).expect(201)
+      ).body as Rate;
+      const updated = (
+        await owner.post(rates()).send({ municipalityCode: '44001', amount: 9000 }).expect(201)
+      ).body as Rate;
+      expect(updated).toMatchObject({ id: created.id, municipalityName: 'Riohacha', amount: 9000 });
+      await owner.post(rates()).send({ municipalityCode: '99999', amount: 1000 }).expect(400);
+      await owner.post(rates()).send({ municipalityCode: '44001', amount: -1 }).expect(400);
+
+      const list = (await staff.get(rates()).expect(200)).body as Rate[];
+      expect(list).toHaveLength(1);
+      await staff.delete(`${rates()}/${created.id}`).expect(403);
+      await owner.delete(`${rates()}/${created.id}`).expect(204);
+      await owner.delete(`${rates()}/${created.id}`).expect(404);
+    });
+
+    it('propone la tarifa del municipio; sin tarifa conserva el costo y el envío gratis se mantiene', async () => {
+      const id = await pendingOrder();
+      expect(await quote(id)).toMatchObject({
+        source: 'NO_RATE',
+        shippingCost: null,
+        municipalityName: 'Riohacha',
+      });
+
+      await owner.post(rates()).send({ municipalityCode: '44001', amount: 12000 }).expect(201);
+      expect(await quote(id)).toMatchObject({ source: 'CARRIER_RATE', shippingCost: 12000 });
+
+      const free = await pendingOrder();
+      await staff.patch(`${ORDERS}/${free}/shipping-cost`).send({ shippingCost: 0 }).expect(200);
+      expect(await quote(free)).toMatchObject({ source: 'FREE', shippingCost: 0 });
+
+      await staff
+        .get(`${ORDERS}/${id}/shipping-quote?carrierId=00000000-0000-4000-8000-000000000000`)
+        .expect(400);
+      await staff.get(`${ORDERS}/${id}/shipping-quote?carrierId=no-es-uuid`).expect(400);
+    });
+
+    it('la transportadora elegida al confirmar queda lista para despachar', async () => {
+      const id = await pendingOrder();
+      const confirmed = (
+        await staff
+          .patch(`${ORDERS}/${id}/confirm`)
+          .send({ shippingCost: 12000, carrierId })
+          .expect(200)
+      ).body as AdminOrder & { shippingCost: number; shipping: { carrierId: string } };
+      expect(confirmed).toMatchObject({
+        status: 'CONFIRMED',
+        shippingCost: 12000,
+        shipping: { status: 'NOT_SHIPPED', carrierId },
+      });
+      const notes = (
+        await prisma.orderStatusHistory.findMany({ where: { orderId: id, type: 'SHIPPING' } })
+      ).map((event) => event.note);
+      expect(notes).toContain('Transportadora elegida: Transportadora Ficticia.');
+
+      const other = await pendingOrder();
+      await staff.patch(`${CARRIERS}/${carrierId}`).send({ isActive: false }).expect(200);
+      await staff
+        .patch(`${ORDERS}/${other}/confirm`)
+        .send({ shippingCost: 12000, carrierId })
+        .expect(400);
+    });
+  });
+
   describe('coherencia con el estado del pedido', () => {
     it('desde el estado del pedido no se despacha ni se entrega', async () => {
       const { id } = await confirmedOrder();
@@ -330,7 +457,8 @@ describe('Envíos (integración)', () => {
     });
 
     it('despachar y cancelar a la vez deja un estado coherente', async () => {
-      const { id } = await confirmedOrder();
+      // Contra entrega: un pedido pagado no se cancela sin la devolución.
+      const { id } = await confirmedOrder(codId);
       await Promise.all([
         ship(id, { status: 'IN_TRANSIT', carrierId, trackingNumber: 'G-9' }),
         owner.patch(`${ORDERS}/${id}/cancel`).send({ reason: 'Cancelación simultánea' }),

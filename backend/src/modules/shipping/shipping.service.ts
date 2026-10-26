@@ -4,9 +4,18 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Carrier } from '../../generated/prisma/client';
+import type { Carrier, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../shared/prisma/prisma.service';
-import type { CarrierDto, CreateCarrierDto, UpdateCarrierDto } from './shipping.dto';
+import type {
+  CarrierDto,
+  CarrierRateDto,
+  CreateCarrierDto,
+  UpdateCarrierDto,
+  UpsertCarrierRateDto,
+} from './shipping.dto';
+
+const RATE_INCLUDE = { municipality: { include: { department: true } } } as const;
+type CarrierRateRow = Prisma.CarrierShippingRateGetPayload<{ include: typeof RATE_INCLUDE }>;
 
 @Injectable()
 export class ShippingService {
@@ -51,6 +60,53 @@ export class ShippingService {
     }
   }
 
+  async listRates(carrierId: string): Promise<CarrierRateDto[]> {
+    await this.findCarrier(carrierId);
+    const rates = await this.prisma.carrierShippingRate.findMany({
+      where: { carrierId },
+      include: RATE_INCLUDE,
+    });
+    return rates
+      .map(toCarrierRateDto)
+      .sort((a, b) =>
+        `${a.departmentName} ${a.municipalityName}`.localeCompare(
+          `${b.departmentName} ${b.municipalityName}`,
+          'es',
+        ),
+      );
+  }
+
+  async upsertRate(carrierId: string, dto: UpsertCarrierRateDto): Promise<CarrierRateDto> {
+    await this.findCarrier(carrierId);
+    const municipality = await this.prisma.municipality.findUnique({
+      where: { code: dto.municipalityCode },
+    });
+    if (!municipality) throw new BadRequestException('El municipio seleccionado no existe.');
+
+    const rate = await this.prisma.carrierShippingRate.upsert({
+      where: {
+        carrierId_municipalityCode: { carrierId, municipalityCode: dto.municipalityCode },
+      },
+      create: { carrierId, municipalityCode: dto.municipalityCode, amount: dto.amount },
+      update: { amount: dto.amount },
+      include: RATE_INCLUDE,
+    });
+    return toCarrierRateDto(rate);
+  }
+
+  async deleteRate(carrierId: string, rateId: string): Promise<void> {
+    const { count } = await this.prisma.carrierShippingRate.deleteMany({
+      where: { id: rateId, carrierId },
+    });
+    if (count === 0) throw new NotFoundException('No existe esa tarifa de la transportadora.');
+  }
+
+  private async findCarrier(id: string): Promise<Carrier> {
+    const carrier = await this.prisma.carrier.findUnique({ where: { id } });
+    if (!carrier) throw new NotFoundException('No existe esa transportadora.');
+    return carrier;
+  }
+
   private normalizeCarrierInput(dto: CreateCarrierDto | UpdateCarrierDto) {
     const name = dto.name?.trim();
     const trackingUrlTemplate =
@@ -76,6 +132,17 @@ function duplicateNameError(err: unknown): unknown {
     return new ConflictException('Ya existe una transportadora con ese nombre.');
   }
   return err;
+}
+
+function toCarrierRateDto(rate: CarrierRateRow): CarrierRateDto {
+  return {
+    id: rate.id,
+    carrierId: rate.carrierId,
+    municipalityCode: rate.municipalityCode,
+    municipalityName: rate.municipality.name,
+    departmentName: rate.municipality.department.name,
+    amount: rate.amount.toNumber(),
+  };
 }
 
 function toCarrierDto(carrier: Carrier): CarrierDto {

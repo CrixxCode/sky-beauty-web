@@ -217,6 +217,29 @@ describe('Pagos (integración)', () => {
       .expect(200);
   });
 
+  it('al verificar el pago, un pedido confirmado pasa solo a preparación', async () => {
+    const id = await confirmedOrder();
+    await staff.patch(`${ORDERS}/${id}/payment-received`).send({}).expect(200);
+    const verified = (await owner.patch(`${ORDERS}/${id}/payment/verify`).send({}).expect(200))
+      .body as AdminOrder;
+    expect(verified).toMatchObject({ status: 'PREPARING', paymentStatus: 'PAID' });
+    const event = await prisma.orderStatusHistory.findFirstOrThrow({
+      where: { orderId: id, type: 'ORDER_STATUS', toStatus: 'PREPARING' },
+    });
+    expect(event).toMatchObject({
+      fromStatus: 'CONFIRMED',
+      note: 'En preparación al verificar el pago.',
+    });
+
+    // Un pago incompleto no lo pasa a preparación.
+    const other = await confirmedOrder();
+    await staff.patch(`${ORDERS}/${other}/payment-received`).send({}).expect(200);
+    await owner.patch(`${ORDERS}/${other}/payment/verify`).send({ amount: 1000 }).expect(200);
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: other } })).status).toBe(
+      'CONFIRMED',
+    );
+  });
+
   it('no registra comprobantes en pedidos cancelados', async () => {
     const id = await confirmedOrder();
     await owner
@@ -239,7 +262,7 @@ describe('Pagos (integración)', () => {
       'Este pedido tiene el pago verificado. Registra primero la devolución del dinero y después cancélalo.',
     );
     expect(await prisma.order.findUniqueOrThrow({ where: { id } })).toMatchObject({
-      status: 'CONFIRMED',
+      status: 'PREPARING',
       paymentStatus: 'PAID',
     });
 

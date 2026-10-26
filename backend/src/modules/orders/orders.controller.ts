@@ -32,6 +32,8 @@ import {
   RefundPaymentDto,
   RegisterPaymentReceivedDto,
   RejectPaymentDto,
+  ShippingQuoteDto,
+  ShippingQuoteQueryDto,
   UpsertOrderShippingDto,
   UpdateOrderItemsDto,
   VerifyPaymentDto,
@@ -106,6 +108,15 @@ export class AdminOrdersController {
     @CurrentAdmin() admin: AuthenticatedAdmin,
   ): Promise<AdminOrderDto> {
     return this.orders.confirm(id, dto, admin.id, admin.role);
+  }
+
+  @Get(':id/shipping-quote')
+  @ApiOkResponse({ type: ShippingQuoteDto })
+  shippingQuote(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: ShippingQuoteQueryDto,
+  ): Promise<ShippingQuoteDto> {
+    return this.orders.shippingQuote(id, query.carrierId);
   }
 
   @Patch(':id/shipping-cost')

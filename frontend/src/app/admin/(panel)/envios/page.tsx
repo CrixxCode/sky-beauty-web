@@ -6,15 +6,15 @@ import { ShippingManager } from '@/features/shipping/shipping-manager';
 export const metadata: Metadata = { title: 'Envíos' };
 
 export default async function EnviosPage() {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   return (
     <>
       <AdminHeading
         title="Envíos"
-        description="Administra transportadoras y usa el detalle del pedido para registrar la guía, el despacho y la entrega."
+        description="Administra transportadoras y sus tarifas, y usa el detalle del pedido para registrar la guía, el despacho y la entrega."
       />
-      <ShippingManager />
+      <ShippingManager canEditRates={admin.role === 'ADMIN'} />
     </>
   );
 }
